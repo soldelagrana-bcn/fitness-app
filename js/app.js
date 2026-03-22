@@ -88,55 +88,6 @@ function renderHoy() {
       </div>`;
   }
 
-  // Card de hoy
-  let todayCard = '';
-  if (!sesion) {
-    todayCard = `
-      <div class="card rest-card">
-        <div class="rest-icon">🚶‍♀️</div>
-        <h3>Día de descanso activo</h3>
-        <p class="muted">Caminata, e-bike o tenis. Recupera y disfruta.</p>
-        <div class="macro-target rest-macro">
-          <span>Objetivo calórico hoy:</span>
-          <strong>1.700 kcal</strong>
-        </div>
-      </div>`;
-  } else {
-    const zonas = ZONAS_POR_DIA[diaKey] || [];
-    const zonasHtml = zonas.map(z => {
-      const zona = ZONAS_DISPLAY[z];
-      return `<span class="zona-tag" style="background:${zona.color}22;color:${zona.color}">${zona.nombre}</span>`;
-    }).join('');
-
-    let btnHtml = '';
-    if (todayWorkout && todayWorkout.completado) {
-      btnHtml = `<button class="btn btn-success" disabled>✓ Entrenamiento completado</button>`;
-    } else if (todayWorkout && !todayWorkout.completado) {
-      btnHtml = `<button class="btn btn-primary" data-action="continuar-workout" data-id="${todayWorkout.id}">
-        ▶ Continuar entrenamiento
-      </button>`;
-    } else {
-      btnHtml = `<button class="btn btn-primary" data-action="iniciar-workout" data-dia="${diaKey}">
-        ▶ Iniciar entrenamiento
-      </button>`;
-    }
-
-    todayCard = `
-      <div class="card workout-today-card">
-        <div class="card-header">
-          <span class="session-badge">${sesion.id}</span>
-          <span class="duration-badge">⏱ ${sesion.duracion_objetivo}</span>
-        </div>
-        <h3>${sesion.nombre}</h3>
-        <div class="zonas-wrap">${zonasHtml}</div>
-        <div class="warmup-info">
-          <span class="warmup-label">🔥 Warm-up:</span>
-          <span class="muted">${sesion.warmup}</span>
-        </div>
-        ${btnHtml}
-      </div>`;
-  }
-
   // Progreso semanal
   const gymDone = diasGym.length;
   const progressHtml = ['lunes','martes','jueves','viernes'].map(d => {
@@ -163,13 +114,42 @@ function renderHoy() {
   ];
   const tip = TIPS[today.getDay()];
   const todayZonas = sesion ? (ZONAS_POR_DIA[diaKey] || []) : [];
-  const heroBg = sesion
-    ? { lunes: '#5B63D4', martes: '#7455C8', jueves: '#4A82D4', viernes: '#5B9BD4' }[diaKey] || '#5B63D4'
-    : '#8E8EA8';
+
+  // Vivid gradients per day
+  const HERO_GRADS = {
+    lunes:     'linear-gradient(135deg,#667eea 0%,#764ba2 100%)',
+    martes:    'linear-gradient(135deg,#a855f7 0%,#ec4899 100%)',
+    jueves:    'linear-gradient(135deg,#2563eb 0%,#06b6d4 100%)',
+    viernes:   'linear-gradient(135deg,#0ea5e9 0%,#7c3aed 100%)',
+    miercoles: 'linear-gradient(135deg,#059669 0%,#3b82f6 100%)',
+    sabado:    'linear-gradient(135deg,#d97706 0%,#dc2626 100%)',
+    domingo:   'linear-gradient(135deg,#7c3aed 0%,#db2777 100%)',
+  };
+  const heroGrad = HERO_GRADS[diaKey] || 'linear-gradient(135deg,#667eea,#764ba2)';
+
+  // Today's start/continue button for hero
+  let heroBtnHtml = '';
+  if (sesion) {
+    if (todayWorkout && todayWorkout.completado) {
+      heroBtnHtml = `<div class="hero-btn-done">✓ ¡Completado!</div>`;
+    } else if (todayWorkout) {
+      heroBtnHtml = `<button class="hero-btn-start" data-action="continuar-workout" data-id="${todayWorkout.id}">▶ Continuar</button>`;
+    } else {
+      heroBtnHtml = `<button class="hero-btn-start" data-action="iniciar-workout" data-dia="${diaKey}">▶ Iniciar entrenamiento</button>`;
+    }
+  }
+
+  // Rest day info map
+  const REST_INFO = {
+    miercoles: { icon: '🚴‍♀️', title: 'Descanso activo',    sub: 'Caminata · E-bike' },
+    sabado:    { icon: '🎾',    title: 'Tenis (opcional)',   sub: 'Partido amistoso ~1h' },
+    domingo:   { icon: '😴',    title: 'Descanso completo',  sub: 'Recupera al máximo' },
+  };
+  const restInfo = REST_INFO[diaKey] || { icon: '🚶‍♀️', title: 'Descanso activo', sub: 'Muévete con calma' };
 
   return `
     <div class="view">
-      <div class="hero-header" style="--hero-color:${heroBg}">
+      <div class="hero-header" style="background:${heroGrad}">
         <div class="hero-top">
           <div class="hero-meta">
             <span class="hero-date">${today.toLocaleDateString('es-ES', {weekday:'long', day:'numeric', month:'long'})}</span>
@@ -178,15 +158,36 @@ function renderHoy() {
               ${streak.current > 0 ? `<span class="hero-streak-chip">🔥 ${streak.current} sem</span>` : ''}
             </div>
           </div>
+          <span class="hero-mascot">🐞</span>
         </div>
         <h2 class="hero-greeting">${greeting}, Sol</h2>
-        ${todayZonas.length > 0
-          ? `<div class="hero-zones">${todayZonas.map(z => {
+
+        ${sesion ? `
+          <div class="hero-session-block">
+            <div class="hero-session-top">
+              <span class="hero-session-id">${sesion.id}</span>
+              <span class="hero-session-name">${sesion.nombre}</span>
+              <span class="hero-duration-chip">⏱ ${sesion.duracion_objetivo}</span>
+            </div>
+            <div class="hero-zones">${todayZonas.map(z => {
               const zona = ZONAS_DISPLAY[z];
-              return `<span class="hero-zone-pill" style="background:rgba(255,255,255,0.18)">${zona.nombre}</span>`;
-            }).join('')}</div>`
-          : `<p class="hero-rest-label">Día de descanso · Recarga energía</p>`
-        }
+              return `<span class="hero-zone-pill">${zona.nombre}</span>`;
+            }).join('')}</div>
+            <p class="hero-warmup">🔥 ${sesion.warmup}</p>
+            ${heroBtnHtml}
+          </div>
+        ` : `
+          <div class="hero-rest-block">
+            <div class="hero-rest-row">
+              <span class="hero-rest-emoji">${restInfo.icon}</span>
+              <div>
+                <p class="hero-rest-title">${restInfo.title}</p>
+                <p class="hero-rest-sub">${restInfo.sub} · 1.700 kcal</p>
+              </div>
+            </div>
+          </div>
+        `}
+
         <p class="hero-tip">"${tip}"</p>
       </div>
 
@@ -242,11 +243,6 @@ function renderHoy() {
           </div>
         </section>`;
       })()}
-
-      <section>
-        <h4 class="section-title">Hoy</h4>
-        ${todayCard}
-      </section>
 
       <section>
         <h4 class="section-title">Semana actual</h4>
