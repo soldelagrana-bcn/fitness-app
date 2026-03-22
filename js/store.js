@@ -232,5 +232,55 @@ const Store = {
     const diffMs = today - inicio;
     const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1;
     return Math.min(diffWeeks, 4);
-  }
+  },
+
+  // ---- RÉCORDS PERSONALES ----
+  getPRs() {
+    const d = localStorage.getItem('sol_fitness_prs');
+    return d ? JSON.parse(d) : {};
+  },
+  checkAndSavePR(ejercicioNombre, kg) {
+    if (!kg || kg <= 0) return false;
+    const prs = this.getPRs();
+    if (!prs[ejercicioNombre] || kg > prs[ejercicioNombre]) {
+      prs[ejercicioNombre] = kg;
+      localStorage.setItem('sol_fitness_prs', JSON.stringify(prs));
+      return true;
+    }
+    return false;
+  },
+
+  // ---- RACHA SEMANAL ----
+  getStreak() {
+    const workouts = this.getWorkouts().filter(w => w.completado).sort((a,b) => new Date(b.fecha)-new Date(a.fecha));
+    if (!workouts.length) return { current: 0, best: 0 };
+    const weekMap = {};
+    workouts.forEach(w => {
+      const d = new Date(w.fecha);
+      const weekKey = `${d.getFullYear()}-W${Math.ceil(d.getDate()/7)}`;
+      weekMap[weekKey] = (weekMap[weekKey] || 0) + 1;
+    });
+    let current = 0;
+    const today = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i * 7);
+      const key = `${d.getFullYear()}-W${Math.ceil(d.getDate()/7)}`;
+      if ((weekMap[key] || 0) >= 3) current++;
+      else break;
+    }
+    const best = parseInt(localStorage.getItem('sol_best_streak') || '0');
+    if (current > best) localStorage.setItem('sol_best_streak', current.toString());
+    return { current, best: Math.max(current, best) };
+  },
+
+  // ---- MEDIDAS CORPORALES ----
+  getMedidas() { return JSON.parse(localStorage.getItem('sol_medidas') || '[]'); },
+  saveMedida(fecha, data) {
+    const arr = this.getMedidas();
+    const idx = arr.findIndex(m => m.fecha === fecha);
+    if (idx >= 0) arr[idx] = { fecha, ...data };
+    else arr.push({ fecha, ...data });
+    localStorage.setItem('sol_medidas', JSON.stringify(arr));
+  },
 };

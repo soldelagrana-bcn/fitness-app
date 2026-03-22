@@ -31,7 +31,8 @@ function renderApp(params) {
     default: container.innerHTML = renderHoy();
   }
   attachEventListeners();
-  if (currentView === 'progreso') renderCharts();
+  if (currentView === 'progreso') { renderCharts(); renderMuscleMap(); }
+  if (currentView === 'workout') attachSwipeListeners();
 }
 
 // ============================================================
@@ -139,6 +140,7 @@ function renderHoy() {
         <div class="phase-badge">
           <span class="phase-label">Fase ${config.fase}</span>
           <span class="week-label">Semana ${semana}/4</span>
+          ${(() => { const streak = Store.getStreak(); return streak.current > 0 ? `<span class="streak-badge">🔥 ${streak.current} semana${streak.current > 1 ? 's' : ''}</span>` : ''; })()}
         </div>
       </div>
 
@@ -152,11 +154,30 @@ function renderHoy() {
       <section>
         <h4 class="section-title">Semana actual</h4>
         <div class="card">
-          <div class="week-progress-header">
-            <span><strong>${gymDone}/4</strong> entrenamientos</span>
-            <span class="muted">${gymDone >= 4 ? '🔥 ¡Semana completa!' : `${4 - gymDone} restantes`}</span>
+          <div class="rings-row">
+            ${[
+              { dia: 'lunes',   label: 'LU', color: '#5B63D4' },
+              { dia: 'martes',  label: 'MA', color: '#7455C8' },
+              { dia: 'jueves',  label: 'JU', color: '#4A82D4' },
+              { dia: 'viernes', label: 'VI', color: '#5B9BD4' },
+            ].map(({ dia, label, color }) => {
+              const done = workoutsThisWeek.find(w => w.dia === dia);
+              const offset = done ? 0 : 113.1;
+              return `
+                <div class="ring-container">
+                  <svg viewBox="0 0 44 44" class="ring-svg">
+                    <circle cx="22" cy="22" r="18" fill="none" stroke="#EDEDF5" stroke-width="4"/>
+                    <circle cx="22" cy="22" r="18" fill="none" stroke="${color}" stroke-width="4"
+                      stroke-linecap="round" stroke-dasharray="113.1"
+                      stroke-dashoffset="${offset}" transform="rotate(-90 22 22)"
+                      class="ring-arc"/>
+                  </svg>
+                  <div class="ring-label">${label}</div>
+                  <div class="ring-check">${done ? '✓' : ''}</div>
+                </div>`;
+            }).join('')}
           </div>
-          <div class="week-dots">${progressHtml}</div>
+          <div class="rings-summary">${gymDone}/4 entrenamientos esta semana${gymDone >= 4 ? ' 🔥' : ''}</div>
         </div>
       </section>
 
@@ -266,7 +287,7 @@ function renderWorkout(params) {
     const isActive = ejIdx === w.ejercicio_actual && bloqueActual.formato !== 'secuencial';
     const allDone = ej.reps_completadas.every(r => r !== null);
     return `
-      <div class="exercise-card ${allDone ? 'done' : ''} ${isActive ? 'active' : ''}" data-ej="${ejIdx}">
+      <div class="exercise-card ${allDone ? 'done' : ''} ${isActive ? 'active' : ''}" data-ej="${ejIdx}" data-ej-idx="${ejIdx}">
         <div class="exercise-header">
           <div class="exercise-id-badge">${ej.id}</div>
           <div class="exercise-info">
@@ -340,6 +361,7 @@ function renderWorkout(params) {
 function renderSetLogger(ej, ejIdx) {
   const nextSet = ej.reps_completadas.findIndex(r => r === null);
   if (nextSet === -1) return '<p class="set-complete-msg">✓ Ejercicio completado</p>';
+  const isFirstSet = nextSet === 0;
 
   const isLastSet = nextSet === ej.series - 1;
   return `
@@ -367,6 +389,7 @@ function renderSetLogger(ej, ejIdx) {
       <button class="btn btn-complete-set" data-action="complete-set" data-ej="${ejIdx}" data-set="${nextSet}">
         ✓ Set ${nextSet + 1} completado
       </button>
+      ${isFirstSet ? '<p class="swipe-hint">← Desliza para completar</p>' : ''}
     </div>`;
 }
 
@@ -405,6 +428,7 @@ function renderWorkoutFinish() {
         </div>
       </div>
 
+      <button class="btn btn-secondary" data-action="share-workout">📤 Compartir entrenamiento</button>
       <button class="btn btn-primary" data-action="save-finish-workout">Guardar y continuar</button>
     </div>`;
 }
@@ -449,14 +473,31 @@ function renderProgreso() {
     zonas.forEach(z => zonasThisWeek.add(z));
   });
 
-  const zonasHtml = Object.entries(ZONAS_DISPLAY).map(([key, zona]) => {
+  const zonasLegendHtml = Object.entries(ZONAS_DISPLAY).map(([key, zona]) => {
     const worked = zonasThisWeek.has(key);
     return `
-      <div class="zona-item ${worked ? 'worked' : ''}">
-        <div class="zona-dot" style="background:${zona.color}${worked ? '' : '33'}"></div>
-        <span style="${worked ? 'color:' + zona.color : ''}">${zona.nombre}</span>
+      <div class="muscle-legend-item ${worked ? 'worked' : ''}">
+        <div class="legend-dot" style="background:${worked ? zona.color : '#DDDDE8'}"></div>
+        <span style="${worked ? 'color:' + zona.color + ';font-weight:700' : 'color:var(--text-muted)'}">${zona.nombre}</span>
       </div>`;
   }).join('');
+
+  // Weekly summary data
+  const allWorkouts = Store.getWorkouts().filter(w => w.completado);
+  const weekSets = weekWorkouts.reduce((acc, w) =>
+    acc + w.bloques.reduce((a, b) => a + b.ejercicios.reduce((c, e) => c + e.reps_completadas.filter(r => r !== null).length, 0), 0), 0);
+  const streak = Store.getStreak();
+  const zonasArray = Array.from(zonasThisWeek);
+  const mostWorked = zonasArray.length > 0 ? ZONAS_DISPLAY[zonasArray[0]]?.nombre || '—' : '—';
+  const motivMsg = weekWorkouts.length >= 4 ? '🔥 ¡Semana perfecta! Eres una máquina.' :
+    weekWorkouts.length >= 2 ? '💪 Buen ritmo, sigue así.' :
+    weekWorkouts.length === 1 ? '🌱 Buen comienzo. ¡A por más!' :
+    '😴 Esta semana empieza ahora.';
+
+  // Last measurements
+  const medidas = Store.getMedidas().sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+  const lastMedida = medidas[0] || null;
+  const todayFecha = new Date().toISOString().split('T')[0];
 
   return `
     <div class="view">
@@ -472,6 +513,41 @@ function renderProgreso() {
             <p class="muted">Cumpliste la regla de doble progresión</p>
           </div>
         </div>` : ''}
+
+      <section>
+        <h4 class="section-title">Resumen de la semana</h4>
+        <div class="card weekly-summary-card">
+          <button class="summary-toggle" data-action="toggle-weekly-summary">
+            <span class="summary-toggle-title">📊 Ver resumen semanal</span>
+            <span class="summary-toggle-arrow" id="summary-arrow">›</span>
+          </button>
+          <div class="weekly-summary-body hidden" id="weekly-summary-body">
+            <div class="summary-stats-grid">
+              <div class="summary-stat">
+                <span class="summary-stat-val">${weekWorkouts.length}</span>
+                <span class="summary-stat-label">Entrenos</span>
+              </div>
+              <div class="summary-stat">
+                <span class="summary-stat-val">${weekSets}</span>
+                <span class="summary-stat-label">Sets totales</span>
+              </div>
+              <div class="summary-stat">
+                <span class="summary-stat-val">${streak.current}</span>
+                <span class="summary-stat-label">Racha (sem)</span>
+              </div>
+              <div class="summary-stat">
+                <span class="summary-stat-val">${streak.best}</span>
+                <span class="summary-stat-label">Mejor racha</span>
+              </div>
+            </div>
+            <div class="summary-zona-row">
+              <span class="muted" style="font-size:13px">Zona más trabajada:</span>
+              <strong style="font-size:13px;margin-left:6px">${mostWorked}</strong>
+            </div>
+            <div class="summary-motivation">${motivMsg}</div>
+          </div>
+        </div>
+      </section>
 
       <section>
         <h4 class="section-title">Cargas actuales</h4>
@@ -497,7 +573,32 @@ function renderProgreso() {
       <section>
         <h4 class="section-title">Zonas trabajadas esta semana</h4>
         <div class="card">
-          <div class="zonas-grid">${zonasHtml}</div>
+          <div class="muscle-map">
+            <svg viewBox="0 0 120 250" class="body-svg">
+              <circle cx="60" cy="18" r="13" fill="#E8E8F0"/>
+              <rect x="54" y="30" width="12" height="10" rx="3" fill="#E8E8F0"/>
+              <ellipse class="zone-hombro" cx="35" cy="52" rx="15" ry="9"/>
+              <ellipse class="zone-hombro" cx="85" cy="52" rx="15" ry="9"/>
+              <ellipse class="zone-pecho" cx="60" cy="59" rx="20" ry="13"/>
+              <rect class="zone-biceps" x="16" y="56" width="13" height="28" rx="6"/>
+              <rect class="zone-triceps" x="91" y="56" width="13" height="28" rx="6"/>
+              <rect x="13" y="87" width="11" height="22" rx="5" fill="#E8E8F0"/>
+              <rect x="96" y="87" width="11" height="22" rx="5" fill="#E8E8F0"/>
+              <rect class="zone-core" x="43" y="74" width="34" height="38" rx="7"/>
+              <rect class="zone-oblicuos" x="28" y="78" width="13" height="26" rx="6"/>
+              <rect class="zone-oblicuos" x="79" y="78" width="13" height="26" rx="6"/>
+              <ellipse class="zone-gluteo" cx="60" cy="120" rx="22" ry="13"/>
+              <rect class="zone-cuadriceps" x="34" y="133" width="19" height="50" rx="9"/>
+              <rect class="zone-cuadriceps" x="67" y="133" width="19" height="50" rx="9"/>
+              <rect class="zone-isquios" x="38" y="133" width="11" height="46" rx="5" opacity="0.5"/>
+              <rect class="zone-isquios" x="71" y="133" width="11" height="46" rx="5" opacity="0.5"/>
+              <rect class="zone-gemelos" x="36" y="187" width="17" height="35" rx="8"/>
+              <rect class="zone-gemelos" x="67" y="187" width="17" height="35" rx="8"/>
+              <ellipse cx="46" cy="226" rx="11" ry="5" fill="#E8E8F0"/>
+              <ellipse cx="74" cy="226" rx="11" ry="5" fill="#E8E8F0"/>
+            </svg>
+            <div class="muscle-legend">${zonasLegendHtml}</div>
+          </div>
         </div>
       </section>
 
@@ -510,6 +611,42 @@ function renderProgreso() {
           <div class="peso-input-row">
             <input type="number" id="peso-input" class="peso-input" placeholder="ej: 48.5" step="0.1" inputmode="decimal">
             <button class="btn btn-sm" data-action="save-peso">Registrar</button>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h4 class="section-title">Medidas corporales</h4>
+        <div class="card">
+          ${lastMedida ? `
+            <p class="muted" style="font-size:12px;margin-bottom:12px">Última medición: ${new Date(lastMedida.fecha).toLocaleDateString('es-ES', {day:'numeric', month:'short', year:'numeric'})}</p>
+            <div class="medidas-last-row">
+              ${lastMedida.cintura ? `<div class="medida-last-item"><span class="medida-last-val">${lastMedida.cintura}</span><span class="medida-last-label">Cintura (cm)</span></div>` : ''}
+              ${lastMedida.caderas ? `<div class="medida-last-item"><span class="medida-last-val">${lastMedida.caderas}</span><span class="medida-last-label">Caderas (cm)</span></div>` : ''}
+              ${lastMedida.brazo ? `<div class="medida-last-item"><span class="medida-last-val">${lastMedida.brazo}</span><span class="medida-last-label">Brazo D (cm)</span></div>` : ''}
+              ${lastMedida.muslo ? `<div class="medida-last-item"><span class="medida-last-val">${lastMedida.muslo}</span><span class="medida-last-label">Muslo (cm)</span></div>` : ''}
+            </div>
+          ` : '<p class="muted" style="font-size:13px;margin-bottom:12px">Aún no hay medidas registradas.</p>'}
+          <div class="medidas-form">
+            <div class="medidas-inputs-grid">
+              <div class="medida-input-group">
+                <label>Cintura</label>
+                <input type="number" id="med-cintura" class="medida-input" placeholder="cm" step="0.1" inputmode="decimal" value="${lastMedida ? lastMedida.cintura || '' : ''}">
+              </div>
+              <div class="medida-input-group">
+                <label>Caderas</label>
+                <input type="number" id="med-caderas" class="medida-input" placeholder="cm" step="0.1" inputmode="decimal" value="${lastMedida ? lastMedida.caderas || '' : ''}">
+              </div>
+              <div class="medida-input-group">
+                <label>Brazo D</label>
+                <input type="number" id="med-brazo" class="medida-input" placeholder="cm" step="0.1" inputmode="decimal" value="${lastMedida ? lastMedida.brazo || '' : ''}">
+              </div>
+              <div class="medida-input-group">
+                <label>Muslo</label>
+                <input type="number" id="med-muslo" class="medida-input" placeholder="cm" step="0.1" inputmode="decimal" value="${lastMedida ? lastMedida.muslo || '' : ''}">
+              </div>
+            </div>
+            <button class="btn btn-sm btn-primary" style="margin-top:12px;width:100%" data-action="save-medidas">Guardar medidas</button>
           </div>
         </div>
       </section>
@@ -947,6 +1084,14 @@ function handleAction(action, dataset, e) {
       // Actualizar carga en store
       if (ej.carga_kg !== null) Store.saveCarga(ej.nombre, ej.carga_kg);
 
+      // Verificar récord personal
+      if (ej.carga_kg && Store.checkAndSavePR(ej.nombre, ej.carga_kg)) {
+        showToast('🏆 ¡Nuevo récord personal! ' + ej.nombre, 'pr');
+      }
+
+      // Arrancar timer de descanso
+      startRestTimer(60);
+
       Store.saveWorkout(activeWorkout);
       navigate('workout');
       break;
@@ -997,10 +1142,15 @@ function handleAction(action, dataset, e) {
     }
 
     case 'finish-workout': {
+      skipRest();
       navigate('workout', { finish: true });
       // Re-render finish screen
       document.getElementById('view-container').innerHTML = renderWorkoutFinish();
       attachEventListeners();
+      // Confetti!
+      if (typeof confetti !== 'undefined') {
+        confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 }, colors: ['#5B63D4','#7B82E0','#4A82D4','#3DAA6F'] });
+      }
       break;
     }
 
@@ -1193,6 +1343,40 @@ function handleAction(action, dataset, e) {
       if (detail) detail.classList.toggle('hidden');
       break;
     }
+
+    case 'share-workout': {
+      if (activeWorkout) generateShareCard(activeWorkout);
+      break;
+    }
+
+    case 'save-medidas': {
+      const cintura = document.getElementById('med-cintura')?.value;
+      const caderas = document.getElementById('med-caderas')?.value;
+      const brazo   = document.getElementById('med-brazo')?.value;
+      const muslo   = document.getElementById('med-muslo')?.value;
+      if (cintura || caderas || brazo || muslo) {
+        const today = new Date().toISOString().split('T')[0];
+        Store.saveMedida(today, {
+          cintura: cintura ? parseFloat(cintura) : null,
+          caderas: caderas ? parseFloat(caderas) : null,
+          brazo:   brazo   ? parseFloat(brazo)   : null,
+          muslo:   muslo   ? parseFloat(muslo)   : null,
+        });
+        showToast('Medidas guardadas ✓');
+        navigate('progreso');
+      }
+      break;
+    }
+
+    case 'toggle-weekly-summary': {
+      const body  = document.getElementById('weekly-summary-body');
+      const arrow = document.getElementById('summary-arrow');
+      if (body) {
+        body.classList.toggle('hidden');
+        if (arrow) arrow.textContent = body.classList.contains('hidden') ? '›' : '˅';
+      }
+      break;
+    }
   }
 }
 
@@ -1230,6 +1414,177 @@ function showToast(msg, type = 'success') {
   document.body.appendChild(toast);
   setTimeout(() => toast.classList.add('visible'), 10);
   setTimeout(() => { toast.classList.remove('visible'); setTimeout(() => toast.remove(), 300); }, 2500);
+}
+
+// ============================================================
+// REST TIMER
+// ============================================================
+let restTimerInterval = null;
+let restSeconds = 60;
+let restTotal = 60;
+
+function startRestTimer(seconds) {
+  skipRest(); // clear any existing
+  restSeconds = seconds;
+  restTotal = seconds;
+
+  // Remove existing overlay if any
+  const existing = document.getElementById('rest-timer');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'rest-timer-overlay';
+  overlay.id = 'rest-timer';
+  overlay.innerHTML = `
+    <div class="rest-timer-content">
+      <svg class="rest-ring" viewBox="0 0 60 60">
+        <circle class="rest-ring-bg" cx="30" cy="30" r="26" fill="none" stroke-width="4"/>
+        <circle class="rest-ring-progress" id="rest-ring-arc" cx="30" cy="30" r="26" fill="none" stroke-width="4" stroke-linecap="round"
+          stroke-dasharray="163.4" stroke-dashoffset="0" transform="rotate(-90 30 30)"/>
+      </svg>
+      <div class="rest-timer-number" id="rest-countdown">${seconds}</div>
+      <div class="rest-timer-label">Descanso</div>
+    </div>
+    <div class="rest-timer-actions">
+      <button class="rest-btn" onclick="setRestDuration(90)">90s</button>
+      <button class="rest-btn" onclick="setRestDuration(120)">2min</button>
+      <button class="rest-btn rest-btn-skip" onclick="skipRest()">Saltar →</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('visible'));
+
+  restTimerInterval = setInterval(() => {
+    restSeconds--;
+    const el = document.getElementById('rest-countdown');
+    const arc = document.getElementById('rest-ring-arc');
+    if (el) el.textContent = restSeconds;
+    if (arc) {
+      const pct = restSeconds / restTotal;
+      arc.style.strokeDashoffset = (163.4 * (1 - pct)).toString();
+    }
+    if (restSeconds <= 0) {
+      clearInterval(restTimerInterval);
+      restTimerInterval = null;
+      navigator.vibrate && navigator.vibrate([200, 100, 200]);
+      setTimeout(() => skipRest(), 800);
+    }
+  }, 1000);
+}
+
+function skipRest() {
+  clearInterval(restTimerInterval);
+  restTimerInterval = null;
+  const overlay = document.getElementById('rest-timer');
+  if (overlay) {
+    overlay.classList.remove('visible');
+    setTimeout(() => overlay.remove(), 300);
+  }
+}
+
+function setRestDuration(s) {
+  startRestTimer(s);
+}
+
+// ============================================================
+// SWIPE TO COMPLETE SET
+// ============================================================
+function attachSwipeListeners() {
+  let startX = 0;
+  document.querySelectorAll('.exercise-card:not(.done)').forEach((card, cardIdx) => {
+    card.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive: true });
+    card.addEventListener('touchend', e => {
+      const diff = e.changedTouches[0].clientX - startX;
+      if (diff > 70) {
+        const ejIdx = parseInt(card.dataset.ejIdx || cardIdx);
+        const nextSetBtn = card.querySelector('[data-action="complete-set"]');
+        if (nextSetBtn) nextSetBtn.click();
+      }
+    }, { passive: true });
+  });
+}
+
+// ============================================================
+// MUSCLE MAP COLORING
+// ============================================================
+function renderMuscleMap() {
+  const weekWorkouts = Store.getWorkoutsThisWeek();
+  const zonasThisWeek = new Set();
+  weekWorkouts.forEach(w => {
+    const zonas = ZONAS_POR_DIA[w.dia] || [];
+    zonas.forEach(z => zonasThisWeek.add(z));
+  });
+
+  // Reset all zones to default
+  document.querySelectorAll('.body-svg [class^="zone-"]').forEach(el => {
+    el.style.fill = '';
+    el.style.opacity = '';
+  });
+
+  zonasThisWeek.forEach(z => {
+    const zona = ZONAS_DISPLAY[z];
+    if (!zona) return;
+    document.querySelectorAll(`.zone-${z}`).forEach(el => {
+      el.style.fill = zona.color;
+      el.style.opacity = '0.85';
+    });
+  });
+}
+
+// ============================================================
+// SHARE CARD
+// ============================================================
+function generateShareCard(workout) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 800; canvas.height = 800;
+  const ctx = canvas.getContext('2d');
+
+  const grad = ctx.createLinearGradient(0, 0, 800, 800);
+  grad.addColorStop(0, '#5B63D4');
+  grad.addColorStop(1, '#1A1B3A');
+  ctx.fillStyle = grad;
+  if (ctx.roundRect) {
+    ctx.roundRect(0, 0, 800, 800, 40);
+  } else {
+    ctx.rect(0, 0, 800, 800);
+  }
+  ctx.fill();
+
+  ctx.globalAlpha = 0.1;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(680, 120, 180, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(100, 650, 120, 0, Math.PI*2); ctx.fill();
+  ctx.globalAlpha = 1;
+
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = 'bold 28px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('SOL FITNESS', 400, 80);
+
+  ctx.font = '100px serif';
+  ctx.fillText('🏆', 400, 260);
+
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 48px sans-serif';
+  ctx.fillText(workout.tipo, 400, 350);
+
+  const dur = workout.duracion_min ? workout.duracion_min + ' min' : '—';
+  const sets = workout.bloques.reduce((a,b) => a + b.ejercicios.reduce((c,e) => c + e.reps_completadas.filter(r=>r!==null).length, 0), 0);
+  ctx.font = '32px sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.fillText(`${dur}  ·  ${sets} sets`, 400, 430);
+
+  ctx.font = '26px sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.fillText(new Date(workout.fecha).toLocaleDateString('es-ES', {weekday:'long', day:'numeric', month:'long'}), 400, 500);
+
+  ctx.font = 'bold 36px sans-serif';
+  ctx.fillStyle = '#fff';
+  ctx.fillText('Entrenamiento completado', 400, 660);
+
+  const link = document.createElement('a');
+  link.download = `sol-fitness-${workout.fecha}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
 }
 
 // ============================================================
