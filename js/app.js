@@ -179,6 +179,7 @@ function renderHoy() {
               // Día de gym
               const zonas = ZONAS_POR_DIA[d] || [];
               const zonasStr = zonas.slice(0,3).map(z => ZONAS_DISPLAY[z].nombre).join(' · ');
+              const extraTag = d === 'martes' ? '<span class="plan-extra-tag">🎾 Tenis 19:00</span>' : '';
               return `
                 <div class="plan-row ${isToday ? 'plan-today' : ''} ${done ? 'plan-done' : ''}"
                      data-action="ver-sesion" data-dia="${d}">
@@ -187,6 +188,7 @@ function renderHoy() {
                     <div>
                       <div class="plan-nombre">${s.nombre}</div>
                       <div class="plan-zonas muted">${zonasStr}</div>
+                      ${extraTag}
                     </div>
                   </div>
                   <div class="plan-right">
