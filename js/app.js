@@ -181,8 +181,9 @@ function renderHoy() {
                   </div>
                 </div>
                 <div class="plan-right">
-                  ${done ? '<span class="plan-check">✓</span>' : `<span class="plan-dur muted">${s.duracion_objetivo}</span>`}
+                  ${done ? '<span class="plan-check">✓</span>' : ''}
                   ${isToday && !done ? '<span class="plan-hoy-tag">Hoy</span>' : ''}
+                  <span class="plan-arrow">›</span>
                 </div>
               </div>`;
           }).join('')}
