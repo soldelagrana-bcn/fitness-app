@@ -400,6 +400,8 @@ function renderWorkout(params) {
   const ejHtml = bloqueActual.ejercicios.map((ej, ejIdx) => {
     const isActive = ejIdx === w.ejercicio_actual && bloqueActual.formato !== 'secuencial';
     const allDone = ej.reps_completadas.every(r => r !== null);
+    const doneSetsEj = ej.reps_completadas.filter(r => r !== null).length;
+    const totalSetsEj = ej.series;
     return `
       <div class="exercise-card ${allDone ? 'done' : ''} ${isActive ? 'active' : ''}" data-ej="${ejIdx}" data-ej-idx="${ejIdx}">
         <div class="exercise-header">
@@ -409,7 +411,14 @@ function renderWorkout(params) {
             <p class="exercise-desc">${ej.descripcion}</p>
             ${ej.fallo_ultimo_set ? '<span class="fallo-badge">💥 Fallo en último set</span>' : ''}
           </div>
-          ${allDone ? '<div class="done-check">✓</div>' : ''}
+          <div class="ej-check-circle ${allDone ? 'done' : doneSetsEj > 0 ? 'partial' : ''}">
+            ${allDone
+              ? `<svg viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="13" fill="#22c55e"/><path d="M8 14.5 L12 18.5 L20 10" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+              : doneSetsEj > 0
+                ? `<svg viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="13" stroke="#22c55e" stroke-width="2"/><text x="14" y="19" text-anchor="middle" font-size="10" font-weight="700" fill="#22c55e">${doneSetsEj}/${totalSetsEj}</text></svg>`
+                : `<svg viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="13" stroke="#D1D5DB" stroke-width="2"/></svg>`
+            }
+          </div>
         </div>
 
         <div class="sets-row">

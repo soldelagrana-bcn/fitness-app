@@ -732,7 +732,16 @@ section { margin-bottom: 26px; }
   font-weight: 700;
   margin-top: 4px;
 }
-.done-check { margin-left: auto; color: var(--success); font-size: 22px; font-weight: 800; }
+.ej-check-circle {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  align-self: center;
+}
+.ej-check-circle svg { width: 28px; height: 28px; display: block; }
+.ej-check-circle.done svg circle { transition: fill 0.2s ease; }
+.ej-check-circle.partial svg circle { transition: stroke 0.2s ease; }
 
 .sets-row { display: flex; gap: 8px; margin-bottom: 14px; }
 .set-item {
