@@ -1,0 +1,211 @@
+// ============================================================
+// STORE.JS — Gestión de datos en localStorage
+// ============================================================
+
+const Store = {
+  keys: {
+    config: 'sol_fitness_config',
+    workouts: 'sol_fitness_workouts',
+    cargas: 'sol_fitness_cargas',
+    nutrition_log: 'sol_fitness_nutrition',
+    weight_log: 'sol_fitness_weight',
+  },
+
+  // ---- CONFIG (fase, semana, fecha inicio) ----
+  getConfig() {
+    const d = localStorage.getItem(this.keys.config);
+    if (d) return JSON.parse(d);
+    return {
+      fase: 1,
+      semana: 1,
+      fecha_inicio: new Date().toISOString().split('T')[0],
+      nombre: 'Sol'
+    };
+  },
+  saveConfig(config) {
+    localStorage.setItem(this.keys.config, JSON.stringify(config));
+  },
+
+  // ---- CARGAS ACTUALES ----
+  getCargas() {
+    const d = localStorage.getItem(this.keys.cargas);
+    if (d) return JSON.parse(d);
+    // Cargas iniciales de Fase 1
+    return {
+      'Hip thrust con mancuerna': 15,
+      'Hip thrust con mancuerna (variante)': 15,
+      'Goblet squat con KB': 12,
+      'RDL con kettlebell': 16,
+      'Remo con mancuerna': 7.5,
+      'Press de hombro con mancuernas': 3,
+      'Press de pecho con mancuernas': 3,
+      'Curl de bíceps con mancuernas': null,
+      'Extensión de tríceps sobre la cabeza': null,
+      'Side plank con mancuerna + pulses': 5,
+      'Zancada reversa con mancuernas': 0,
+      'Step-up con mancuernas': 0,
+      'Jalón al pecho agarre neutro (polea)': null,
+      'Curl de bíceps en polea baja': null,
+      'Press de tríceps en polea alta': null,
+      'Extensión de cuádriceps en máquina': null,
+    };
+  },
+  saveCarga(ejercicioNombre, kg) {
+    const cargas = this.getCargas();
+    cargas[ejercicioNombre] = kg;
+    localStorage.setItem(this.keys.cargas, JSON.stringify(cargas));
+  },
+
+  // ---- HISTORIAL DE ENTRENAMIENTOS ----
+  getWorkouts() {
+    const d = localStorage.getItem(this.keys.workouts);
+    return d ? JSON.parse(d) : [];
+  },
+  saveWorkout(workout) {
+    const workouts = this.getWorkouts();
+    const idx = workouts.findIndex(w => w.id === workout.id);
+    if (idx >= 0) {
+      workouts[idx] = workout;
+    } else {
+      workouts.push(workout);
+    }
+    localStorage.setItem(this.keys.workouts, JSON.stringify(workouts));
+  },
+  getWorkoutById(id) {
+    return this.getWorkouts().find(w => w.id === id) || null;
+  },
+  getWorkoutsThisWeek() {
+    const today = new Date();
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - today.getDay() + 1); // Lunes
+    weekStart.setHours(0, 0, 0, 0);
+    return this.getWorkouts().filter(w => {
+      const d = new Date(w.fecha);
+      return d >= weekStart && d <= today && w.completado;
+    });
+  },
+  getLastWorkoutForDia(diaKey) {
+    const workouts = this.getWorkouts()
+      .filter(w => w.dia === diaKey && w.completado)
+      .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    return workouts[0] || null;
+  },
+
+  // ---- LÓGICA DE DOBLE PROGRESIÓN ----
+  // Retorna true si un ejercicio está listo para subir peso
+  listoParaSubir(ejercicioNombre) {
+    const workouts = this.getWorkouts().filter(w => w.completado);
+    // Buscar los últimos 2 registros de este ejercicio
+    const registros = [];
+    for (const w of workouts.sort((a, b) => new Date(b.fecha) - new Date(a.fecha))) {
+      for (const bloque of w.bloques || []) {
+        for (const ej of bloque.ejercicios || []) {
+          if (ej.nombre === ejercicioNombre && ej.reps_completadas) {
+            registros.push(ej);
+          }
+        }
+      }
+      if (registros.length >= 1) break;
+    }
+    if (registros.length === 0) return false;
+    const ultimo = registros[0];
+    const todasCompletas = ultimo.reps_completadas.every(
+      (r, i) => r !== null && r >= (ultimo.reps_objetivo || 15)
+    );
+    const rir = ultimo.rir_ultimo_set;
+    return todasCompletas && (rir === null || rir >= 2);
+  },
+
+  // ---- REGISTRO DE PESO CORPORAL ----
+  getWeightLog() {
+    const d = localStorage.getItem(this.keys.weight_log);
+    return d ? JSON.parse(d) : [];
+  },
+  saveWeight(fecha, kg) {
+    const log = this.getWeightLog();
+    const idx = log.findIndex(e => e.fecha === fecha);
+    if (idx >= 0) log[idx].kg = kg;
+    else log.push({ fecha, kg });
+    localStorage.setItem(this.keys.weight_log, JSON.stringify(log));
+  },
+
+  // ---- EXPORT / IMPORT ----
+  exportAll() {
+    return JSON.stringify({
+      config: this.getConfig(),
+      workouts: this.getWorkouts(),
+      cargas: this.getCargas(),
+      weight_log: this.getWeightLog(),
+      exported_at: new Date().toISOString()
+    }, null, 2);
+  },
+  importAll(jsonStr) {
+    try {
+      const data = JSON.parse(jsonStr);
+      if (data.config) localStorage.setItem(this.keys.config, JSON.stringify(data.config));
+      if (data.workouts) localStorage.setItem(this.keys.workouts, JSON.stringify(data.workouts));
+      if (data.cargas) localStorage.setItem(this.keys.cargas, JSON.stringify(data.cargas));
+      if (data.weight_log) localStorage.setItem(this.keys.weight_log, JSON.stringify(data.weight_log));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  },
+
+  // ---- GENERAR WORKOUT DE HOY ----
+  createTodayWorkout() {
+    const today = new Date();
+    const dias = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+    const diaKey = dias[today.getDay()];
+    const config = this.getConfig();
+    const fase = FASES[config.fase];
+    if (!fase) return null;
+    const sesion = fase.sesiones[diaKey];
+    if (!sesion) return null;
+
+    const cargas = this.getCargas();
+    const id = `workout_${today.toISOString().split('T')[0]}_${diaKey}`;
+
+    // Check si ya existe
+    const existing = this.getWorkoutById(id);
+    if (existing) return existing;
+
+    // Clonar sesión con cargas actuales
+    const workout = {
+      id,
+      fase: config.fase,
+      semana: config.semana,
+      dia: diaKey,
+      tipo: sesion.nombre,
+      fecha: today.toISOString().split('T')[0],
+      completado: false,
+      duracion_min: null,
+      bloque_actual: 0,
+      ejercicio_actual: 0,
+      bloques: sesion.bloques.map(bloque => ({
+        ...bloque,
+        ejercicios: bloque.ejercicios.map(ej => ({
+          ...ej,
+          carga_kg: cargas[ej.nombre] !== undefined ? cargas[ej.nombre] : ej.carga_inicial_kg,
+          reps_completadas: Array(ej.series).fill(null),
+          rir_ultimo_set: null,
+          completado: false
+        }))
+      }))
+    };
+
+    this.saveWorkout(workout);
+    return workout;
+  },
+
+  // ---- SEMANA ACTUAL (número 1-4) ----
+  getSemanaActual() {
+    const config = this.getConfig();
+    if (!config.fecha_inicio) return 1;
+    const inicio = new Date(config.fecha_inicio);
+    const today = new Date();
+    const diffMs = today - inicio;
+    const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1;
+    return Math.min(diffWeeks, 4);
+  }
+};
