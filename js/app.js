@@ -183,7 +183,7 @@ function renderHoy() {
                 <div class="plan-row ${isToday ? 'plan-today' : ''} ${done ? 'plan-done' : ''}"
                      data-action="ver-sesion" data-dia="${d}">
                   <div class="plan-left">
-                    <div class="plan-dia-badge gym ${done ? 'done' : ''}">${diasLabel[d].slice(0,2).toUpperCase()}</div>
+                    <div class="plan-dia-badge gym ${s.id.toLowerCase()} ${done ? 'done' : ''}">${diasLabel[d].slice(0,2).toUpperCase()}</div>
                     <div>
                       <div class="plan-nombre">${s.nombre}</div>
                       <div class="plan-zonas muted">${zonasStr}</div>
@@ -706,11 +706,24 @@ function renderNutricion() {
 // ============================================================
 function renderAjustes() {
   const config = Store.getConfig();
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   return `
     <div class="view">
       <div class="view-header">
         <h2 class="view-title">Ajustes</h2>
       </div>
+
+      <section>
+        <h4 class="section-title">Apariencia</h4>
+        <div class="card">
+          <div class="config-row">
+            <span>Modo oscuro</span>
+            <button class="toggle-switch ${isDark ? 'on' : ''}" data-action="toggle-theme">
+              <div class="toggle-knob"></div>
+            </button>
+          </div>
+        </div>
+      </section>
 
       <section>
         <h4 class="section-title">Estado actual</h4>
@@ -1163,6 +1176,16 @@ function handleAction(action, dataset, e) {
       break;
     }
 
+    case 'toggle-theme': {
+      const html = document.documentElement;
+      const isDark = html.getAttribute('data-theme') === 'dark';
+      html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+      localStorage.setItem('sol_theme', isDark ? 'light' : 'dark');
+      // Re-render ajustes para actualizar el toggle
+      navigate('ajustes');
+      break;
+    }
+
     case 'toggle-history': {
       const detail = document.getElementById(`detail-${dataset.id}`);
       if (detail) detail.classList.toggle('hidden');
@@ -1211,6 +1234,10 @@ function showToast(msg, type = 'success') {
 // INIT
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
+  // Aplicar tema guardado
+  const savedTheme = localStorage.getItem('sol_theme') || 'light';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+
   // Registrar Service Worker
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
