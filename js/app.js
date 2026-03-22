@@ -163,29 +163,61 @@ function renderHoy() {
       <section>
         <h4 class="section-title">Plan semanal</h4>
         <div class="card plan-semanal">
-          ${['lunes','martes','jueves','viernes'].map(d => {
+          ${['lunes','martes','miercoles','jueves','viernes','sabado','domingo'].map(d => {
             const s = fase ? fase.sesiones[d] : null;
-            if (!s) return '';
             const isToday = d === diaKey;
             const done = workoutsThisWeek.find(w => w.dia === d);
-            const zonas = ZONAS_POR_DIA[d] || [];
-            const zonasStr = zonas.slice(0,3).map(z => ZONAS_DISPLAY[z].nombre).join(' · ');
-            return `
-              <div class="plan-row ${isToday ? 'plan-today' : ''} ${done ? 'plan-done' : ''}"
-                   data-action="ver-sesion" data-dia="${d}">
-                <div class="plan-left">
-                  <div class="plan-dia-badge ${done ? 'done' : ''}">${d.slice(0,2).toUpperCase()}</div>
-                  <div>
-                    <div class="plan-nombre">${s.nombre}</div>
-                    <div class="plan-zonas muted">${zonasStr}</div>
+            const actividad = Store.getActividadDia(d);
+            const diasLabel = {lunes:'Lunes',martes:'Martes',miercoles:'Miércoles',jueves:'Jueves',viernes:'Viernes',sabado:'Sábado',domingo:'Domingo'};
+            const descansoInfo = {
+              miercoles: { icon:'🚴‍♀️', label:'Descanso activo', sub:'Caminata · E-bike' },
+              sabado:    { icon:'🎾',   label:'Tenis (opcional)', sub:'Partido amistoso ~1h' },
+              domingo:   { icon:'😴',   label:'Descanso',         sub:'Actividad espontánea' }
+            };
+
+            if (s) {
+              // Día de gym
+              const zonas = ZONAS_POR_DIA[d] || [];
+              const zonasStr = zonas.slice(0,3).map(z => ZONAS_DISPLAY[z].nombre).join(' · ');
+              return `
+                <div class="plan-row ${isToday ? 'plan-today' : ''} ${done ? 'plan-done' : ''}"
+                     data-action="ver-sesion" data-dia="${d}">
+                  <div class="plan-left">
+                    <div class="plan-dia-badge gym ${done ? 'done' : ''}">${diasLabel[d].slice(0,2).toUpperCase()}</div>
+                    <div>
+                      <div class="plan-nombre">${s.nombre}</div>
+                      <div class="plan-zonas muted">${zonasStr}</div>
+                    </div>
                   </div>
-                </div>
-                <div class="plan-right">
-                  ${done ? '<span class="plan-check">✓</span>' : ''}
-                  ${isToday && !done ? '<span class="plan-hoy-tag">Hoy</span>' : ''}
-                  <span class="plan-arrow">›</span>
-                </div>
-              </div>`;
+                  <div class="plan-right">
+                    ${done ? '<span class="plan-check">✓</span>' : ''}
+                    ${isToday && !done ? '<span class="plan-hoy-tag">Hoy</span>' : ''}
+                    <span class="plan-arrow">›</span>
+                  </div>
+                </div>`;
+            } else {
+              // Día de descanso / flexible
+              const info = descansoInfo[d] || { icon:'😴', label:'Descanso', sub:'' };
+              const actHtml = actividad
+                ? `<span class="actividad-logged">${actividad.icon} ${actividad.nombre}</span>`
+                : `<span class="plan-zonas muted">${info.sub}</span>`;
+              return `
+                <div class="plan-row plan-rest ${isToday ? 'plan-today' : ''} ${actividad ? 'plan-done' : ''}"
+                     data-action="log-actividad-dia" data-dia="${d}">
+                  <div class="plan-left">
+                    <div class="plan-dia-badge rest">${diasLabel[d].slice(0,2).toUpperCase()}</div>
+                    <div>
+                      <div class="plan-nombre">${info.icon} ${info.label}</div>
+                      ${actHtml}
+                    </div>
+                  </div>
+                  <div class="plan-right">
+                    ${actividad ? '<span class="plan-check">✓</span>' : ''}
+                    ${isToday ? '<span class="plan-hoy-tag">Hoy</span>' : ''}
+                    <span class="plan-arrow">+</span>
+                  </div>
+                </div>`;
+            }
           }).join('')}
         </div>
       </section>
@@ -1008,6 +1040,69 @@ function handleAction(action, dataset, e) {
         if (ok) { showToast('Importado correctamente ✓'); navigate('hoy'); }
         else showToast('Error al importar. Revisa el formato.', 'error');
       }
+      break;
+    }
+
+    case 'log-actividad-dia': {
+      const dia = dataset.dia;
+      const ACTIVIDADES = [
+        { id:'caminata',  icon:'🚶‍♀️', nombre:'Caminata',          tipo:'cardio' },
+        { id:'ebike',     icon:'🚴‍♀️', nombre:'E-bike',             tipo:'cardio' },
+        { id:'tenis',     icon:'🎾',   nombre:'Tenis',              tipo:'deporte' },
+        { id:'gym_extra', icon:'🏋️',  nombre:'Gym (extra)',        tipo:'fuerza' },
+        { id:'yoga',      icon:'🧘‍♀️', nombre:'Yoga / Movilidad',  tipo:'recuperacion' },
+        { id:'natacion',  icon:'🏊‍♀️', nombre:'Natación',           tipo:'cardio' },
+        { id:'otro',      icon:'⚡',   nombre:'Otra actividad',     tipo:'otro' },
+      ];
+      // Mostrar modal
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `
+        <div class="modal">
+          <div class="modal-header">
+            <h3>¿Qué hiciste ${dia === 'hoy' ? 'hoy' : 'el ' + dia}?</h3>
+            <button class="modal-close" id="modal-close">✕</button>
+          </div>
+          <div class="actividades-grid">
+            ${ACTIVIDADES.map(a => `
+              <button class="actividad-btn" data-act-id="${a.id}" data-act-icon="${a.icon}" data-act-nombre="${a.nombre}" data-act-dia="${dia}">
+                <span class="act-icon">${a.icon}</span>
+                <span class="act-nombre">${a.nombre}</span>
+              </button>`).join('')}
+          </div>
+          <div class="modal-duracion">
+            <label>Duración (opcional)</label>
+            <div class="dur-options">
+              ${['30 min','45 min','1h','1h 30min','2h'].map(d =>
+                `<button class="dur-btn" data-dur="${d}">${d}</button>`).join('')}
+            </div>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+      let selectedDur = null;
+      modal.querySelector('#modal-close').onclick = () => modal.remove();
+      modal.querySelector('.dur-options').onclick = (ev) => {
+        const btn = ev.target.closest('.dur-btn');
+        if (!btn) return;
+        modal.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        selectedDur = btn.dataset.dur;
+      };
+      modal.querySelector('.actividades-grid').onclick = (ev) => {
+        const btn = ev.target.closest('.actividad-btn');
+        if (!btn) return;
+        const today = new Date().toISOString().split('T')[0];
+        Store.saveActividad(today, btn.dataset.actDia, {
+          id: btn.dataset.actId,
+          icon: btn.dataset.actIcon,
+          nombre: btn.dataset.actNombre,
+          duracion: selectedDur
+        });
+        modal.remove();
+        showToast(`${btn.dataset.actIcon} ${btn.dataset.actNombre} registrado ✓`);
+        navigate('hoy');
+      };
+      modal.onclick = (ev) => { if (ev.target === modal) modal.remove(); };
       break;
     }
 

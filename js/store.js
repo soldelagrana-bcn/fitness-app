@@ -129,6 +129,31 @@ const Store = {
     localStorage.setItem(this.keys.weight_log, JSON.stringify(log));
   },
 
+  // ---- ACTIVIDADES EXTRA (tenis, e-bike, caminata, gym no planificado) ----
+  getActividades() {
+    const d = localStorage.getItem('sol_fitness_actividades');
+    return d ? JSON.parse(d) : [];
+  },
+  saveActividad(fecha, dia, actividad) {
+    const acts = this.getActividades();
+    const idx = acts.findIndex(a => a.fecha === fecha && a.dia === dia);
+    if (idx >= 0) acts[idx] = { fecha, dia, ...actividad };
+    else acts.push({ fecha, dia, ...actividad });
+    localStorage.setItem('sol_fitness_actividades', JSON.stringify(acts));
+  },
+  getActividadDia(dia) {
+    // Busca actividad para este día en la semana actual
+    const today = new Date();
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - today.getDay() + 1);
+    weekStart.setHours(0,0,0,0);
+    const acts = this.getActividades().filter(a => {
+      const d = new Date(a.fecha);
+      return d >= weekStart && d <= today && a.dia === dia;
+    });
+    return acts[0] || null;
+  },
+
   // ---- EXPORT / IMPORT ----
   exportAll() {
     return JSON.stringify({
