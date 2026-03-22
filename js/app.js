@@ -130,18 +130,46 @@ function renderHoy() {
     </div>`;
   }).join('');
 
+  // Hero header data
+  const hour = today.getHours();
+  const greeting = hour < 13 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches';
+  const streak = Store.getStreak();
+  const TIPS = [
+    'La consistencia supera a la perfección. Aparecer es la mitad de la batalla.',
+    'Cada repetición cuenta. Progreso lento sigue siendo progreso.',
+    'Tu cuerpo se adapta a lo que le pides. Pídele más cada semana.',
+    'Descansar bien es parte del entrenamiento, no una excusa.',
+    'La fuerza no se construye en el gym — se construye en la recuperación.',
+    'Confía en el proceso. Los resultados llegan con paciencia y trabajo.',
+    'Tú de hoy le agradecerá a tú de ayer haber entrenado.'
+  ];
+  const tip = TIPS[today.getDay()];
+  const todayZonas = sesion ? (ZONAS_POR_DIA[diaKey] || []) : [];
+  const heroBg = sesion
+    ? { lunes: '#5B63D4', martes: '#7455C8', jueves: '#4A82D4', viernes: '#5B9BD4' }[diaKey] || '#5B63D4'
+    : '#8E8EA8';
+
   return `
     <div class="view">
-      <div class="view-header">
-        <div>
-          <p class="view-date">${today.toLocaleDateString('es-ES', {weekday:'long', day:'numeric', month:'long'})}</p>
-          <h2 class="view-title">Buenos días, Sol 👋</h2>
+      <div class="hero-header" style="--hero-color:${heroBg}">
+        <div class="hero-top">
+          <div class="hero-meta">
+            <span class="hero-date">${today.toLocaleDateString('es-ES', {weekday:'long', day:'numeric', month:'long'})}</span>
+            <div class="hero-phase-row">
+              <span class="hero-phase-chip">Fase ${config.fase} · Sem ${semana}/4</span>
+              ${streak.current > 0 ? `<span class="hero-streak-chip">🔥 ${streak.current} sem</span>` : ''}
+            </div>
+          </div>
         </div>
-        <div class="phase-badge">
-          <span class="phase-label">Fase ${config.fase}</span>
-          <span class="week-label">Semana ${semana}/4</span>
-          ${(() => { const streak = Store.getStreak(); return streak.current > 0 ? `<span class="streak-badge">🔥 ${streak.current} semana${streak.current > 1 ? 's' : ''}</span>` : ''; })()}
-        </div>
+        <h2 class="hero-greeting">${greeting}, Sol</h2>
+        ${todayZonas.length > 0
+          ? `<div class="hero-zones">${todayZonas.map(z => {
+              const zona = ZONAS_DISPLAY[z];
+              return `<span class="hero-zone-pill" style="background:rgba(255,255,255,0.18)">${zona.nombre}</span>`;
+            }).join('')}</div>`
+          : `<p class="hero-rest-label">Día de descanso · Recarga energía</p>`
+        }
+        <p class="hero-tip">"${tip}"</p>
       </div>
 
       ${faseNotif}
@@ -282,6 +310,14 @@ function renderWorkout(params) {
   const progressPct = Math.round((w.bloque_actual / totalBloques) * 100);
   const timerDisplay = formatTimer(workoutSeconds);
 
+  // Progress ring calculation
+  const totalSets = w.bloques.reduce((acc, b) => acc + b.ejercicios.reduce((a, e) => a + e.series, 0), 0);
+  const doneSets = w.bloques.reduce((acc, b) => acc + b.ejercicios.reduce((a, e) => a + e.reps_completadas.filter(r => r !== null).length, 0), 0);
+  const ringPct = totalSets > 0 ? doneSets / totalSets : 0;
+  const ringCirc = 2 * Math.PI * 18; // ≈ 113.1
+  const ringOffset = ringCirc * (1 - ringPct);
+  const ringPctDisplay = Math.round(ringPct * 100);
+
   // Ejercicios del bloque actual
   const ejHtml = bloqueActual.ejercicios.map((ej, ejIdx) => {
     const isActive = ejIdx === w.ejercicio_actual && bloqueActual.formato !== 'secuencial';
@@ -329,7 +365,16 @@ function renderWorkout(params) {
       <div class="workout-topbar">
         <button class="back-btn" data-action="pause-workout">← Pausar</button>
         <div class="workout-timer" id="workout-timer">${timerDisplay}</div>
-        <div class="workout-progress-text">${w.bloque_actual + 1}/${totalBloques}</div>
+        <div class="workout-ring-wrap">
+          <svg viewBox="0 0 44 44" class="workout-ring-svg">
+            <circle cx="22" cy="22" r="18" fill="none" stroke="#EDEDF5" stroke-width="4"/>
+            <circle cx="22" cy="22" r="18" fill="none" stroke="#5B63D4" stroke-width="4"
+              stroke-linecap="round" stroke-dasharray="${ringCirc.toFixed(1)}"
+              stroke-dashoffset="${ringOffset.toFixed(1)}" transform="rotate(-90 22 22)"
+              class="ring-arc"/>
+          </svg>
+          <span class="workout-ring-pct">${ringPctDisplay}%</span>
+        </div>
       </div>
 
       <div class="workout-progress-bar">
