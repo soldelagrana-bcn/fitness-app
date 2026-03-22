@@ -226,6 +226,45 @@ section { margin-bottom: 24px; }
 .week-dot.today { border-color: var(--primary); color: var(--primary); }
 .dot-check { font-size: 14px; }
 
+/* ---- PLAN SEMANAL ---- */
+.plan-semanal { padding: 8px 16px; }
+.plan-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.plan-row:last-child { border-bottom: none; }
+.plan-row.plan-today { background: var(--primary-dim); border-radius: var(--radius-sm); padding: 12px 10px; margin: 4px -10px; }
+.plan-row.plan-done { opacity: 0.6; }
+.plan-left { display: flex; align-items: center; gap: 12px; }
+.plan-dia-badge {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: var(--text-muted);
+  flex-shrink: 0;
+}
+.plan-dia-badge.done { background: var(--success-dim); border-color: var(--success); color: var(--success); }
+.plan-nombre { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+.plan-zonas { font-size: 12px; }
+.plan-right { display: flex; align-items: center; gap: 8px; }
+.plan-check { color: var(--success); font-size: 18px; font-weight: 700; }
+.plan-dur { font-size: 12px; }
+.plan-hoy-tag {
+  background: var(--primary);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 /* ---- QUICK GRID ---- */
 .quick-grid {
   display: grid;
@@ -603,6 +642,32 @@ section { margin-bottom: 24px; }
   padding: 10px;
   font-size: 16px;
 }
+
+/* ---- DETALLE SESION ---- */
+.sesion-bloque { margin-bottom: 18px; }
+.sesion-bloque-header {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.sesion-bloque-header strong { font-size: 14px; }
+.sesion-ej {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.sesion-ej:last-child { border-bottom: none; }
+.sesion-ej-id {
+  background: var(--primary-dim); color: var(--primary-light);
+  width: 28px; height: 28px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; flex-shrink: 0; margin-top: 2px;
+}
+.sesion-ej-info { display: flex; flex-direction: column; gap: 2px; }
+.sesion-ej-nombre { font-size: 14px; font-weight: 600; }
+.sesion-ej-meta { font-size: 12px; }
+.sesion-ej-desc { font-size: 12px; line-height: 1.4; }
 
 /* ---- HISTORIAL ---- */
 .history-card { cursor: pointer; }

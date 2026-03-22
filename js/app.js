@@ -161,6 +161,35 @@ function renderHoy() {
       </section>
 
       <section>
+        <h4 class="section-title">Plan semanal</h4>
+        <div class="card plan-semanal">
+          ${['lunes','martes','jueves','viernes'].map(d => {
+            const s = fase ? fase.sesiones[d] : null;
+            if (!s) return '';
+            const isToday = d === diaKey;
+            const done = workoutsThisWeek.find(w => w.dia === d);
+            const zonas = ZONAS_POR_DIA[d] || [];
+            const zonasStr = zonas.slice(0,3).map(z => ZONAS_DISPLAY[z].nombre).join(' · ');
+            return `
+              <div class="plan-row ${isToday ? 'plan-today' : ''} ${done ? 'plan-done' : ''}"
+                   data-action="ver-sesion" data-dia="${d}">
+                <div class="plan-left">
+                  <div class="plan-dia-badge ${done ? 'done' : ''}">${d.slice(0,2).toUpperCase()}</div>
+                  <div>
+                    <div class="plan-nombre">${s.nombre}</div>
+                    <div class="plan-zonas muted">${zonasStr}</div>
+                  </div>
+                </div>
+                <div class="plan-right">
+                  ${done ? '<span class="plan-check">✓</span>' : `<span class="plan-dur muted">${s.duracion_objetivo}</span>`}
+                  ${isToday && !done ? '<span class="plan-hoy-tag">Hoy</span>' : ''}
+                </div>
+              </div>`;
+          }).join('')}
+        </div>
+      </section>
+
+      <section>
         <h4 class="section-title">Accesos rápidos</h4>
         <div class="quick-grid">
           <button class="quick-btn" data-action="nav" data-view="progreso">
@@ -978,6 +1007,63 @@ function handleAction(action, dataset, e) {
         if (ok) { showToast('Importado correctamente ✓'); navigate('hoy'); }
         else showToast('Error al importar. Revisa el formato.', 'error');
       }
+      break;
+    }
+
+    case 'ver-sesion': {
+      const diaVer = dataset.dia;
+      const fase = FASES[Store.getConfig().fase];
+      const sesion = fase ? fase.sesiones[diaVer] : null;
+      if (!sesion) return;
+      const dias = ['domingo','lunes','martes','miercoles','jueves','viernes','sabado'];
+      const diaKey = dias[new Date().getDay()];
+      const isToday = diaVer === diaKey;
+      const zonas = ZONAS_POR_DIA[diaVer] || [];
+      const zonasHtml = zonas.map(z => {
+        const zona = ZONAS_DISPLAY[z];
+        return `<span class="zona-tag" style="background:${zona.color}22;color:${zona.color}">${zona.nombre}</span>`;
+      }).join('');
+      const ejerciciosHtml = sesion.bloques.map(b => `
+        <div class="sesion-bloque">
+          <div class="sesion-bloque-header">
+            <strong>${b.nombre}</strong>
+            ${b.formato === 'descanso_activo' ? '<span class="descanso-badge">↔ Descanso activo</span>' : ''}
+          </div>
+          ${b.ejercicios.map(ej => `
+            <div class="sesion-ej">
+              <span class="sesion-ej-id">${ej.id}</span>
+              <div class="sesion-ej-info">
+                <span class="sesion-ej-nombre">${ej.nombre}</span>
+                <span class="sesion-ej-meta muted">${ej.series}×${ej.reps_objetivo || (ej.duracion_seg+'seg')} ${ej.reps_por ? '/ '+ej.reps_por : ''} ${ej.carga_inicial_kg ? '· '+ej.carga_inicial_kg+'kg' : ''}</span>
+                <span class="sesion-ej-desc muted">${ej.descripcion}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `).join('');
+      const container = document.getElementById('view-container');
+      container.innerHTML = `
+        <div class="view">
+          <div class="view-header">
+            <button class="back-btn" data-action="nav" data-view="hoy">← Volver</button>
+          </div>
+          <div class="card workout-today-card">
+            <div class="card-header">
+              <span class="session-badge">${sesion.id}</span>
+              <span class="duration-badge">⏱ ${sesion.duracion_objetivo}</span>
+            </div>
+            <h3>${sesion.nombre}</h3>
+            <div class="zonas-wrap">${zonasHtml}</div>
+            <div class="warmup-info">
+              <span class="warmup-label">🔥 Warm-up:</span>
+              <span class="muted">${sesion.warmup}</span>
+            </div>
+            ${isToday ? `<button class="btn btn-primary" data-action="iniciar-workout" data-dia="${diaVer}">▶ Iniciar entrenamiento</button>` : ''}
+          </div>
+          <div class="card">${ejerciciosHtml}</div>
+        </div>`;
+      // Estilos inline para sesion-bloque
+      attachEventListeners();
       break;
     }
 
