@@ -158,7 +158,27 @@ function renderHoy() {
               ${streak.current > 0 ? `<span class="hero-streak-chip">🔥 ${streak.current} sem</span>` : ''}
             </div>
           </div>
-          <span class="hero-mascot">🐞</span>
+          <svg class="hero-mascot" viewBox="0 0 64 60" xmlns="http://www.w3.org/2000/svg">
+            <g class="corgi-ear-l">
+              <path d="M10,32 L20,6 L30,28" fill="#C8680E" stroke="#A0520A" stroke-width="0.6"/>
+              <path d="M13,30 L20,10 L28,27" fill="#FFCCBB" opacity="0.85"/>
+            </g>
+            <g class="corgi-ear-r">
+              <path d="M34,28 L44,6 L54,32" fill="#C8680E" stroke="#A0520A" stroke-width="0.6"/>
+              <path d="M36,27 L44,10 L51,30" fill="#FFCCBB" opacity="0.85"/>
+            </g>
+            <ellipse cx="32" cy="38" rx="24" ry="21" fill="#F0A040"/>
+            <ellipse cx="32" cy="46" rx="15" ry="10" fill="#F8C870"/>
+            <ellipse cx="24" cy="35" rx="4" ry="4.5" fill="#1A0E00"/>
+            <ellipse cx="40" cy="35" rx="4" ry="4.5" fill="#1A0E00"/>
+            <circle cx="25.5" cy="33" r="1.6" fill="white" opacity="0.9"/>
+            <circle cx="41.5" cy="33" r="1.6" fill="white" opacity="0.9"/>
+            <ellipse cx="32" cy="44" rx="5" ry="3.5" fill="#1A0E00"/>
+            <ellipse cx="31" cy="43" rx="1.8" ry="1.1" fill="white" opacity="0.35"/>
+            <path d="M27,48 Q32,53 37,48" stroke="#1A0E00" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+            <ellipse cx="17" cy="41" rx="6" ry="3.5" fill="#E8805A" opacity="0.4"/>
+            <ellipse cx="47" cy="41" rx="6" ry="3.5" fill="#E8805A" opacity="0.4"/>
+          </svg>
         </div>
         <h2 class="hero-greeting">${greeting}, Sol</h2>
 
@@ -397,10 +417,10 @@ function renderWorkout(params) {
           </div>
           <div class="ej-check-circle ${allDone ? 'done' : doneSetsEj > 0 ? 'partial' : ''}">
             ${allDone
-              ? `<svg viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="13" fill="#22c55e"/><path d="M8 14.5 L12 18.5 L20 10" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+              ? `<svg viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="17" fill="#22c55e"/><path d="M10 18.5 L15.5 24 L26 12" stroke="white" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`
               : doneSetsEj > 0
-                ? `<svg viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="13" stroke="#22c55e" stroke-width="2"/><text x="14" y="19" text-anchor="middle" font-size="10" font-weight="700" fill="#22c55e">${doneSetsEj}/${totalSetsEj}</text></svg>`
-                : `<svg viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="13" stroke="#D1D5DB" stroke-width="2"/></svg>`
+                ? `<svg viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="17" fill="#dcfce7" stroke="#22c55e" stroke-width="2.2"/><text x="18" y="22" text-anchor="middle" font-size="11" font-weight="800" fill="#16a34a">${doneSetsEj}/${totalSetsEj}</text></svg>`
+                : `<svg viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="17" fill="#F3F4F6" stroke="#D1D5DB" stroke-width="2"/><line x1="18" y1="11" x2="18" y2="25" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"/><line x1="11" y1="18" x2="25" y2="18" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"/></svg>`
             }
           </div>
         </div>
