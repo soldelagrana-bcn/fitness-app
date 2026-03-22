@@ -1,4 +1,4 @@
-const CACHE = 'sol-fitness-v2';
+const CACHE = 'sol-fitness-v3';
 const ASSETS = [
   '/',
   '/index.html',
@@ -26,8 +26,14 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Solo cachear assets propios, no CDN
   if (!e.request.url.startsWith(self.location.origin)) return;
+  const url = new URL(e.request.url);
+  // JS y CSS siempre desde red (actualizaciones inmediatas)
+  if (url.pathname.endsWith('.js') || url.pathname.endsWith('.css')) {
+    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+    return;
+  }
+  // El resto: caché primero
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request))
   );
