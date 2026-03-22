@@ -7,6 +7,24 @@ let activeWorkout = null; // workout en progreso
 let workoutTimer = null;
 let workoutSeconds = 0;
 
+// ---- GARMIN DATA (last sync: 2026-03-22 16:12) ----
+const GARMIN_SEED = {
+  fecha: '2026-03-22',
+  syncTime: '16:12',
+  bodyBattery: { current: 45, atWake: 85, charged: 61, drained: 40 },
+  steps: { value: 15914, goal: 10000 },
+  heartRate: { resting: 50, min: 47, max: 134 },
+  stress: { avg: 28, qualifier: 'BALANCED' },
+  spo2: 94,
+  calories: { total: 1331, active: 382 },
+  intensityMin: { moderate: 105, vigorous: 5 },
+  sleep: { score: 84, durationMin: 530, deepMin: 34, remMin: 116, lightMin: 380 },
+  activities: [
+    { name: 'Barcelona Walking', type: 'walking', startLocal: '10:45', durationMin: 107, impact: -9 },
+    { name: 'Barcelona Walking', type: 'walking', startLocal: '14:39', durationMin: 25, impact: -1 }
+  ]
+};
+
 // ---- ROUTER ----
 function navigate(view, params) {
   currentView = view;
@@ -174,6 +192,57 @@ function renderHoy() {
 
       ${faseNotif}
 
+      ${(() => {
+        const g = Store.getGarminData() || GARMIN_SEED;
+        if (!g) return '';
+        const stepsK = g.steps.value >= 1000 ? (g.steps.value / 1000).toFixed(1) + 'k' : g.steps.value;
+        const stepsPct = Math.min(100, Math.round(g.steps.value / g.steps.goal * 100));
+        const bbColor = g.bodyBattery.current >= 70 ? '#3DAA6F' : g.bodyBattery.current >= 40 ? '#E08A2A' : '#D94F4F';
+        const stressLabel = { BALANCED: 'Equilibrado', LOW: 'Bajo', MEDIUM: 'Moderado', HIGH: 'Alto' }[g.stress.qualifier] || g.stress.qualifier;
+        const sleepH = Math.floor(g.sleep.durationMin / 60);
+        const sleepM = g.sleep.durationMin % 60;
+        const sleepColor = g.sleep.score >= 80 ? '#3DAA6F' : g.sleep.score >= 60 ? '#E08A2A' : '#D94F4F';
+        return `
+        <section>
+          <h4 class="section-title">Garmin · ${g.syncTime}</h4>
+          <div class="card garmin-card">
+            <div class="garmin-metrics-row">
+              <div class="garmin-tile">
+                <div class="garmin-tile-val" style="color:${bbColor}">${g.bodyBattery.current}</div>
+                <div class="garmin-tile-sub">↑${g.bodyBattery.atWake} al despertar</div>
+                <div class="garmin-tile-label">Body Battery</div>
+              </div>
+              <div class="garmin-tile">
+                <div class="garmin-tile-val">${stepsK}</div>
+                <div class="garmin-tile-sub">${stepsPct}% del objetivo</div>
+                <div class="garmin-tile-label">Pasos</div>
+              </div>
+              <div class="garmin-tile">
+                <div class="garmin-tile-val" style="color:${sleepColor}">${g.sleep.score}</div>
+                <div class="garmin-tile-sub">${sleepH}h ${sleepM > 0 ? sleepM + 'min' : ''}</div>
+                <div class="garmin-tile-label">Calidad sueño</div>
+              </div>
+              <div class="garmin-tile">
+                <div class="garmin-tile-val">${g.heartRate.resting}</div>
+                <div class="garmin-tile-sub">FC reposo bpm</div>
+                <div class="garmin-tile-label">Estrés: ${stressLabel}</div>
+              </div>
+            </div>
+            <div class="garmin-steps-track">
+              <div class="garmin-steps-fill" style="width:${stepsPct}%"></div>
+            </div>
+            <div class="garmin-sleep-phases">
+              <span class="sleep-phase-dot deep">🌑 ${g.sleep.deepMin}m profundo</span>
+              <span class="sleep-phase-dot rem">💜 ${g.sleep.remMin}m REM</span>
+              <span class="sleep-phase-dot light">💤 ${g.sleep.lightMin}m ligero</span>
+            </div>
+            ${g.activities.length > 0 ? `<div class="garmin-activities">${g.activities.map(a =>
+              `<span class="garmin-act-tag">🚶‍♀️ ${a.name} · ${a.durationMin}min · ${a.impact}⚡</span>`
+            ).join('')}</div>` : ''}
+          </div>
+        </section>`;
+      })()}
+
       <section>
         <h4 class="section-title">Hoy</h4>
         ${todayCard}
@@ -229,6 +298,7 @@ function renderHoy() {
               const zonas = ZONAS_POR_DIA[d] || [];
               const zonasStr = zonas.slice(0,3).map(z => ZONAS_DISPLAY[z].nombre).join(' · ');
               const extraTag = d === 'martes' ? '<span class="plan-extra-tag">🎾 Tenis 19:00</span>' : '';
+              const gymColor = {'d1':'#5B63D4','d2':'#7455C8','d3':'#4A82D4','d4':'#5B9BD4'}[s.id.toLowerCase()] || '#5B63D4';
               return `
                 <div class="plan-row ${isToday ? 'plan-today' : ''} ${done ? 'plan-done' : ''}"
                      data-action="ver-sesion" data-dia="${d}">
@@ -241,9 +311,15 @@ function renderHoy() {
                     </div>
                   </div>
                   <div class="plan-right">
-                    ${done ? '<span class="plan-check">✓</span>' : ''}
                     ${isToday && !done ? '<span class="plan-hoy-tag">Hoy</span>' : ''}
-                    <span class="plan-arrow">›</span>
+                    <div class="plan-checkbox${done ? ' checked' : ''}">
+                      <svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        ${done
+                          ? `<circle cx="11" cy="11" r="10" fill="${gymColor}"/><path d="M6 11.5 L9.5 15 L16 8" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`
+                          : `<circle cx="11" cy="11" r="10" stroke="var(--border)" stroke-width="2"/>`
+                        }
+                      </svg>
+                    </div>
                   </div>
                 </div>`;
             } else {
@@ -263,9 +339,15 @@ function renderHoy() {
                     </div>
                   </div>
                   <div class="plan-right">
-                    ${actividad ? '<span class="plan-check">✓</span>' : ''}
                     ${isToday ? '<span class="plan-hoy-tag">Hoy</span>' : ''}
-                    <span class="plan-arrow">+</span>
+                    <div class="plan-checkbox${actividad ? ' checked rest-check' : ''}">
+                      <svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        ${actividad
+                          ? `<circle cx="11" cy="11" r="10" fill="#8E8EA8"/><path d="M6 11.5 L9.5 15 L16 8" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`
+                          : `<circle cx="11" cy="11" r="10" stroke="var(--border)" stroke-width="2"/><line x1="11" y1="7" x2="11" y2="15" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round"/><line x1="7" y1="11" x2="15" y2="11" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round"/>`
+                        }
+                      </svg>
+                    </div>
                   </div>
                 </div>`;
             }
@@ -619,28 +701,85 @@ function renderProgreso() {
         <h4 class="section-title">Zonas trabajadas esta semana</h4>
         <div class="card">
           <div class="muscle-map">
-            <svg viewBox="0 0 120 250" class="body-svg">
-              <circle cx="60" cy="18" r="13" fill="#E8E8F0"/>
-              <rect x="54" y="30" width="12" height="10" rx="3" fill="#E8E8F0"/>
-              <ellipse class="zone-hombro" cx="35" cy="52" rx="15" ry="9"/>
-              <ellipse class="zone-hombro" cx="85" cy="52" rx="15" ry="9"/>
-              <ellipse class="zone-pecho" cx="60" cy="59" rx="20" ry="13"/>
-              <rect class="zone-biceps" x="16" y="56" width="13" height="28" rx="6"/>
-              <rect class="zone-triceps" x="91" y="56" width="13" height="28" rx="6"/>
-              <rect x="13" y="87" width="11" height="22" rx="5" fill="#E8E8F0"/>
-              <rect x="96" y="87" width="11" height="22" rx="5" fill="#E8E8F0"/>
-              <rect class="zone-core" x="43" y="74" width="34" height="38" rx="7"/>
-              <rect class="zone-oblicuos" x="28" y="78" width="13" height="26" rx="6"/>
-              <rect class="zone-oblicuos" x="79" y="78" width="13" height="26" rx="6"/>
-              <ellipse class="zone-gluteo" cx="60" cy="120" rx="22" ry="13"/>
-              <rect class="zone-cuadriceps" x="34" y="133" width="19" height="50" rx="9"/>
-              <rect class="zone-cuadriceps" x="67" y="133" width="19" height="50" rx="9"/>
-              <rect class="zone-isquios" x="38" y="133" width="11" height="46" rx="5" opacity="0.5"/>
-              <rect class="zone-isquios" x="71" y="133" width="11" height="46" rx="5" opacity="0.5"/>
-              <rect class="zone-gemelos" x="36" y="187" width="17" height="35" rx="8"/>
-              <rect class="zone-gemelos" x="67" y="187" width="17" height="35" rx="8"/>
-              <ellipse cx="46" cy="226" rx="11" ry="5" fill="#E8E8F0"/>
-              <ellipse cx="74" cy="226" rx="11" ry="5" fill="#E8E8F0"/>
+            <svg viewBox="0 0 200 420" class="body-svg" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="skinGrad" x1="0.2" y1="0" x2="0.8" y2="1">
+                  <stop offset="0%" stop-color="#FDDCBE"/>
+                  <stop offset="100%" stop-color="#EEBF9A"/>
+                </linearGradient>
+                <linearGradient id="hairGrad" x1="0" y1="0" x2="0.1" y2="1">
+                  <stop offset="0%" stop-color="#7B4A20"/>
+                  <stop offset="100%" stop-color="#3E1F08"/>
+                </linearGradient>
+              </defs>
+              <!-- HAIR -->
+              <ellipse cx="100" cy="24" rx="22" ry="26" fill="url(#hairGrad)"/>
+              <path d="M78,18 C75,32 74,50 76,64 C73,55 72,40 74,27Z" fill="#3E1F08"/>
+              <path d="M122,18 C125,32 126,50 124,64 C127,55 128,40 126,27Z" fill="#3E1F08"/>
+              <!-- HEAD -->
+              <ellipse cx="100" cy="27" rx="19" ry="22" fill="url(#skinGrad)"/>
+              <!-- Eyebrows -->
+              <path d="M88,21 Q92,18 96,21" stroke="#6B3010" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+              <path d="M104,21 Q108,18 112,21" stroke="#6B3010" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+              <!-- Eyes -->
+              <ellipse cx="92" cy="25" rx="3" ry="2.2" fill="#3A2010"/>
+              <ellipse cx="108" cy="25" rx="3" ry="2.2" fill="#3A2010"/>
+              <circle cx="93.2" cy="24.2" r="0.9" fill="white" opacity="0.8"/>
+              <circle cx="109.2" cy="24.2" r="0.9" fill="white" opacity="0.8"/>
+              <!-- Lips -->
+              <path d="M94,37 Q100,41 106,37" stroke="#C08870" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+              <!-- NECK -->
+              <path d="M91,48 C89,55 88,62 88,68 L112,68 C112,62 111,55 109,48 Q104,45 100,45 Q96,45 91,48Z" fill="url(#skinGrad)"/>
+              <!-- TORSO (hourglass: shoulder ~76px, waist ~64px, hip ~100px) -->
+              <path d="M88,68 C80,68 72,70 64,74 C58,78 54,84 52,93 C50,103 52,114 56,122 C58,128 62,134 64,141 C65,148 66,154 66,161 C64,167 58,173 52,181 C46,190 44,202 44,212 C48,219 58,224 72,226 L72,210 C72,205 74,201 78,198 C84,195 92,193 100,193 C108,193 116,195 122,198 C126,201 128,205 128,210 L128,226 C142,224 152,219 156,212 C156,202 154,190 148,181 C142,173 136,167 134,161 C134,154 135,148 136,141 C138,134 142,128 144,122 C148,114 150,103 148,93 C146,84 142,78 136,74 C128,70 120,68 112,68Z" fill="url(#skinGrad)" stroke="#DCB090" stroke-width="0.5"/>
+              <!-- LEFT ARM -->
+              <path d="M64,74 C58,78 52,87 48,99 C44,111 44,125 46,137 C48,147 52,158 52,168 L60,168 C60,158 58,146 58,136 C58,124 58,110 62,98 C64,89 66,80 66,74Z" fill="url(#skinGrad)" stroke="#DCB090" stroke-width="0.5"/>
+              <!-- RIGHT ARM -->
+              <path d="M136,74 C142,78 148,87 152,99 C156,111 156,125 154,137 C152,147 148,158 148,168 L140,168 C140,158 142,146 142,136 C142,124 142,110 138,98 C136,89 134,80 134,74Z" fill="url(#skinGrad)" stroke="#DCB090" stroke-width="0.5"/>
+              <!-- HANDS -->
+              <ellipse cx="56" cy="172" rx="7" ry="5" fill="url(#skinGrad)" stroke="#DCB090" stroke-width="0.4"/>
+              <ellipse cx="144" cy="172" rx="7" ry="5" fill="url(#skinGrad)" stroke="#DCB090" stroke-width="0.4"/>
+              <!-- LEFT LEG -->
+              <path d="M44,212 C40,224 38,240 38,256 C38,272 42,286 44,300 C46,314 48,328 50,342 C52,354 56,364 60,372 L76,372 C78,366 78,358 76,344 C74,330 74,316 74,302 C74,288 76,274 80,260 C82,246 84,230 84,216 C80,210 74,208 68,210 C64,214 60,218 58,222 C54,226 50,222 44,212Z" fill="url(#skinGrad)" stroke="#DCB090" stroke-width="0.5"/>
+              <!-- RIGHT LEG -->
+              <path d="M156,212 C160,224 162,240 162,256 C162,272 158,286 156,300 C154,314 152,328 150,342 C148,354 144,364 140,372 L124,372 C122,366 122,358 124,344 C126,330 126,316 126,302 C126,288 124,274 120,260 C118,246 116,230 116,216 C120,210 126,208 132,210 C136,214 140,218 142,222 C146,226 150,222 156,212Z" fill="url(#skinGrad)" stroke="#DCB090" stroke-width="0.5"/>
+              <!-- FEET -->
+              <ellipse cx="62" cy="374" rx="16" ry="6" fill="url(#skinGrad)" stroke="#DCB090" stroke-width="0.4"/>
+              <ellipse cx="138" cy="374" rx="16" ry="6" fill="url(#skinGrad)" stroke="#DCB090" stroke-width="0.4"/>
+
+              <!-- ======= ZONE OVERLAYS ======= -->
+              <!-- zone-hombro -->
+              <ellipse class="zone-hombro" cx="60" cy="80" rx="12" ry="8"/>
+              <ellipse class="zone-hombro" cx="140" cy="80" rx="12" ry="8"/>
+              <!-- zone-pecho -->
+              <path class="zone-pecho" d="M72,84 C76,79 90,77 100,77 C110,77 124,79 128,84 C132,93 130,107 122,113 C116,117 108,119 100,119 C92,119 84,117 78,113 C70,107 68,93 72,84Z"/>
+              <!-- zone-espalda (trapezius visible from front) -->
+              <path class="zone-espalda" d="M68,76 C74,72 86,70 100,70 C114,70 126,72 132,76 C126,80 114,82 100,82 C86,82 74,80 68,76Z"/>
+              <!-- zone-biceps -->
+              <path class="zone-biceps" d="M48,92 C46,104 46,118 50,130 C54,135 58,136 62,134 C60,122 58,108 58,96 C56,90 52,90 48,92Z"/>
+              <path class="zone-biceps" d="M152,92 C154,104 154,118 150,130 C146,135 142,136 138,134 C140,122 142,108 142,96 C144,90 148,90 152,92Z"/>
+              <!-- zone-triceps -->
+              <path class="zone-triceps" d="M60,78 C62,82 64,92 64,102 C64,114 62,124 60,132 C58,126 56,118 56,110 C56,100 58,88 60,78Z"/>
+              <path class="zone-triceps" d="M140,78 C138,82 136,92 136,102 C136,114 138,124 140,132 C142,126 144,118 144,110 C144,100 142,88 140,78Z"/>
+              <!-- zone-core -->
+              <path class="zone-core" d="M78,120 C76,133 76,147 80,159 C85,166 94,169 100,169 C106,169 115,166 120,159 C124,147 124,133 122,120 C116,116 108,114 100,114 C92,114 84,116 78,120Z"/>
+              <!-- zone-oblicuos -->
+              <path class="zone-oblicuos" d="M64,112 C60,123 60,137 62,149 C64,157 68,163 74,165 C74,152 72,140 72,128 C72,118 68,110 64,112Z"/>
+              <path class="zone-oblicuos" d="M136,112 C140,123 140,137 138,149 C136,157 132,163 126,165 C126,152 128,140 128,128 C128,118 132,110 136,112Z"/>
+              <!-- zone-gluteo -->
+              <path class="zone-gluteo" d="M54,177 C48,186 44,198 44,210 C52,217 64,221 78,223 L100,225 L122,223 C136,221 148,217 156,210 C156,198 152,186 146,177 C136,184 120,188 100,188 C80,188 64,184 54,177Z"/>
+              <!-- zone-abductores -->
+              <path class="zone-abductores" d="M40,226 C36,240 36,256 38,270 C40,280 46,288 52,290 C52,276 50,262 50,248 C48,238 44,228 40,226Z"/>
+              <path class="zone-abductores" d="M160,226 C164,240 164,256 162,270 C160,280 154,288 148,290 C148,276 150,262 150,248 C152,238 156,228 160,226Z"/>
+              <!-- zone-cuadriceps -->
+              <path class="zone-cuadriceps" d="M52,228 C48,244 46,260 48,276 C50,286 56,294 64,296 C66,282 66,268 66,254 C66,242 66,232 64,226 C60,226 56,226 52,228Z"/>
+              <path class="zone-cuadriceps" d="M148,228 C152,244 154,260 152,276 C150,286 144,294 136,296 C134,282 134,268 134,254 C134,242 134,232 136,226 C140,226 144,226 148,228Z"/>
+              <!-- zone-isquios -->
+              <path class="zone-isquios" d="M78,228 C74,244 74,260 76,276 C78,286 82,292 86,294 C86,280 86,266 86,252 C86,240 84,230 78,228Z"/>
+              <path class="zone-isquios" d="M122,228 C126,244 126,260 124,276 C122,286 118,292 114,294 C114,280 114,266 114,252 C114,240 116,230 122,228Z"/>
+              <!-- zone-gemelos -->
+              <path class="zone-gemelos" d="M48,304 C46,318 46,332 48,344 C50,352 54,358 60,360 C62,348 62,334 62,322 C60,312 56,304 48,304Z"/>
+              <path class="zone-gemelos" d="M152,304 C154,318 154,332 152,344 C150,352 146,358 140,360 C138,348 138,334 138,322 C140,312 144,304 152,304Z"/>
             </svg>
             <div class="muscle-legend">${zonasLegendHtml}</div>
           </div>
@@ -1636,6 +1775,12 @@ function generateShareCard(workout) {
 // INIT
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
+  // Seed Garmin data if today's data not yet stored
+  const storedGarmin = Store.getGarminData();
+  if (!storedGarmin || storedGarmin.fecha !== GARMIN_SEED.fecha) {
+    Store.saveGarminData(GARMIN_SEED);
+  }
+
   // Aplicar tema guardado
   const savedTheme = localStorage.getItem('sol_theme') || 'light';
   document.documentElement.setAttribute('data-theme', savedTheme);

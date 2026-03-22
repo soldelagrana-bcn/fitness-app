@@ -274,6 +274,15 @@ const Store = {
     return { current, best: Math.max(current, best) };
   },
 
+  // ---- GARMIN DATA ----
+  getGarminData() {
+    const d = localStorage.getItem('sol_garmin_data');
+    return d ? JSON.parse(d) : null;
+  },
+  saveGarminData(data) {
+    localStorage.setItem('sol_garmin_data', JSON.stringify(data));
+  },
+
   // ---- MEDIDAS CORPORALES ----
   getMedidas() { return JSON.parse(localStorage.getItem('sol_medidas') || '[]'); },
   saveMedida(fecha, data) {
