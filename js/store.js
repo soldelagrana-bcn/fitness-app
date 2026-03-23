@@ -292,4 +292,54 @@ const Store = {
     else arr.push({ fecha, ...data });
     localStorage.setItem('sol_medidas', JSON.stringify(arr));
   },
+
+  // ---- REGISTRO DE NUTRICIÓN DIARIA ----
+  getNutritionLog(fecha) {
+    const d = localStorage.getItem(`sol_nutlog_${fecha}`);
+    return d ? JSON.parse(d) : { entries: [] };
+  },
+  saveNutritionLog(fecha, log) {
+    localStorage.setItem(`sol_nutlog_${fecha}`, JSON.stringify(log));
+  },
+  addNutritionEntry(fecha, entry) {
+    const log = this.getNutritionLog(fecha);
+    log.entries.push(entry);
+    this.saveNutritionLog(fecha, log);
+  },
+  removeNutritionEntry(fecha, entryId) {
+    const log = this.getNutritionLog(fecha);
+    log.entries = log.entries.filter(e => e.id !== entryId);
+    this.saveNutritionLog(fecha, log);
+  },
+
+  // ---- BASE DE DATOS DE ALIMENTOS PROPIOS ----
+  getFoodsDB() {
+    const d = localStorage.getItem('sol_foods_db');
+    return d ? JSON.parse(d) : [];
+  },
+  saveCustomFood(food) {
+    const db = this.getFoodsDB();
+    const idx = db.findIndex(f => f.id === food.id);
+    if (idx >= 0) db[idx] = food; else db.push(food);
+    localStorage.setItem('sol_foods_db', JSON.stringify(db));
+  },
+  deleteCustomFood(id) {
+    const db = this.getFoodsDB().filter(f => f.id !== id);
+    localStorage.setItem('sol_foods_db', JSON.stringify(db));
+  },
+
+  // ---- ALIMENTOS RECIENTES ----
+  getRecentFoods() {
+    const d = localStorage.getItem('sol_recent_foods');
+    return d ? JSON.parse(d) : [];
+  },
+  addRecentFood(food) {
+    let recent = this.getRecentFoods().filter(f => f.id !== food.id);
+    recent.unshift(food);
+    localStorage.setItem('sol_recent_foods', JSON.stringify(recent.slice(0, 20)));
+  },
+
+  // ---- CLAVE ANTHROPIC ----
+  getAnthropicKey() { return localStorage.getItem('sol_anthropic_key') || ''; },
+  saveAnthropicKey(key) { localStorage.setItem('sol_anthropic_key', key); },
 };

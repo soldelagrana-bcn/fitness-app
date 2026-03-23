@@ -6,6 +6,10 @@ let currentView = 'hoy';
 let activeWorkout = null; // workout en progreso
 let workoutTimer = null;
 let workoutSeconds = 0;
+let nutDate = new Date().toISOString().split('T')[0]; // fecha activa en nutrición
+let nutCurrentMeal = null;
+let nutSelectedFood = null;
+let nutSearchTimeout = null;
 
 // ---- GARMIN DATA (last sync: 2026-03-22 16:12) ----
 const GARMIN_SEED = {
@@ -940,32 +944,81 @@ function renderHistorial() {
 // VISTA: NUTRICIÓN
 // ============================================================
 function renderNutricion() {
-  const today = new Date();
-  const dayOfWeek = today.getDay();
+  const fecha = nutDate;
+  const todayStr = new Date().toISOString().split('T')[0];
+  const dateObj = new Date(fecha + 'T12:00:00');
+  const dayOfWeek = dateObj.getDay();
   const tipoDia = TIPO_DIA_SEMANA[dayOfWeek];
-  const macros = MACROS_POR_DIA[tipoDia];
+  const targets = MACROS_POR_DIA[tipoDia];
 
-  const diasConfig = [
-    { key: 'gym', dias: 'Lun / Jue / Vie' },
-    { key: 'gym_tenis', dias: 'Martes' },
-    { key: 'tenis', dias: 'Sábado' },
-    { key: 'descanso', dias: 'Mié / Dom' },
+  const log = Store.getNutritionLog(fecha);
+  const entries = log.entries || [];
+
+  // Totales del día
+  const totals = entries.reduce((acc, e) => ({
+    kcal:  acc.kcal  + (e.kcal  || 0),
+    prot:  acc.prot  + (e.prot  || 0),
+    carbs: acc.carbs + (e.carbs || 0),
+    fat:   acc.fat   + (e.fat   || 0),
+  }), { kcal: 0, prot: 0, carbs: 0, fat: 0 });
+
+  const isToday = fecha === todayStr;
+  const dateLabel = isToday
+    ? 'Hoy'
+    : dateObj.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+
+  // Anillo de calorías
+  const pctKcal = Math.min(totals.kcal / targets.kcal, 1);
+  const R = 38;
+  const circ = +(2 * Math.PI * R).toFixed(1);
+  const offset = +(circ * (1 - pctKcal)).toFixed(1);
+  const ringColor = totals.kcal > targets.kcal * 1.05 ? 'var(--danger)' : 'var(--primary)';
+
+  // Barra de macros helper
+  const macroBar = (label, val, target, color) => {
+    const pct = Math.min((val / (target || 1)) * 100, 100).toFixed(1);
+    const over = val > target * 1.05;
+    return `
+      <div class="nut-bar-row">
+        <span class="nut-bar-label">${label}</span>
+        <div class="nut-bar-track">
+          <div class="nut-bar-fill" style="width:${pct}%;background:${over ? 'var(--danger)' : color}"></div>
+        </div>
+        <span class="nut-bar-val">${Math.round(val)}<span class="muted">/${target}g</span></span>
+      </div>`;
+  };
+
+  // Secciones de comidas
+  const meals = [
+    { key: 'desayuno', icon: '☀️', nombre: 'Desayuno' },
+    { key: 'almuerzo', icon: '🍽️', nombre: 'Almuerzo' },
+    { key: 'cena',     icon: '🌙', nombre: 'Cena' },
+    { key: 'snacks',   icon: '🍎', nombre: 'Snacks' },
   ];
 
-  const tablaMacros = diasConfig.map(d => {
-    const m = MACROS_POR_DIA[d.key];
-    const isToday = tipoDia === d.key;
+  const mealsHtml = meals.map(meal => {
+    const mealEntries = entries.filter(e => e.meal === meal.key);
+    const mealKcal = mealEntries.reduce((a, e) => a + (e.kcal || 0), 0);
+    const entriesHtml = mealEntries.map(entry => `
+      <div class="nut-entry">
+        <div class="nut-entry-info">
+          <span class="nut-entry-name">${entry.nombre}</span>
+          <span class="nut-entry-qty muted">${entry.qty}${entry.unit} · P:${Math.round(entry.prot)}g C:${Math.round(entry.carbs)}g G:${Math.round(entry.fat)}g</span>
+        </div>
+        <div class="nut-entry-right">
+          <span class="nut-entry-kcal">${Math.round(entry.kcal)}</span>
+          <button class="nut-entry-del" data-action="nut-remove-entry" data-id="${entry.id}" data-fecha="${fecha}">✕</button>
+        </div>
+      </div>`).join('');
     return `
-      <div class="macro-row ${isToday ? 'today-macro' : ''}">
-        <div class="macro-row-left">
-          <span class="macro-tipo">${m.label}</span>
-          <span class="macro-dias muted">${d.dias}</span>
+      <div class="nut-meal-section">
+        <div class="nut-meal-header">
+          <span class="nut-meal-icon">${meal.icon}</span>
+          <span class="nut-meal-nombre">${meal.nombre}</span>
+          <span class="nut-meal-kcal muted">${Math.round(mealKcal)} kcal</span>
+          <button class="nut-add-btn" data-action="nut-add-food" data-meal="${meal.key}">+</button>
         </div>
-        <div class="macro-numbers">
-          <span class="macro-kcal">${m.kcal} kcal</span>
-          <span class="macro-detail">P:${m.proteina}g C:${m.carbos}g G:${m.grasa}g</span>
-        </div>
-        ${isToday ? '<span class="today-tag">Hoy</span>' : ''}
+        ${entriesHtml ? `<div class="nut-entries">${entriesHtml}</div>` : ''}
       </div>`;
   }).join('');
 
@@ -975,86 +1028,59 @@ function renderNutricion() {
         <h2 class="view-title">Nutrición</h2>
       </div>
 
-      <section>
-        <h4 class="section-title">Objetivo de hoy — ${macros.label}</h4>
-        <div class="card macro-today-card">
-          <div class="macro-big-row">
-            <div class="macro-big">
-              <span class="macro-big-val">${macros.kcal}</span>
-              <span class="macro-big-label">kcal</span>
-            </div>
-            <div class="macro-divider"></div>
-            <div class="macro-big">
-              <span class="macro-big-val">${macros.proteina}g</span>
-              <span class="macro-big-label">Proteína</span>
-            </div>
-            <div class="macro-big">
-              <span class="macro-big-val">${macros.carbos}g</span>
-              <span class="macro-big-label">Carbos</span>
-            </div>
-            <div class="macro-big">
-              <span class="macro-big-val">${macros.grasa}g</span>
-              <span class="macro-big-label">Grasas</span>
+      <div class="nut-date-bar">
+        <button class="nut-date-btn" data-action="nut-prev-day">‹</button>
+        <span class="nut-date-label">${dateLabel}</span>
+        <button class="nut-date-btn${isToday ? ' disabled' : ''}" data-action="nut-next-day"${isToday ? ' disabled' : ''}>›</button>
+      </div>
+
+      <div class="card nut-summary-card">
+        <div class="nut-summary-inner">
+          <div class="nut-ring-wrap">
+            <svg viewBox="0 0 100 100" class="nut-ring-svg">
+              <circle cx="50" cy="50" r="${R}" fill="none" stroke="var(--border)" stroke-width="9"/>
+              <circle cx="50" cy="50" r="${R}" fill="none" stroke="${ringColor}" stroke-width="9"
+                stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"
+                transform="rotate(-90 50 50)" style="transition:stroke-dashoffset 0.6s ease"/>
+            </svg>
+            <div class="nut-ring-center">
+              <span class="nut-ring-val">${Math.round(totals.kcal)}</span>
+              <span class="nut-ring-label">/ ${targets.kcal} kcal</span>
+              <span class="nut-ring-sub">${targets.label}</span>
             </div>
           </div>
-          <div class="macro-alert">
-            ⚠️ La proteína (115g) es fija todos los días, no la reduzcas.
+          <div class="nut-macro-bars">
+            ${macroBar('Prot', totals.prot, targets.proteina, 'var(--success)')}
+            ${macroBar('Carbos', totals.carbs, targets.carbos, 'var(--warning)')}
+            ${macroBar('Grasas', totals.fat, targets.grasa, '#8B5CF6')}
           </div>
         </div>
-      </section>
-
-      <section>
-        <h4 class="section-title">Distribución sugerida</h4>
-        <div class="card">
-          ${[
-            { comida: 'Desayuno', kcal: 400, icon: '☀️', nota: 'Dulce — porridge, tortitas proteína, bowl de quark...' },
-            { comida: 'Snack', kcal: 200, icon: '🍎', nota: '' },
-            { comida: 'Almuerzo', kcal: 550, icon: '🍽️', nota: '' },
-            { comida: 'Cena', kcal: 500, icon: '🌙', nota: '' },
-            { comida: 'Margen / extras', kcal: macros.kcal - 1650, icon: '➕', nota: 'Ajustar según actividad del día' },
-          ].map(c => `
-            <div class="meal-row">
-              <span class="meal-icon">${c.icon}</span>
-              <div class="meal-info">
-                <span class="meal-nombre">${c.comida}</span>
-                ${c.nota ? `<span class="meal-nota muted">${c.nota}</span>` : ''}
-              </div>
-              <span class="meal-kcal">~${c.kcal} kcal</span>
-            </div>
-          `).join('')}
+        <div class="nut-remaining-row">
+          <span>Restante</span>
+          <strong style="color:${totals.kcal > targets.kcal ? 'var(--danger)' : 'var(--success)'}">
+            ${totals.kcal > targets.kcal ? '+' : ''}${Math.round(totals.kcal - targets.kcal)} kcal
+          </strong>
         </div>
-      </section>
+      </div>
 
-      <section>
-        <h4 class="section-title">Objetivos por tipo de día</h4>
-        <div class="card">
-          ${tablaMacros}
-        </div>
-      </section>
+      <div class="nut-meals">
+        ${mealsHtml}
+      </div>
 
       <section>
         <h4 class="section-title">Suplementación activa</h4>
         <div class="card">
           <div class="suplement-row">
             <span class="sup-icon">🐟</span>
-            <div>
-              <strong>Omega-3</strong>
-              <p class="muted">2 cápsulas con el desayuno (IFOS certified)</p>
-            </div>
+            <div><strong>Omega-3</strong><p class="muted">2 cápsulas con el desayuno</p></div>
           </div>
           <div class="suplement-row">
             <span class="sup-icon">🧘‍♀️</span>
-            <div>
-              <strong>Magnesio bisglicinato</strong>
-              <p class="muted">1 cápsula antes de dormir</p>
-            </div>
+            <div><strong>Magnesio bisglicinato</strong><p class="muted">1 cápsula antes de dormir</p></div>
           </div>
           <div class="suplement-row pending">
             <span class="sup-icon">☀️</span>
-            <div>
-              <strong>Vitamina D3+K2</strong>
-              <p class="muted">Pendiente de incorporar</p>
-            </div>
+            <div><strong>Vitamina D3+K2</strong><p class="muted">Pendiente de incorporar</p></div>
           </div>
         </div>
       </section>
@@ -1121,6 +1147,22 @@ function renderAjustes() {
             <label class="btn btn-secondary" for="import-file-input">📥 Importar backup</label>
             <input type="file" id="import-file-input" accept=".json" style="display:none">
           </div>
+        </div>
+      </section>
+
+      <section>
+        <h4 class="section-title">Inteligencia artificial</h4>
+        <div class="card">
+          <p class="muted" style="font-size:13px;margin-bottom:10px">Tu clave de Anthropic se usa solo en tu dispositivo para calcular macros de recetas caseras en el log de nutrición.</p>
+          <label style="font-size:12px;font-weight:700;color:var(--text-mid);display:block;margin-bottom:6px">Clave API Anthropic</label>
+          <div style="display:flex;gap:8px">
+            <input type="password" id="anthropic-key-input" class="medida-input"
+              style="font-size:13px;font-weight:400;font-family:monospace;flex:1"
+              value="${Store.getAnthropicKey()}"
+              placeholder="sk-ant-api03-...">
+            <button class="btn btn-primary" style="flex-shrink:0;padding:0 14px" data-action="save-anthropic-key">Guardar</button>
+          </div>
+          ${Store.getAnthropicKey() ? '<p style="font-size:11px;color:var(--success);margin-top:6px">✓ Clave configurada</p>' : ''}
         </div>
       </section>
 
@@ -1598,6 +1640,44 @@ function handleAction(action, dataset, e) {
       }
       break;
     }
+
+    case 'nut-prev-day': {
+      const d = new Date(nutDate + 'T12:00:00');
+      d.setDate(d.getDate() - 1);
+      nutDate = d.toISOString().split('T')[0];
+      navigate('nutricion');
+      break;
+    }
+
+    case 'nut-next-day': {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const d = new Date(nutDate + 'T12:00:00');
+      d.setDate(d.getDate() + 1);
+      const next = d.toISOString().split('T')[0];
+      if (next <= todayStr) { nutDate = next; navigate('nutricion'); }
+      break;
+    }
+
+    case 'nut-add-food': {
+      openAddFoodModal(dataset.meal);
+      break;
+    }
+
+    case 'nut-remove-entry': {
+      Store.removeNutritionEntry(dataset.fecha, dataset.id);
+      navigate('nutricion');
+      break;
+    }
+
+    case 'save-anthropic-key': {
+      const input = document.getElementById('anthropic-key-input');
+      if (input) {
+        Store.saveAnthropicKey(input.value.trim());
+        showToast('Clave guardada ✓');
+        navigate('ajustes');
+      }
+      break;
+    }
   }
 }
 
@@ -1806,6 +1886,442 @@ function generateShareCard(workout) {
   link.download = `sol-fitness-${workout.fecha}.png`;
   link.href = canvas.toDataURL('image/png');
   link.click();
+}
+
+// ============================================================
+// NUTRITION — MODAL DE AÑADIR ALIMENTO
+// ============================================================
+
+function openAddFoodModal(meal) {
+  nutCurrentMeal = meal;
+  nutSelectedFood = null;
+  const mealNames = { desayuno: 'Desayuno', almuerzo: 'Almuerzo', cena: 'Cena', snacks: 'Snacks' };
+
+  const recent = Store.getRecentFoods().slice(0, 6);
+  const custom = Store.getFoodsDB();
+
+  const buildFoodRow = (f) => {
+    const safeData = JSON.stringify(f).replace(/'/g, '&#39;');
+    return `
+      <button class="nut-food-row" data-food='${safeData}' data-action="nut-select-food">
+        <div class="nut-food-info">
+          <span class="nut-food-name">${f.nombre}${f.source === 'custom' ? ' <span class="nut-custom-badge">propio</span>' : ''}</span>
+          <span class="nut-food-meta">${f.kcal100} kcal/100g · P:${f.prot100}g C:${f.carbs100}g G:${f.fat100}g</span>
+        </div>
+        <span class="nut-food-kcal-badge">${f.kcal100}</span>
+      </button>`;
+  };
+
+  const recentHtml = recent.length
+    ? `<div class="nut-modal-section-title">Recientes</div>${recent.map(buildFoodRow).join('')}`
+    : '';
+  const customHtml = custom.length
+    ? `<div class="nut-modal-section-title">Mis alimentos</div>${custom.map(buildFoodRow).join('')}`
+    : '';
+  const emptyHint = !recentHtml && !customHtml
+    ? '<p class="nut-empty-hint muted">Busca un alimento o escanea el código de barras</p>'
+    : '';
+
+  const modal = document.createElement('div');
+  modal.id = 'nut-add-modal';
+  modal.className = 'nut-modal-overlay';
+  modal.innerHTML = `
+    <div class="nut-modal">
+      <div class="nut-modal-header">
+        <span>Añadir a ${mealNames[meal]}</span>
+        <button class="modal-close" data-action="nut-close-modal">✕</button>
+      </div>
+      <div class="nut-modal-search-bar">
+        <input type="text" id="nut-search-input" class="nut-search-input" placeholder="Buscar alimento..." autocomplete="off">
+        <button class="nut-barcode-btn" id="nut-barcode-btn" title="Escanear código de barras">📷</button>
+      </div>
+      <div id="nut-search-results" class="nut-search-results">
+        ${recentHtml}${customHtml}${emptyHint}
+      </div>
+      <button class="nut-create-btn" data-action="nut-open-custom">+ Crear alimento propio</button>
+    </div>`;
+  document.body.appendChild(modal);
+  requestAnimationFrame(() => modal.classList.add('visible'));
+
+  // Event handlers
+  modal.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('[data-action]');
+    if (!btn) return;
+    if (btn.dataset.action === 'nut-close-modal') { closeNutModal(); return; }
+    if (btn.dataset.action === 'nut-open-custom') { openCustomFoodModal(); return; }
+    if (btn.dataset.action === 'nut-select-food') {
+      try { nutSelectedFood = JSON.parse(btn.dataset.food); } catch { return; }
+      openPortionModal(nutSelectedFood);
+    }
+  });
+
+  const searchInput = modal.querySelector('#nut-search-input');
+  searchInput.addEventListener('input', (ev) => {
+    clearTimeout(nutSearchTimeout);
+    const q = ev.target.value.trim();
+    const resultsEl = document.getElementById('nut-search-results');
+    if (q.length < 2) {
+      if (resultsEl) resultsEl.innerHTML = recentHtml + customHtml + emptyHint;
+      return;
+    }
+    nutSearchTimeout = setTimeout(() => doFoodSearch(q), 500);
+  });
+
+  modal.querySelector('#nut-barcode-btn').addEventListener('click', openBarcodeScanner);
+  setTimeout(() => searchInput.focus(), 300);
+}
+
+function closeNutModal() {
+  ['nut-add-modal', 'nut-portion-modal', 'nut-custom-modal'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.classList.remove('visible'); setTimeout(() => el.remove(), 300); }
+  });
+}
+
+async function doFoodSearch(query) {
+  const resultsEl = document.getElementById('nut-search-results');
+  if (!resultsEl) return;
+  resultsEl.innerHTML = '<div class="nut-loading">Buscando...</div>';
+
+  const custom = Store.getFoodsDB().filter(f => f.nombre.toLowerCase().includes(query.toLowerCase()));
+
+  const buildRow = (f) => {
+    const safeData = JSON.stringify(f).replace(/'/g, '&#39;');
+    return `<button class="nut-food-row" data-food='${safeData}' data-action="nut-select-food">
+      <div class="nut-food-info">
+        <span class="nut-food-name">${f.nombre}${f.source === 'custom' ? ' <span class="nut-custom-badge">propio</span>' : ''}</span>
+        <span class="nut-food-meta">${f.kcal100} kcal/100g · P:${f.prot100}g C:${f.carbs100}g G:${f.fat100}g</span>
+      </div>
+      <span class="nut-food-kcal-badge">${f.kcal100}</span>
+    </button>`;
+  };
+
+  const customHtml = custom.map(buildRow).join('');
+
+  try {
+    const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&search_simple=1&action=process&page_size=15&fields=product_name,brands,nutriments,code&lc=es`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+    const products = (data.products || []).filter(p => p.product_name && p.nutriments);
+
+    const offHtml = products.map(p => {
+      const n = p.nutriments;
+      const kcal = Math.round(n['energy-kcal_100g'] || n['energy-kcal'] || 0);
+      if (!kcal) return '';
+      const food = {
+        id: 'off_' + (p.code || Date.now()),
+        nombre: p.product_name + (p.brands ? ` — ${p.brands}` : ''),
+        kcal100: kcal,
+        prot100:  Math.round((n.proteins_100g        || 0) * 10) / 10,
+        carbs100: Math.round((n.carbohydrates_100g   || 0) * 10) / 10,
+        fat100:   Math.round((n.fat_100g             || 0) * 10) / 10,
+        source: 'off'
+      };
+      return buildRow(food);
+    }).join('');
+
+    if (!offHtml && !customHtml) {
+      resultsEl.innerHTML = '<p class="nut-empty-hint muted">Sin resultados. Prueba con otro nombre.</p>';
+    } else {
+      resultsEl.innerHTML = (customHtml ? `<div class="nut-modal-section-title">Mis alimentos</div>${customHtml}` : '')
+        + (offHtml ? `<div class="nut-modal-section-title">Open Food Facts</div>${offHtml}` : '');
+    }
+  } catch {
+    resultsEl.innerHTML = customHtml
+      ? `<div class="nut-modal-section-title">Mis alimentos</div>${customHtml}`
+      : '<p class="nut-empty-hint muted">Error de red. Comprueba tu conexión.</p>';
+  }
+}
+
+function openPortionModal(food) {
+  const existing = document.getElementById('nut-portion-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'nut-portion-modal';
+  modal.className = 'nut-portion-modal';
+  modal.innerHTML = `
+    <div class="nut-portion-header">
+      <span class="nut-portion-title">${food.nombre}</span>
+      <button class="modal-close" onclick="document.getElementById('nut-portion-modal').remove()">✕</button>
+    </div>
+    <div class="nut-portion-body">
+      <div class="nut-portion-qty-row">
+        <button class="nut-qty-btn" onclick="adjustQty(-10)">−</button>
+        <input type="number" id="nut-qty-input" class="nut-qty-input" value="100" min="1" max="9999">
+        <button class="nut-qty-btn" onclick="adjustQty(10)">+</button>
+        <select id="nut-unit-select" class="nut-unit-select">
+          <option value="g">g</option>
+          <option value="ml">ml</option>
+          <option value="uds">uds</option>
+        </select>
+      </div>
+      <div class="nut-portion-preview" id="nut-portion-preview">
+        ${calcPortionPreview(food, 100)}
+      </div>
+      <button class="btn btn-primary nut-confirm-btn" onclick="confirmAddFood()">Añadir a ${nutCurrentMeal}</button>
+    </div>`;
+  document.body.appendChild(modal);
+  requestAnimationFrame(() => modal.classList.add('visible'));
+
+  modal.querySelector('#nut-qty-input').addEventListener('input', (ev) => {
+    const qty = parseFloat(ev.target.value) || 0;
+    const preview = document.getElementById('nut-portion-preview');
+    if (preview) preview.innerHTML = calcPortionPreview(food, qty);
+  });
+}
+
+function calcPortionPreview(food, qty) {
+  const f = qty / 100;
+  const kcal  = Math.round((food.kcal100  || 0) * f);
+  const prot  = Math.round((food.prot100  || 0) * f * 10) / 10;
+  const carbs = Math.round((food.carbs100 || 0) * f * 10) / 10;
+  const fat   = Math.round((food.fat100   || 0) * f * 10) / 10;
+  return `
+    <div class="nut-preview-row">
+      <span class="nut-preview-big">${kcal}<small> kcal</small></span>
+      <span>P <strong>${prot}g</strong></span>
+      <span>C <strong>${carbs}g</strong></span>
+      <span>G <strong>${fat}g</strong></span>
+    </div>`;
+}
+
+function adjustQty(delta) {
+  const input = document.getElementById('nut-qty-input');
+  if (!input) return;
+  input.value = Math.max(1, (parseFloat(input.value) || 0) + delta);
+  if (nutSelectedFood) {
+    const preview = document.getElementById('nut-portion-preview');
+    if (preview) preview.innerHTML = calcPortionPreview(nutSelectedFood, parseFloat(input.value));
+  }
+}
+
+function confirmAddFood() {
+  if (!nutSelectedFood || !nutCurrentMeal) return;
+  const qty  = parseFloat(document.getElementById('nut-qty-input')?.value) || 100;
+  const unit = document.getElementById('nut-unit-select')?.value || 'g';
+  const f = qty / 100;
+
+  const entry = {
+    id: 'e_' + Date.now(),
+    meal: nutCurrentMeal,
+    nombre: nutSelectedFood.nombre,
+    qty, unit,
+    kcal:  Math.round((nutSelectedFood.kcal100  || 0) * f),
+    prot:  Math.round((nutSelectedFood.prot100  || 0) * f * 10) / 10,
+    carbs: Math.round((nutSelectedFood.carbs100 || 0) * f * 10) / 10,
+    fat:   Math.round((nutSelectedFood.fat100   || 0) * f * 10) / 10,
+    food_id: nutSelectedFood.id,
+    source: nutSelectedFood.source || 'manual'
+  };
+
+  Store.addNutritionEntry(nutDate, entry);
+  Store.addRecentFood(nutSelectedFood);
+  closeNutModal();
+  navigate('nutricion');
+  showToast(`${nutSelectedFood.nombre} añadido ✓`);
+}
+
+// ============================================================
+// NUTRITION — ESCÁNER DE CÓDIGO DE BARRAS
+// ============================================================
+
+async function openBarcodeScanner() {
+  if (!('BarcodeDetector' in window)) {
+    showToast('Escáner no disponible en este navegador', 'error');
+    return;
+  }
+  const overlay = document.createElement('div');
+  overlay.id = 'barcode-overlay';
+  overlay.className = 'barcode-overlay';
+  overlay.innerHTML = `
+    <div class="barcode-ui">
+      <button class="barcode-close" onclick="closeBarcodeScanner()">✕ Cerrar</button>
+      <video id="barcode-video" class="barcode-video" autoplay playsinline muted></video>
+      <div class="barcode-frame"></div>
+      <p class="barcode-hint">Apunta al código de barras</p>
+    </div>`;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('visible'));
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const video = document.getElementById('barcode-video');
+    video.srcObject = stream;
+    overlay._stream = stream;
+    await video.play();
+
+    const detector = new BarcodeDetector({ formats: ['ean_8', 'ean_13', 'code_128', 'upc_a'] });
+    let scanning = true;
+    const scan = async () => {
+      if (!scanning || !document.getElementById('barcode-overlay')) return;
+      try {
+        const codes = await detector.detect(video);
+        if (codes.length) {
+          scanning = false;
+          navigator.vibrate && navigator.vibrate(100);
+          closeBarcodeScanner();
+          await fetchProductByBarcode(codes[0].rawValue);
+        } else { requestAnimationFrame(scan); }
+      } catch { requestAnimationFrame(scan); }
+    };
+    requestAnimationFrame(scan);
+  } catch {
+    showToast('No se pudo acceder a la cámara', 'error');
+    overlay.remove();
+  }
+}
+
+function closeBarcodeScanner() {
+  const overlay = document.getElementById('barcode-overlay');
+  if (overlay) {
+    if (overlay._stream) overlay._stream.getTracks().forEach(t => t.stop());
+    overlay.classList.remove('visible');
+    setTimeout(() => overlay.remove(), 300);
+  }
+}
+
+async function fetchProductByBarcode(code) {
+  showToast('Buscando producto...', 'info');
+  try {
+    const resp = await fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json?fields=product_name,brands,nutriments`);
+    const data = await resp.json();
+    if (data.status !== 1 || !data.product) { showToast('Producto no encontrado', 'error'); return; }
+    const p = data.product;
+    const n = p.nutriments;
+    nutSelectedFood = {
+      id: 'off_' + code,
+      nombre: p.product_name + (p.brands ? ` — ${p.brands}` : ''),
+      kcal100:  Math.round(n['energy-kcal_100g'] || n['energy-kcal'] || 0),
+      prot100:  Math.round((n.proteins_100g        || 0) * 10) / 10,
+      carbs100: Math.round((n.carbohydrates_100g   || 0) * 10) / 10,
+      fat100:   Math.round((n.fat_100g             || 0) * 10) / 10,
+      source: 'off'
+    };
+    openPortionModal(nutSelectedFood);
+  } catch { showToast('Error al buscar producto', 'error'); }
+}
+
+// ============================================================
+// NUTRITION — CREAR ALIMENTO PROPIO
+// ============================================================
+
+function openCustomFoodModal() {
+  const existing = document.getElementById('nut-custom-modal');
+  if (existing) existing.remove();
+
+  const hasKey = !!Store.getAnthropicKey();
+  const modal = document.createElement('div');
+  modal.id = 'nut-custom-modal';
+  modal.className = 'nut-modal-overlay';
+  modal.innerHTML = `
+    <div class="nut-modal nut-custom-modal-inner">
+      <div class="nut-modal-header">
+        <span>Crear alimento propio</span>
+        <button class="modal-close" onclick="document.getElementById('nut-custom-modal').remove()">✕</button>
+      </div>
+      <div class="nut-custom-body">
+        <div class="form-group" style="margin-bottom:12px">
+          <label class="form-label">Nombre del alimento</label>
+          <input type="text" id="cf-nombre" class="form-input" placeholder="Ej: Carrot cake proteico">
+        </div>
+        <p class="muted" style="font-size:12px;margin-bottom:8px">Valores por 100g / 100ml</p>
+        <div class="nut-macro-inputs">
+          <div class="form-group">
+            <label class="form-label">Calorías</label>
+            <input type="number" id="cf-kcal" class="form-input" placeholder="kcal" min="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Proteína (g)</label>
+            <input type="number" id="cf-prot" class="form-input" placeholder="g" min="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Carbos (g)</label>
+            <input type="number" id="cf-carbs" class="form-input" placeholder="g" min="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Grasas (g)</label>
+            <input type="number" id="cf-fat" class="form-input" placeholder="g" min="0">
+          </div>
+        </div>
+        ${hasKey ? `
+          <div class="nut-claude-section">
+            <p class="nut-claude-title">✨ Calcular con Claude</p>
+            <p class="muted" style="font-size:12px;margin-bottom:8px">Describe los ingredientes y Claude calculará los macros por 100g del resultado final.</p>
+            <textarea id="cf-claude-desc" class="import-textarea" style="min-height:80px;font-family:inherit" placeholder="Ej: 200g harina de avena, 3 huevos, 2 zanahorias, 50g proteína whey vainilla, 100ml leche, canela, levadura — receta para 8 porciones"></textarea>
+            <button class="btn btn-secondary" id="cf-claude-btn" onclick="calcWithClaude()">✨ Calcular macros</button>
+          </div>` : `
+          <p class="muted" style="font-size:12px;margin-top:12px">💡 Configura tu clave de Anthropic en <strong>Ajustes → IA</strong> para calcular macros automáticamente.</p>`}
+        <button class="btn btn-primary" style="margin-top:16px;width:100%" onclick="saveCustomFoodFromModal()">Guardar alimento</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  requestAnimationFrame(() => modal.classList.add('visible'));
+}
+
+async function calcWithClaude() {
+  const desc = document.getElementById('cf-claude-desc')?.value.trim();
+  if (!desc) { showToast('Describe la receta primero', 'error'); return; }
+  const key = Store.getAnthropicKey();
+  if (!key) { showToast('Falta la clave de Anthropic en Ajustes', 'error'); return; }
+
+  const btn = document.getElementById('cf-claude-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Calculando...'; }
+
+  try {
+    const prompt = `Eres nutricionista experto. Calcula los macronutrientes por 100g del producto FINAL a partir de esta receta casera:\n\n${desc}\n\nResponde SOLO con JSON válido sin texto adicional:\n{"kcal":0,"prot":0,"carbs":0,"fat":0}`;
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    const macros = JSON.parse(data.content[0].text.trim());
+    if (document.getElementById('cf-kcal'))  document.getElementById('cf-kcal').value  = macros.kcal  || '';
+    if (document.getElementById('cf-prot'))  document.getElementById('cf-prot').value  = macros.prot  || '';
+    if (document.getElementById('cf-carbs')) document.getElementById('cf-carbs').value = macros.carbs || '';
+    if (document.getElementById('cf-fat'))   document.getElementById('cf-fat').value   = macros.fat   || '';
+    showToast('Macros calculados ✓');
+  } catch (err) {
+    showToast('Error: ' + (err.message || 'intenta de nuevo'), 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✨ Calcular macros'; }
+  }
+}
+
+function saveCustomFoodFromModal() {
+  const nombre = document.getElementById('cf-nombre')?.value.trim();
+  const kcal   = parseFloat(document.getElementById('cf-kcal')?.value);
+  const prot   = parseFloat(document.getElementById('cf-prot')?.value);
+  const carbs  = parseFloat(document.getElementById('cf-carbs')?.value);
+  const fat    = parseFloat(document.getElementById('cf-fat')?.value);
+
+  if (!nombre || isNaN(kcal)) { showToast('Nombre y calorías son obligatorios', 'error'); return; }
+
+  const food = {
+    id: 'custom_' + Date.now(),
+    nombre, kcal100: kcal,
+    prot100:  isNaN(prot)  ? 0 : prot,
+    carbs100: isNaN(carbs) ? 0 : carbs,
+    fat100:   isNaN(fat)   ? 0 : fat,
+    source: 'custom',
+    created: new Date().toISOString()
+  };
+  Store.saveCustomFood(food);
+  document.getElementById('nut-custom-modal')?.remove();
+  nutSelectedFood = food;
+  openPortionModal(food);
+  showToast(`${nombre} guardado ✓`);
 }
 
 // ============================================================

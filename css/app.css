@@ -1489,3 +1489,238 @@ section { margin-bottom: 22px; }
   font-weight: 700;
 }
 .medida-input:focus { outline: none; border-color: var(--primary); }
+
+/* ============================================================
+   NUTRICIÓN — LOG DIARIO (MFP-style)
+   ============================================================ */
+
+/* ---- Date bar ---- */
+.nut-date-bar {
+  display: flex; align-items: center; justify-content: center;
+  gap: 16px; margin: 0 16px 12px;
+}
+.nut-date-btn {
+  background: var(--bg2); border: 1.5px solid var(--border);
+  border-radius: 10px; width: 36px; height: 36px;
+  font-size: 24px; line-height: 1; color: var(--text);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+}
+.nut-date-btn.disabled, .nut-date-btn:disabled { opacity: 0.3; cursor: default; }
+.nut-date-label {
+  font-size: 16px; font-weight: 700;
+  min-width: 160px; text-align: center;
+}
+
+/* ---- Summary card ---- */
+.nut-summary-card { margin: 0 16px 12px; }
+.nut-summary-inner { display: flex; gap: 16px; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+
+/* Calorie ring */
+.nut-ring-wrap { position: relative; width: 104px; height: 104px; flex-shrink: 0; }
+.nut-ring-svg { width: 100%; height: 100%; }
+.nut-ring-center {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%); text-align: center; line-height: 1.2;
+  pointer-events: none;
+}
+.nut-ring-val   { display: block; font-size: 21px; font-weight: 800; }
+.nut-ring-label { display: block; font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+.nut-ring-sub   { display: block; font-size: 10px; color: var(--text-muted); }
+
+/* Macro bars */
+.nut-macro-bars { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.nut-bar-row    { display: flex; align-items: center; gap: 6px; }
+.nut-bar-label  { font-size: 11px; font-weight: 700; width: 38px; flex-shrink: 0; color: var(--text-mid); }
+.nut-bar-track  { flex: 1; height: 7px; background: var(--border); border-radius: 4px; overflow: hidden; }
+.nut-bar-fill   { height: 100%; border-radius: 4px; transition: width 0.4s ease; min-width: 2px; }
+.nut-bar-val    { font-size: 11px; font-weight: 600; min-width: 58px; text-align: right; }
+
+.nut-remaining-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding-top: 10px; font-size: 13px; font-weight: 600;
+}
+
+/* ---- Meal sections ---- */
+.nut-meals { padding: 0 16px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.nut-meal-section {
+  background: var(--bg2); border-radius: var(--radius);
+  border: 1.5px solid var(--border); overflow: hidden;
+}
+.nut-meal-header {
+  display: flex; align-items: center; gap: 8px; padding: 11px 14px;
+}
+.nut-meal-icon   { font-size: 18px; flex-shrink: 0; }
+.nut-meal-nombre { font-size: 14px; font-weight: 700; flex: 1; }
+.nut-meal-kcal   { font-size: 12px; }
+.nut-add-btn {
+  background: var(--primary); color: #fff; border: none; border-radius: 50%;
+  width: 26px; height: 26px; font-size: 20px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+.nut-add-btn:active { opacity: 0.75; }
+
+/* Food entries */
+.nut-entries { border-top: 1.5px solid var(--border); }
+.nut-entry {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 14px; border-bottom: 1px solid var(--border); gap: 8px;
+}
+.nut-entry:last-child { border-bottom: none; }
+.nut-entry-info  { flex: 1; min-width: 0; }
+.nut-entry-name  { font-size: 13px; font-weight: 500; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nut-entry-qty   { font-size: 11px; display: block; }
+.nut-entry-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.nut-entry-kcal  { font-size: 14px; font-weight: 700; color: var(--primary); }
+.nut-entry-del   { background: none; border: none; color: var(--text-muted); font-size: 12px; cursor: pointer; padding: 3px 5px; border-radius: 4px; }
+.nut-entry-del:hover { background: var(--bg3); color: var(--danger); }
+
+/* ============================================================
+   MODALES DE NUTRICIÓN
+   ============================================================ */
+
+/* Slide-up overlay */
+.nut-modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  z-index: 200; display: flex; align-items: flex-end;
+  opacity: 0; transition: opacity 0.25s; pointer-events: none;
+}
+.nut-modal-overlay.visible { opacity: 1; pointer-events: all; }
+.nut-modal {
+  background: var(--bg2); border-radius: 20px 20px 0 0; width: 100%;
+  max-height: 82vh; display: flex; flex-direction: column;
+  transform: translateY(100%); transition: transform 0.3s ease; overflow: hidden;
+}
+.nut-modal-overlay.visible .nut-modal { transform: translateY(0); }
+
+.nut-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 16px 12px; font-weight: 700; font-size: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.nut-modal-search-bar {
+  display: flex; gap: 8px; padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.nut-search-input {
+  flex: 1; background: var(--bg3); border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); padding: 9px 13px; font-size: 15px;
+  color: var(--text); outline: none; font-family: inherit;
+}
+.nut-search-input:focus { border-color: var(--primary); }
+.nut-barcode-btn {
+  background: var(--bg3); border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); padding: 0 12px; font-size: 20px; cursor: pointer;
+}
+.nut-search-results { flex: 1; overflow-y: auto; padding: 4px 0; }
+.nut-modal-section-title {
+  font-size: 10px; font-weight: 800; text-transform: uppercase;
+  color: var(--text-muted); padding: 8px 16px 4px; letter-spacing: 0.5px;
+}
+.nut-food-row {
+  display: flex; align-items: center; width: 100%; background: none; border: none;
+  padding: 10px 16px; cursor: pointer; text-align: left; gap: 8px;
+  transition: background 0.12s; color: var(--text);
+}
+.nut-food-row:active { background: var(--bg3); }
+.nut-food-info  { flex: 1; min-width: 0; }
+.nut-food-name  { display: block; font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nut-food-meta  { display: block; font-size: 11px; color: var(--text-muted); }
+.nut-food-kcal-badge { font-size: 13px; font-weight: 700; color: var(--primary); flex-shrink: 0; }
+.nut-custom-badge {
+  font-size: 9px; background: var(--primary); color: #fff;
+  padding: 1px 5px; border-radius: 4px; margin-left: 4px; vertical-align: middle;
+}
+.nut-loading    { padding: 24px; text-align: center; color: var(--text-muted); font-size: 14px; }
+.nut-empty-hint { padding: 24px; text-align: center; font-size: 13px; }
+.nut-create-btn {
+  margin: 8px 14px 14px; padding: 12px; background: none;
+  border: 1.5px dashed var(--border); border-radius: var(--radius-sm);
+  color: var(--primary); font-size: 14px; font-weight: 700; cursor: pointer;
+  width: calc(100% - 28px); text-align: center;
+}
+
+/* ---- Portion modal (above add-food modal) ---- */
+.nut-portion-modal {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--bg2); border-radius: 20px 20px 0 0;
+  z-index: 300; padding: 18px 16px 28px;
+  transform: translateY(100%); transition: transform 0.3s ease;
+  box-shadow: 0 -8px 40px rgba(0,0,0,0.25);
+}
+.nut-portion-modal.visible { transform: translateY(0); }
+.nut-portion-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
+}
+.nut-portion-title {
+  font-size: 16px; font-weight: 700; flex: 1; margin-right: 8px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.nut-portion-body { display: flex; flex-direction: column; gap: 14px; }
+.nut-portion-qty-row { display: flex; align-items: center; gap: 8px; }
+.nut-qty-btn {
+  background: var(--bg3); border: 1.5px solid var(--border); border-radius: 10px;
+  width: 44px; height: 44px; font-size: 24px; color: var(--text); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.nut-qty-input {
+  flex: 1; background: var(--bg3); border: 1.5px solid var(--border);
+  border-radius: 10px; padding: 8px; font-size: 24px; font-weight: 800;
+  text-align: center; color: var(--text); outline: none; min-width: 0;
+}
+.nut-qty-input:focus { border-color: var(--primary); }
+.nut-unit-select {
+  background: var(--bg3); border: 1.5px solid var(--border);
+  border-radius: 10px; padding: 8px 10px; font-size: 15px;
+  color: var(--text); outline: none; flex-shrink: 0;
+}
+.nut-portion-preview {
+  background: var(--bg3); border-radius: var(--radius-sm); padding: 14px;
+}
+.nut-preview-row {
+  display: flex; align-items: baseline; justify-content: space-around;
+  gap: 8px; font-size: 14px;
+}
+.nut-preview-big { font-size: 28px; font-weight: 800; color: var(--primary); }
+.nut-preview-big small { font-size: 14px; font-weight: 400; color: var(--text-muted); }
+.nut-confirm-btn { width: 100%; }
+
+/* ---- Barcode scanner overlay ---- */
+.barcode-overlay {
+  position: fixed; inset: 0; background: #000; z-index: 400;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 0.25s; pointer-events: none;
+}
+.barcode-overlay.visible { opacity: 1; pointer-events: all; }
+.barcode-ui { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.barcode-close {
+  position: absolute; top: 24px; right: 16px;
+  background: rgba(255,255,255,0.15); border: none; border-radius: 20px;
+  color: #fff; padding: 9px 18px; font-size: 15px; cursor: pointer;
+}
+.barcode-video { width: 100%; max-height: 60vh; object-fit: cover; }
+.barcode-frame {
+  position: absolute; width: 240px; height: 110px;
+  border: 3px solid var(--primary); border-radius: 10px;
+  box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
+}
+.barcode-hint { position: absolute; bottom: 60px; color: #fff; font-size: 15px; font-weight: 600; }
+
+/* ---- Custom food modal ---- */
+.nut-custom-modal-inner { max-height: 92vh; }
+.nut-custom-body { padding: 16px; overflow-y: auto; flex: 1; }
+.nut-macro-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.form-input {
+  background: var(--bg3); border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  padding: 9px 12px; font-size: 14px; color: var(--text); outline: none;
+  width: 100%; box-sizing: border-box; font-family: inherit;
+}
+.form-input:focus { border-color: var(--primary); }
+.nut-claude-section {
+  background: linear-gradient(135deg, var(--primary-dim), transparent);
+  border: 1.5px solid var(--primary-dim); border-radius: var(--radius-sm); padding: 14px;
+}
+.nut-claude-title { font-weight: 800; font-size: 14px; color: var(--primary); margin-bottom: 6px; }
