@@ -710,109 +710,100 @@ function renderProgreso() {
         <h4 class="section-title">Zonas trabajadas esta semana</h4>
         <div class="card">
           <div class="muscle-map">
-            <svg viewBox="0 0 160 395" class="body-svg" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 100 250" class="body-svg" xmlns="http://www.w3.org/2000/svg">
               <defs>
-                <linearGradient id="bodyGrad" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stop-color="#D99060"/>
-                  <stop offset="50%" stop-color="#F0B080"/>
-                  <stop offset="100%" stop-color="#D99060"/>
+                <linearGradient id="sg" x1="0.3" y1="0" x2="0.7" y2="1">
+                  <stop offset="0%" stop-color="#DDA070"/>
+                  <stop offset="100%" stop-color="#C07848"/>
                 </linearGradient>
-                <linearGradient id="hairG" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="#8C4E20"/>
-                  <stop offset="100%" stop-color="#3E1E08"/>
+                <linearGradient id="hg" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#7A3A14"/>
+                  <stop offset="100%" stop-color="#3C1A06"/>
                 </linearGradient>
+                <!-- Full-body clip path: all parts union together seamlessly -->
+                <clipPath id="bc">
+                  <ellipse cx="50" cy="14" rx="12" ry="13"/>
+                  <path d="M44,24 C38,24 26,28 20,36 C14,44 14,58 16,72 C18,84 23,92 27,100 C23,108 21,118 23,128 C27,140 39,147 50,149 C61,147 73,140 77,128 C79,118 77,108 73,100 C77,92 82,84 84,72 C86,58 86,44 80,36 C74,28 62,24 56,24 Z"/>
+                  <path d="M8,40 C6,54 5,68 7,82 C9,92 13,98 17,98 L25,96 C23,82 22,66 23,52 C24,42 20,36 8,40 Z"/>
+                  <path d="M7,98 C5,112 5,126 7,136 L17,136 C17,124 17,110 17,98 Z"/>
+                  <ellipse cx="11" cy="140" rx="7" ry="5"/>
+                  <path d="M92,40 C94,54 95,68 93,82 C91,92 87,98 83,98 L75,96 C77,82 78,66 77,52 C76,42 80,36 92,40 Z"/>
+                  <path d="M93,98 C95,112 95,126 93,136 L83,136 C83,124 83,110 83,98 Z"/>
+                  <ellipse cx="89" cy="140" rx="7" ry="5"/>
+                  <path d="M22,128 C18,142 17,158 18,172 C19,184 24,192 30,194 L40,194 C44,186 44,170 43,156 C42,142 38,130 30,126 Z"/>
+                  <path d="M78,128 C82,142 83,158 82,172 C81,184 76,192 70,194 L60,194 C56,186 56,170 57,156 C58,142 62,130 70,126 Z"/>
+                  <path d="M18,194 C15,208 15,222 18,232 L32,232 C34,222 34,208 30,194 Z"/>
+                  <path d="M82,194 C85,208 85,222 82,232 L68,232 C66,222 66,208 70,194 Z"/>
+                  <path d="M16,232 C14,237 15,242 20,244 L36,244 C40,242 40,237 36,232 Z"/>
+                  <path d="M84,232 C86,237 85,242 80,244 L64,244 C60,242 60,237 64,232 Z"/>
+                </clipPath>
               </defs>
 
-              <!-- ═══ HAIR ═══ -->
-              <ellipse cx="80" cy="16" rx="17" ry="20" fill="url(#hairG)"/>
-              <path d="M63,13 C61,26 61,40 63,54" fill="none" stroke="#3E1E08" stroke-width="4" stroke-linecap="round"/>
-              <path d="M97,13 C99,26 99,40 97,54" fill="none" stroke="#3E1E08" stroke-width="4" stroke-linecap="round"/>
-              <!-- ═══ HEAD ═══ -->
-              <ellipse cx="80" cy="20" rx="14" ry="17" fill="url(#bodyGrad)"/>
-              <path d="M73,16 Q77,13 81,16" stroke="#5A2E0A" stroke-width="1.3" fill="none" stroke-linecap="round"/>
-              <path d="M79,16 Q83,13 87,16" stroke="#5A2E0A" stroke-width="1.3" fill="none" stroke-linecap="round"/>
-              <ellipse cx="74.5" cy="21" rx="2.4" ry="2.2" fill="#1A0E00"/>
-              <ellipse cx="85.5" cy="21" rx="2.4" ry="2.2" fill="#1A0E00"/>
-              <circle cx="75.6" cy="19.6" r="0.9" fill="white" opacity="0.8"/>
-              <circle cx="86.6" cy="19.6" r="0.9" fill="white" opacity="0.8"/>
-              <path d="M75.5,30 Q80,34 84.5,30" stroke="#C07858" stroke-width="1.3" fill="none" stroke-linecap="round"/>
-              <!-- ═══ NECK ═══ -->
-              <path d="M74,36 L73,52 L87,52 L86,36 Q83,33 80,33 Q77,33 74,36Z" fill="url(#bodyGrad)" stroke="#C09060" stroke-width="0.4"/>
-              <!-- ═══ TORSO ═══ -->
-              <path d="M73,52 C64,52 52,56 44,64 C36,72 34,84 36,96 C38,108 44,116 48,122 C52,128 54,134 56,142 L104,142 C106,134 108,128 112,122 C116,116 122,108 124,96 C126,84 124,72 116,64 C108,56 96,52 87,52Z" fill="url(#bodyGrad)" stroke="#C09060" stroke-width="0.5"/>
-              <path d="M56,142 C54,152 54,162 56,172 C60,182 68,188 80,190 C92,188 100,182 104,172 C106,162 106,152 104,142Z" fill="url(#bodyGrad)" stroke="#C09060" stroke-width="0.5"/>
-              <path d="M56,172 C48,182 42,196 42,210 C48,218 60,224 74,226 L80,228 L86,226 C100,224 112,218 118,210 C118,196 112,182 104,172 C96,184 88,190 80,190 C72,190 64,184 56,172Z" fill="url(#bodyGrad)" stroke="#C09060" stroke-width="0.5"/>
-              <!-- ═══ ARMS ═══ -->
-              <path d="M44,64 C36,72 32,86 30,100 C28,114 30,126 32,136 L44,136 C44,124 42,112 42,100 C42,88 44,76 46,64Z" fill="url(#bodyGrad)" stroke="#C09060" stroke-width="0.5"/>
-              <path d="M32,136 C30,148 30,160 32,170 L44,170 C44,160 44,148 44,136Z" fill="url(#bodyGrad)" stroke="#C09060" stroke-width="0.5"/>
-              <ellipse cx="38" cy="175" rx="7" ry="5.5" fill="url(#bodyGrad)" stroke="#C09060" stroke-width="0.4"/>
-              <path d="M116,64 C124,72 128,86 130,100 C132,114 130,126 128,136 L116,136 C116,124 118,112 118,100 C118,88 116,76 114,64Z" fill="url(#bodyGrad)" stroke="#C09060" stroke-width="0.5"/>
-              <path d="M128,136 C130,148 130,160 128,170 L116,170 C116,160 116,148 116,136Z" fill="url(#bodyGrad)" stroke="#C09060" stroke-width="0.5"/>
-              <ellipse cx="122" cy="175" rx="7" ry="5.5" fill="url(#bodyGrad)" stroke="#C09060" stroke-width="0.4"/>
-              <!-- ═══ LEGS ═══ -->
-              <path d="M42,210 C38,226 36,244 36,262 C38,276 40,288 44,298 L60,298 C60,286 60,272 62,258 C64,244 66,228 66,214 C60,210 52,210 46,212Z" fill="url(#bodyGrad)" stroke="#C09060" stroke-width="0.5"/>
-              <ellipse cx="52" cy="302" rx="10" ry="6" fill="url(#bodyGrad)" stroke="#C09060" stroke-width="0.4"/>
-              <path d="M44,306 C42,320 42,334 44,346 C46,356 50,362 54,364 L62,364 C64,356 64,342 62,328 C60,316 56,306 50,306Z" fill="url(#bodyGrad)" stroke="#C09060" stroke-width="0.5"/>
-              <ellipse cx="52" cy="368" rx="8" ry="5" fill="url(#bodyGrad)" stroke="#C09060" stroke-width="0.4"/>
-              <path d="M44,372 C42,376 42,382 46,384 L60,384 C64,382 64,376 60,372Z" fill="url(#bodyGrad)" stroke="#C09060" stroke-width="0.4"/>
-              <path d="M118,210 C122,226 124,244 124,262 C122,276 120,288 116,298 L100,298 C100,286 100,272 98,258 C96,244 94,228 94,214 C100,210 108,210 114,212Z" fill="url(#bodyGrad)" stroke="#C09060" stroke-width="0.5"/>
-              <ellipse cx="108" cy="302" rx="10" ry="6" fill="url(#bodyGrad)" stroke="#C09060" stroke-width="0.4"/>
-              <path d="M116,306 C118,320 118,334 116,346 C114,356 110,362 106,364 L98,364 C96,356 96,342 98,328 C100,316 104,306 110,306Z" fill="url(#bodyGrad)" stroke="#C09060" stroke-width="0.5"/>
-              <ellipse cx="108" cy="368" rx="8" ry="5" fill="url(#bodyGrad)" stroke="#C09060" stroke-width="0.4"/>
-              <path d="M116,372 C118,376 118,382 114,384 L100,384 C96,382 96,376 100,372Z" fill="url(#bodyGrad)" stroke="#C09060" stroke-width="0.4"/>
+              <!-- Hair (drawn behind head) -->
+              <ellipse cx="50" cy="11" rx="13" ry="15" fill="url(#hg)"/>
+              <rect x="37" y="13" width="4" height="28" rx="2" fill="#3C1A06"/>
+              <rect x="59" y="13" width="4" height="28" rx="2" fill="#3C1A06"/>
 
-              <!-- ══════════════════════════════════════════════ -->
-              <!-- MUSCLE ZONES — fill controlled by CSS only     -->
-              <!-- ══════════════════════════════════════════════ -->
-              <!-- zone-espalda: Trapezius upper -->
-              <path class="zone-espalda" d="M73,52 C68,48 58,48 48,56 L44,64 C52,59 66,54 73,56Z"/>
-              <path class="zone-espalda" d="M87,52 C92,48 102,48 112,56 L116,64 C108,59 94,54 87,56Z"/>
-              <!-- zone-hombro: Deltoid cap -->
-              <path class="zone-hombro" d="M36,68 C32,76 30,88 34,100 C38,108 44,112 48,108 C50,98 50,86 48,76 C44,68 40,64 36,68Z"/>
-              <path class="zone-hombro" d="M124,68 C128,76 130,88 126,100 C122,108 116,112 112,108 C110,98 110,86 112,76 C116,68 120,64 124,68Z"/>
-              <!-- zone-pecho: Pectoralis major L+R -->
-              <path class="zone-pecho" d="M48,66 C56,60 70,58 78,60 L78,94 C70,96 60,94 54,86 C48,78 44,72 48,66Z"/>
-              <path class="zone-pecho" d="M112,66 C104,60 90,58 82,60 L82,94 C90,96 100,94 106,86 C112,78 116,72 112,66Z"/>
-              <line x1="80" y1="60" x2="80" y2="94" stroke="rgba(140,80,60,0.3)" stroke-width="0.6"/>
-              <!-- zone-biceps: Biceps brachii -->
-              <path class="zone-biceps" d="M30,82 C28,94 28,108 32,120 C36,128 42,130 46,126 C46,112 44,98 44,86 C42,78 34,76 30,82Z"/>
-              <path class="zone-biceps" d="M130,82 C132,94 132,108 128,120 C124,128 118,130 114,126 C114,112 116,98 116,86 C118,78 126,76 130,82Z"/>
-              <!-- zone-triceps: Lateral triceps -->
-              <path class="zone-triceps" d="M46,68 C48,78 48,94 48,110 C46,120 44,128 44,134 C42,126 40,114 40,102 C40,90 42,78 46,68Z"/>
-              <path class="zone-triceps" d="M114,68 C112,78 112,94 112,110 C114,120 116,128 116,134 C118,126 120,114 120,102 C120,90 118,78 114,68Z"/>
-              <!-- zone-core: Rectus abdominis 6 segments -->
-              <path class="zone-core" d="M72,98 L79,98 L79,111 C76,113 72,112 72,110Z"/>
-              <path class="zone-core" d="M88,98 L81,98 L81,111 C84,113 88,112 88,110Z"/>
-              <path class="zone-core" d="M72,113 L79,113 L79,126 L72,125Z"/>
-              <path class="zone-core" d="M88,113 L81,113 L81,126 L88,125Z"/>
-              <path class="zone-core" d="M72,127 L79,127 C79,135 77,141 74,144 L72,142Z"/>
-              <path class="zone-core" d="M88,127 L81,127 C81,135 83,141 86,144 L88,142Z"/>
-              <line x1="80" y1="98" x2="80" y2="144" stroke="rgba(140,80,60,0.3)" stroke-width="0.6"/>
-              <line x1="72" y1="113" x2="88" y2="113" stroke="rgba(140,80,60,0.25)" stroke-width="0.5"/>
-              <line x1="72" y1="127" x2="88" y2="127" stroke="rgba(140,80,60,0.25)" stroke-width="0.5"/>
-              <!-- zone-oblicuos: External obliques -->
-              <path class="zone-oblicuos" d="M52,96 C48,108 48,122 50,134 C52,144 56,150 60,152 C60,138 58,122 58,110 C58,102 56,94 52,96Z"/>
-              <path class="zone-oblicuos" d="M108,96 C112,108 112,122 110,134 C108,144 104,150 100,152 C100,138 102,122 102,110 C102,102 104,94 108,96Z"/>
-              <!-- zone-gluteo: Glutes front view -->
-              <path class="zone-gluteo" d="M42,174 C36,186 34,200 36,212 C42,220 56,226 70,228 L80,230 L90,228 C104,226 118,220 124,212 C126,200 124,186 118,174 C108,186 94,192 80,192 C66,192 52,186 42,174Z"/>
-              <!-- zone-abductores: Adductors inner thigh -->
-              <path class="zone-abductores" d="M66,216 C64,230 64,246 66,260 C68,272 72,280 76,282 C76,268 74,254 72,240 C70,228 68,220 66,216Z"/>
-              <path class="zone-abductores" d="M94,216 C96,230 96,246 94,260 C92,272 88,280 84,282 C84,268 86,254 88,240 C90,228 92,220 94,216Z"/>
-              <!-- zone-cuadriceps: Vastus lateralis + rectus femoris + vastus medialis -->
-              <path class="zone-cuadriceps" d="M40,218 C36,234 36,252 38,268 C40,280 44,288 48,290 C50,276 48,260 48,246 C48,234 44,222 40,218Z"/>
-              <path class="zone-cuadriceps" d="M120,218 C124,234 124,252 122,268 C120,280 116,288 112,290 C110,276 112,260 112,246 C112,234 116,222 120,218Z"/>
-              <path class="zone-cuadriceps" d="M52,218 C48,234 48,252 50,268 C52,280 56,288 60,290 C62,276 60,260 58,246 C56,234 54,224 52,218Z"/>
-              <path class="zone-cuadriceps" d="M108,218 C112,234 112,252 110,268 C108,280 104,288 100,290 C98,276 100,260 102,246 C104,234 106,224 108,218Z"/>
-              <path class="zone-cuadriceps" d="M62,260 C60,270 60,280 64,288 C67,292 71,292 73,288 C73,278 71,268 68,260Z"/>
-              <path class="zone-cuadriceps" d="M98,260 C100,270 100,280 96,288 C93,292 89,292 87,288 C87,278 89,268 92,260Z"/>
-              <!-- zone-isquios: Hamstrings medial -->
-              <path class="zone-isquios" d="M66,218 C64,234 64,250 66,264 C68,276 72,284 76,286 C76,272 74,258 72,244 C70,232 68,224 66,218Z"/>
-              <path class="zone-isquios" d="M94,218 C96,234 96,250 94,264 C92,276 88,284 84,286 C84,272 86,258 88,244 C90,232 92,224 94,218Z"/>
-              <!-- zone-gemelos: Gastrocnemius -->
-              <path class="zone-gemelos" d="M42,310 C40,324 40,338 44,350 C47,358 51,362 55,361 C57,349 57,335 55,322 C53,312 48,306 42,310Z"/>
-              <path class="zone-gemelos" d="M118,310 C120,324 120,338 116,350 C113,358 109,362 105,361 C103,349 103,335 105,322 C107,312 112,306 118,310Z"/>
-              <line x1="48" y1="314" x2="51" y2="358" stroke="rgba(140,80,60,0.3)" stroke-width="0.5"/>
-              <line x1="112" y1="314" x2="109" y2="358" stroke="rgba(140,80,60,0.3)" stroke-width="0.5"/>
+              <!-- Skin fill clipped to body shape -->
+              <g clip-path="url(#bc)">
+                <rect x="0" y="0" width="100" height="250" fill="url(#sg)"/>
+              </g>
+
+              <!-- MUSCLE ZONES — all clipped to body, fill controlled by CSS -->
+              <g clip-path="url(#bc)">
+                <!-- zone-hombro (deltoids) -->
+                <path class="zone-hombro" d="M8,40 C6,52 6,66 8,78 L18,76 C17,64 17,50 18,40 Z"/>
+                <path class="zone-hombro" d="M92,40 C94,52 94,66 92,78 L82,76 C83,64 83,50 82,40 Z"/>
+                <!-- zone-pecho (pectorals) -->
+                <path class="zone-pecho" d="M22,36 C18,44 16,56 18,66 L50,66 L50,34 Z"/>
+                <path class="zone-pecho" d="M78,36 C82,44 84,56 82,66 L50,66 L50,34 Z"/>
+                <!-- zone-espalda (trapezius — shoulder slope) -->
+                <path class="zone-espalda" d="M30,28 C24,30 18,34 16,42 C22,38 34,34 42,33 Z"/>
+                <path class="zone-espalda" d="M70,28 C76,30 82,34 84,42 C78,38 66,34 58,33 Z"/>
+                <!-- zone-biceps (front of upper arm) -->
+                <path class="zone-biceps" d="M6,48 C5,62 5,76 7,88 L16,86 C15,72 15,58 16,46 Z"/>
+                <path class="zone-biceps" d="M94,48 C95,62 95,76 93,88 L84,86 C85,72 85,58 84,46 Z"/>
+                <!-- zone-triceps (back edge of upper arm) -->
+                <path class="zone-triceps" d="M20,42 C19,56 19,70 20,82 L24,82 C23,68 23,54 24,42 Z"/>
+                <path class="zone-triceps" d="M80,42 C81,56 81,70 80,82 L76,82 C77,68 77,54 76,42 Z"/>
+                <!-- zone-core (rectus abdominis — 6 segments) -->
+                <path class="zone-core" d="M38,66 L50,66 L50,78 C46,79 39,78 38,76 Z"/>
+                <path class="zone-core" d="M62,66 L50,66 L50,78 C54,79 61,78 62,76 Z"/>
+                <path class="zone-core" d="M37,80 L50,80 L50,92 L37,91 Z"/>
+                <path class="zone-core" d="M63,80 L50,80 L50,92 L63,91 Z"/>
+                <path class="zone-core" d="M38,94 L50,94 L50,106 C46,109 39,107 38,104 Z"/>
+                <path class="zone-core" d="M62,94 L50,94 L50,106 C54,109 61,107 62,104 Z"/>
+                <!-- zone-oblicuos (external obliques) -->
+                <path class="zone-oblicuos" d="M20,68 C17,80 17,94 19,106 C21,114 26,120 30,122 C29,110 28,94 28,80 C28,71 24,66 20,68 Z"/>
+                <path class="zone-oblicuos" d="M80,68 C83,80 83,94 81,106 C79,114 74,120 70,122 C71,110 72,94 72,80 C72,71 76,66 80,68 Z"/>
+                <!-- zone-gluteo (glutes — hip area front view) -->
+                <path class="zone-gluteo" d="M21,124 C17,136 17,150 21,160 C27,168 38,172 50,172 C62,172 73,168 79,160 C83,150 83,136 79,124 C69,130 60,132 50,132 C40,132 31,130 21,124 Z"/>
+                <!-- zone-abductores (hip abductors — outer thigh) -->
+                <path class="zone-abductores" d="M18,146 C16,160 16,174 18,186 C20,194 24,198 28,198 C28,186 26,172 26,160 C26,150 22,144 18,146 Z"/>
+                <path class="zone-abductores" d="M82,146 C84,160 84,174 82,186 C80,194 76,198 72,198 C72,186 74,172 74,160 C74,150 78,144 82,146 Z"/>
+                <!-- zone-cuadriceps (quads — front of thigh) -->
+                <path class="zone-cuadriceps" d="M28,138 C24,152 24,168 26,180 C28,188 32,192 36,192 C36,178 35,162 36,148 C36,139 32,134 28,138 Z"/>
+                <path class="zone-cuadriceps" d="M72,138 C76,152 76,168 74,180 C72,188 68,192 64,192 C64,178 65,162 64,148 C64,139 68,134 72,138 Z"/>
+                <path class="zone-cuadriceps" d="M38,140 C35,154 35,170 37,182 C39,188 43,191 46,190 C46,178 45,162 46,148 C46,140 42,136 38,140 Z"/>
+                <path class="zone-cuadriceps" d="M62,140 C65,154 65,170 63,182 C61,188 57,191 54,190 C54,178 55,162 54,148 C54,140 58,136 62,140 Z"/>
+                <!-- zone-isquios (hamstrings — inner/posterior thigh) -->
+                <path class="zone-isquios" d="M36,132 C33,146 33,162 35,176 C37,184 41,190 45,191 C48,189 52,184 54,176 C56,162 56,146 54,132 C52,135 50,136 50,136 C48,135 44,133 40,133 Z"/>
+                <!-- zone-gemelos (calves) -->
+                <path class="zone-gemelos" d="M16,198 C14,212 14,226 17,234 L30,234 C32,226 32,212 30,198 Z"/>
+                <path class="zone-gemelos" d="M84,198 C86,212 86,226 83,234 L70,234 C68,226 68,212 70,198 Z"/>
+              </g>
+
+              <!-- Face drawn on top of clip -->
+              <ellipse cx="50" cy="14" rx="12" ry="13" fill="url(#sg)"/>
+              <path d="M43,10 Q46,8 49,10" stroke="#4A2008" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+              <path d="M51,10 Q54,8 57,10" stroke="#4A2008" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+              <ellipse cx="45.5" cy="14.5" rx="2.5" ry="2.5" fill="#1A0A00"/>
+              <ellipse cx="54.5" cy="14.5" rx="2.5" ry="2.5" fill="#1A0A00"/>
+              <circle cx="46.5" cy="13" r="1" fill="white" opacity="0.7"/>
+              <circle cx="55.5" cy="13" r="1" fill="white" opacity="0.7"/>
+              <path d="M46,21 Q50,24 54,21" stroke="#B07050" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+              <ellipse cx="41" cy="17" rx="4" ry="2.5" fill="#E8805A" opacity="0.22"/>
+              <ellipse cx="59" cy="17" rx="4" ry="2.5" fill="#E8805A" opacity="0.22"/>
             </svg>
             <div class="muscle-legend">${zonasLegendHtml}</div>
           </div>
