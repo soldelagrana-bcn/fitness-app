@@ -2127,10 +2127,15 @@ function confirmAddFood() {
 // ============================================================
 
 async function openBarcodeScanner() {
-  if (!('BarcodeDetector' in window)) {
-    showToast('Escáner no disponible en este navegador', 'error');
-    return;
+  if ('BarcodeDetector' in window) {
+    openLiveBarcodeScanner();
+  } else {
+    // Fallback para iOS Safari < 17 y otros navegadores sin BarcodeDetector nativo
+    openFileBarcodeCapture();
   }
+}
+
+async function openLiveBarcodeScanner() {
   const overlay = document.createElement('div');
   overlay.id = 'barcode-overlay';
   overlay.className = 'barcode-overlay';
@@ -2170,6 +2175,44 @@ async function openBarcodeScanner() {
     showToast('No se pudo acceder a la cámara', 'error');
     overlay.remove();
   }
+}
+
+function openFileBarcodeCapture() {
+  // Funciona en todos los móviles incluyendo iOS Safari
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.setAttribute('capture', 'environment');
+
+  input.onchange = async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+
+    showToast('Analizando imagen...', 'info');
+    const objectURL = URL.createObjectURL(file);
+
+    try {
+      // Cargar ZXing dinámicamente solo cuando se necesita
+      if (!window.ZXing) {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
+          s.onload = resolve; s.onerror = reject;
+          document.head.appendChild(s);
+        });
+      }
+      const reader = new ZXing.BrowserMultiFormatReader();
+      const result = await reader.decodeFromImageUrl(objectURL);
+      URL.revokeObjectURL(objectURL);
+      navigator.vibrate && navigator.vibrate(100);
+      await fetchProductByBarcode(result.getText());
+    } catch {
+      URL.revokeObjectURL(objectURL);
+      showToast('No se detectó código. Busca el producto por nombre.', 'error');
+    }
+  };
+
+  input.click();
 }
 
 function closeBarcodeScanner() {
