@@ -1,4 +1,4 @@
-const CACHE = 'sol-fitness-v3';
+const CACHE = 'sol-fitness-v4';
 const ASSETS = [
   '/',
   '/index.html',
