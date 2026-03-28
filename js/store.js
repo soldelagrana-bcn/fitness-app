@@ -342,4 +342,13 @@ const Store = {
   // ---- CLAVE ANTHROPIC ----
   getAnthropicKey() { return localStorage.getItem('sol_anthropic_key') || ''; },
   saveAnthropicKey(key) { localStorage.setItem('sol_anthropic_key', key); },
+
+  // ---- SUPABASE SYNC ----
+  getSupabaseConfig() {
+    const d = localStorage.getItem('sol_supabase_cfg');
+    return d ? JSON.parse(d) : { url: '', key: '' };
+  },
+  saveSupabaseConfig(cfg) { localStorage.setItem('sol_supabase_cfg', JSON.stringify(cfg)); },
+  getLastSyncedAt() { return localStorage.getItem('sol_last_synced') || null; },
+  saveLastSyncedAt(ts) { localStorage.setItem('sol_last_synced', ts); },
 };

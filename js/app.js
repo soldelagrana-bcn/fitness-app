@@ -29,6 +29,56 @@ const GARMIN_SEED = {
   ]
 };
 
+// ============================================================
+// SUPABASE SYNC
+// ============================================================
+async function syncToSupabase() {
+  const cfg = Store.getSupabaseConfig();
+  if (!cfg.url || !cfg.key) return;
+  const now = new Date().toISOString();
+  const data = JSON.parse(Store.exportAll());
+  try {
+    const res = await fetch(`${cfg.url}/rest/v1/fitness_sync`, {
+      method: 'POST',
+      headers: {
+        'apikey': cfg.key,
+        'Authorization': `Bearer ${cfg.key}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({ id: 'sol', data, updated_at: now })
+    });
+    if (res.ok) Store.saveLastSyncedAt(now);
+  } catch(e) { /* silent */ }
+}
+
+async function syncFromSupabase() {
+  const cfg = Store.getSupabaseConfig();
+  if (!cfg.url || !cfg.key) return;
+  try {
+    const res = await fetch(`${cfg.url}/rest/v1/fitness_sync?id=eq.sol&select=data,updated_at`, {
+      headers: {
+        'apikey': cfg.key,
+        'Authorization': `Bearer ${cfg.key}`
+      }
+    });
+    if (!res.ok) return;
+    const rows = await res.json();
+    if (!rows || !rows.length) return;
+    const row = rows[0];
+    const remoteTs = new Date(row.updated_at).getTime();
+    const localTs = Store.getLastSyncedAt() ? new Date(Store.getLastSyncedAt()).getTime() : 0;
+    if (remoteTs > localTs) {
+      const ok = Store.importAll(JSON.stringify(row.data));
+      if (ok) {
+        Store.saveLastSyncedAt(row.updated_at);
+        renderApp();
+        showToast('Datos actualizados desde la nube ☁️');
+      }
+    }
+  } catch(e) { /* silent */ }
+}
+
 // ---- ROUTER ----
 function navigate(view, params) {
   currentView = view;
@@ -1140,15 +1190,20 @@ function renderAjustes() {
       </section>
 
       <section>
-        <h4 class="section-title">Sincronizar entre dispositivos</h4>
+        <h4 class="section-title">Sync con la nube ☁️</h4>
         <div class="card">
-          <p class="muted" style="font-size:13px;margin-bottom:12px">Para pasar tus datos del móvil al ordenador (o viceversa): copia el código en un dispositivo y pégalo en el otro.</p>
-          <button class="btn btn-primary" data-action="copy-sync-code">📋 Copiar código de sync</button>
-          <div style="margin-top:14px">
-            <label style="font-size:12px;font-weight:700;color:var(--text-mid);display:block;margin-bottom:6px">Importar código de sync</label>
-            <textarea id="sync-import-textarea" class="import-textarea" placeholder="Pega aquí el código copiado desde otro dispositivo..."></textarea>
-            <button class="btn btn-secondary" style="margin-top:8px" data-action="import-sync-code">Importar código</button>
+          <p class="muted" style="font-size:13px;margin-bottom:12px">Conecta tu proyecto de Supabase para sincronizar automáticamente entre todos tus dispositivos.</p>
+          <label style="font-size:12px;font-weight:700;color:var(--text-mid);display:block;margin-bottom:6px">URL del proyecto</label>
+          <input type="text" id="sb-url-input" class="medida-input" style="font-size:13px;font-weight:400;width:100%;margin-bottom:10px"
+            value="${Store.getSupabaseConfig().url}" placeholder="https://xxxx.supabase.co">
+          <label style="font-size:12px;font-weight:700;color:var(--text-mid);display:block;margin-bottom:6px">Anon key</label>
+          <input type="password" id="sb-key-input" class="medida-input" style="font-size:13px;font-weight:400;font-family:monospace;width:100%;margin-bottom:12px"
+            value="${Store.getSupabaseConfig().key}" placeholder="eyJ...">
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" style="flex:1" data-action="save-supabase-config">Guardar</button>
+            <button class="btn btn-secondary" style="flex:1" data-action="sync-now">Sincronizar ahora</button>
           </div>
+          ${Store.getLastSyncedAt() ? `<p style="font-size:11px;color:var(--text-mid);margin-top:8px">Última sync: ${new Date(Store.getLastSyncedAt()).toLocaleString('es-ES')}</p>` : ''}
         </div>
       </section>
 
@@ -1447,6 +1502,7 @@ function handleAction(action, dataset, e) {
         stopTimer();
         activeWorkout = null;
         navigate('hoy');
+        syncToSupabase();
       }
       break;
     }
@@ -1459,39 +1515,27 @@ function handleAction(action, dataset, e) {
         input.value = '';
         renderChartPeso();
         showToast('Peso registrado ✓');
+        syncToSupabase();
       }
       break;
     }
 
-    case 'copy-sync-code': {
-      const syncData = btoa(unescape(encodeURIComponent(Store.exportAll())));
-      navigator.clipboard.writeText(syncData)
-        .then(() => showToast('Código copiado al portapapeles ✓'))
-        .catch(() => {
-          // Fallback si clipboard API no está disponible
-          const ta = document.createElement('textarea');
-          ta.value = syncData;
-          document.body.appendChild(ta);
-          ta.select();
-          document.execCommand('copy');
-          document.body.removeChild(ta);
-          showToast('Código copiado ✓');
-        });
+    case 'save-supabase-config': {
+      const url = document.getElementById('sb-url-input')?.value.trim();
+      const key = document.getElementById('sb-key-input')?.value.trim();
+      if (url && key) {
+        Store.saveSupabaseConfig({ url, key });
+        showToast('Configuración de Supabase guardada ✓');
+        syncFromSupabase();
+      } else {
+        showToast('Rellena la URL y la anon key', 'error');
+      }
       break;
     }
 
-    case 'import-sync-code': {
-      const ta = document.getElementById('sync-import-textarea');
-      if (ta && ta.value.trim()) {
-        try {
-          const json = decodeURIComponent(escape(atob(ta.value.trim())));
-          const ok = Store.importAll(json);
-          if (ok) { showToast('Datos sincronizados ✓'); navigate('hoy'); }
-          else showToast('Código inválido. Asegúrate de copiar el código completo.', 'error');
-        } catch(e) {
-          showToast('Código inválido. Asegúrate de copiar el código completo.', 'error');
-        }
-      }
+    case 'sync-now': {
+      showToast('Sincronizando...');
+      syncFromSupabase().then(() => syncToSupabase());
       break;
     }
 
@@ -1671,6 +1715,7 @@ function handleAction(action, dataset, e) {
           muslo:   muslo   ? parseFloat(muslo)   : null,
         });
         showToast('Medidas guardadas ✓');
+        syncToSupabase();
         navigate('progreso');
       }
       break;
@@ -2428,8 +2473,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Registrar Service Worker
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.register('/fitness-app/sw.js').catch(() => {});
   }
+
+  // Sync desde Supabase al arrancar
+  syncFromSupabase();
 
   // Nav buttons
   document.querySelectorAll('.nav-btn').forEach(btn => {
