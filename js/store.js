@@ -141,6 +141,10 @@ const Store = {
     else acts.push({ fecha, dia, ...actividad });
     localStorage.setItem('sol_fitness_actividades', JSON.stringify(acts));
   },
+  deleteActividad(fecha, dia) {
+    const acts = this.getActividades().filter(a => !(a.fecha === fecha && a.dia === dia));
+    localStorage.setItem('sol_fitness_actividades', JSON.stringify(acts));
+  },
   getActividadDia(dia) {
     // Busca actividad para este día en la semana actual
     const today = new Date();

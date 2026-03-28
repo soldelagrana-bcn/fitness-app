@@ -410,6 +410,9 @@ function renderHoy() {
               const actHtml = actividad
                 ? `<span class="actividad-logged">${actividad.icon} ${actividad.nombre}</span>`
                 : `<span class="plan-zonas muted">${info.sub}</span>`;
+              const deleteBtn = actividad
+                ? `<button class="actividad-delete-btn" data-action="delete-actividad" data-dia="${d}" title="Eliminar">✕</button>`
+                : '';
               return `
                 <div class="plan-row plan-rest ${isToday ? 'plan-today' : ''} ${actividad ? 'plan-done' : ''}"
                      data-action="log-actividad-dia" data-dia="${d}">
@@ -420,7 +423,8 @@ function renderHoy() {
                       ${actHtml}
                     </div>
                   </div>
-                  <div class="plan-right">
+                  <div class="plan-right" style="display:flex;align-items:center;gap:8px">
+                    ${deleteBtn}
                     ${isToday ? '<span class="plan-hoy-tag">Hoy</span>' : actividad ? '<span class="plan-done-tag">✓</span>' : ''}
                   </div>
                 </div>`;
@@ -1570,18 +1574,36 @@ function handleAction(action, dataset, e) {
       break;
     }
 
+    case 'delete-actividad': {
+      e.stopPropagation();
+      const diaElim = dataset.dia;
+      const today = new Date().toISOString().split('T')[0];
+      Store.deleteActividad(today, diaElim);
+      showToast('Actividad eliminada');
+      navigate('hoy');
+      break;
+    }
+
     case 'log-actividad-dia': {
       const dia = dataset.dia;
       const ACTIVIDADES = [
         { id:'caminata',  icon:'🚶‍♀️', nombre:'Caminata',          tipo:'cardio' },
         { id:'ebike',     icon:'🚴‍♀️', nombre:'E-bike',             tipo:'cardio' },
         { id:'tenis',     icon:'🎾',   nombre:'Tenis',              tipo:'deporte' },
-        { id:'gym_extra', icon:'🏋️',  nombre:'Gym (extra)',        tipo:'fuerza' },
         { id:'yoga',      icon:'🧘‍♀️', nombre:'Yoga / Movilidad',  tipo:'recuperacion' },
         { id:'natacion',  icon:'🏊‍♀️', nombre:'Natación',           tipo:'cardio' },
         { id:'otro',      icon:'⚡',   nombre:'Otra actividad',     tipo:'otro' },
       ];
-      // Mostrar modal
+      // Rutinas de gym de la fase actual
+      const faseActual = FASES[Store.getConfig().fase];
+      const SESIONES_GYM = faseActual ? Object.entries(faseActual.sesiones).map(([diaKey, s]) => ({
+        id: 'gym_' + diaKey,
+        icon: '🏋️',
+        nombre: s.nombre,
+        tipo: 'fuerza',
+        sesionDia: diaKey
+      })) : [];
+
       const modal = document.createElement('div');
       modal.className = 'modal-overlay';
       modal.innerHTML = `
@@ -1597,6 +1619,15 @@ function handleAction(action, dataset, e) {
                 <span class="act-nombre">${a.nombre}</span>
               </button>`).join('')}
           </div>
+          ${SESIONES_GYM.length ? `
+          <div class="nut-modal-section-title" style="margin:14px 0 8px">Rutinas de gym</div>
+          <div class="actividades-grid">
+            ${SESIONES_GYM.map(s => `
+              <button class="actividad-btn actividad-btn-gym" data-act-id="${s.id}" data-act-icon="${s.icon}" data-act-nombre="${s.nombre}" data-act-dia="${dia}" data-sesion-dia="${s.sesionDia}">
+                <span class="act-icon">${s.icon}</span>
+                <span class="act-nombre" style="font-size:11px">${s.nombre}</span>
+              </button>`).join('')}
+          </div>` : ''}
           <div class="modal-duracion">
             <label>Duración (opcional)</label>
             <div class="dur-options">
@@ -1615,10 +1646,44 @@ function handleAction(action, dataset, e) {
         btn.classList.add('selected');
         selectedDur = btn.dataset.dur;
       };
-      modal.querySelector('.actividades-grid').onclick = (ev) => {
+      modal.addEventListener('click', (ev) => {
+        if (ev.target === modal) { modal.remove(); return; }
         const btn = ev.target.closest('.actividad-btn');
         if (!btn) return;
         const today = new Date().toISOString().split('T')[0];
+        // Si es una rutina de gym, crear el workout y navegar
+        if (btn.dataset.sesionDia) {
+          modal.remove();
+          const sesionDia = btn.dataset.sesionDia;
+          const config = Store.getConfig();
+          const fase = FASES[config.fase];
+          const sesion = fase.sesiones[sesionDia];
+          const cargas = Store.getCargas();
+          const id = `workout_${today}_${sesionDia}`;
+          let workout = Store.getWorkoutById(id);
+          if (!workout) {
+            workout = {
+              id, fase: config.fase, semana: Store.getSemanaActual(),
+              dia: sesionDia, tipo: sesion.nombre, fecha: today,
+              completado: false, duracion_min: null, bloque_actual: 0, ejercicio_actual: 0,
+              bloques: sesion.bloques.map(bloque => ({
+                ...bloque,
+                ejercicios: bloque.ejercicios.map(ej => ({
+                  ...ej,
+                  carga_kg: cargas[ej.nombre] !== undefined ? cargas[ej.nombre] : ej.carga_inicial_kg,
+                  reps_completadas: Array(ej.series).fill(null),
+                  rir_ultimo_set: null, completado: false
+                }))
+              }))
+            };
+            Store.saveWorkout(workout);
+          }
+          activeWorkout = workout;
+          startTimer();
+          navigate('workout');
+          return;
+        }
+        // Actividad normal
         Store.saveActividad(today, btn.dataset.actDia, {
           id: btn.dataset.actId,
           icon: btn.dataset.actIcon,
@@ -1628,8 +1693,7 @@ function handleAction(action, dataset, e) {
         modal.remove();
         showToast(`${btn.dataset.actIcon} ${btn.dataset.actNombre} registrado ✓`);
         navigate('hoy');
-      };
-      modal.onclick = (ev) => { if (ev.target === modal) modal.remove(); };
+      });
       break;
     }
 
