@@ -2147,13 +2147,20 @@ async function doFoodSearch(query) {
   if (!resultsEl) return;
   resultsEl.innerHTML = '<div class="nut-loading">Buscando...</div>';
 
-  const custom = Store.getFoodsDB().filter(f => f.nombre.toLowerCase().includes(query.toLowerCase()));
+  const q = query.toLowerCase();
+  const custom = Store.getFoodsDB().filter(f => f.nombre.toLowerCase().includes(q));
+  const builtin = (typeof FOODS_BUILTIN !== 'undefined')
+    ? FOODS_BUILTIN.filter(f => f.nombre.toLowerCase().includes(q))
+    : [];
 
   const buildRow = (f) => {
     const safeData = JSON.stringify(f).replace(/'/g, '&#39;');
+    const badge = f.source === 'custom'
+      ? ' <span class="nut-custom-badge">propio</span>'
+      : (f.id && f.id.startsWith('b') ? ' <span class="nut-custom-badge" style="background:#1a3a2a;color:#4ade80;">ES</span>' : '');
     return `<button class="nut-food-row" data-food='${safeData}' data-action="nut-select-food">
       <div class="nut-food-info">
-        <span class="nut-food-name">${f.nombre}${f.source === 'custom' ? ' <span class="nut-custom-badge">propio</span>' : ''}</span>
+        <span class="nut-food-name">${f.nombre}${badge}</span>
         <span class="nut-food-meta">${f.kcal100} kcal/100g · P:${f.prot100}g C:${f.carbs100}g G:${f.fat100}g</span>
       </div>
       <span class="nut-food-kcal-badge">${f.kcal100}</span>
@@ -2161,16 +2168,24 @@ async function doFoodSearch(query) {
   };
 
   const customHtml = custom.map(buildRow).join('');
+  const builtinHtml = builtin.map(buildRow).join('');
+
+  // Mostrar resultados locales inmediatamente
+  if (customHtml || builtinHtml) {
+    resultsEl.innerHTML =
+      (customHtml ? `<div class="nut-modal-section-title">Mis alimentos</div>${customHtml}` : '') +
+      (builtinHtml ? `<div class="nut-modal-section-title">Catálogo español</div>${builtinHtml}` : '') +
+      '<div class="nut-loading" id="off-loading" style="margin-top:8px;font-size:12px;opacity:0.5;">Buscando más resultados...</div>';
+  }
 
   try {
-    const offUrl = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&action=process&page_size=25&sort_by=unique_scans_n&fields=product_name,brands,nutriments,code`;
+    const offUrl = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&action=process&page_size=20&sort_by=unique_scans_n&fields=product_name,brands,nutriments,code`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
     let resp;
     try {
       resp = await fetch(offUrl, { signal: controller.signal });
     } catch {
-      // Fallback: proxy CORS si el direct request falla
       resp = await fetch(`https://corsproxy.io/?${encodeURIComponent(offUrl)}`, { signal: controller.signal });
     }
     clearTimeout(timeout);
@@ -2196,16 +2211,20 @@ async function doFoodSearch(query) {
       return buildRow(food);
     }).join('');
 
-    if (!offHtml && !customHtml) {
-      resultsEl.innerHTML = '<p class="nut-empty-hint muted">Sin resultados. Prueba en inglés o con otro nombre.</p>';
+    if (!offHtml && !customHtml && !builtinHtml) {
+      resultsEl.innerHTML = '<p class="nut-empty-hint muted">Sin resultados. Prueba con otro nombre.</p>';
     } else {
-      resultsEl.innerHTML = (customHtml ? `<div class="nut-modal-section-title">Mis alimentos</div>${customHtml}` : '')
-        + (offHtml ? `<div class="nut-modal-section-title">Resultados</div>${offHtml}` : '');
+      resultsEl.innerHTML =
+        (customHtml ? `<div class="nut-modal-section-title">Mis alimentos</div>${customHtml}` : '') +
+        (builtinHtml ? `<div class="nut-modal-section-title">Catálogo español</div>${builtinHtml}` : '') +
+        (offHtml ? `<div class="nut-modal-section-title">OpenFoodFacts</div>${offHtml}` : '');
     }
   } catch {
-    resultsEl.innerHTML = customHtml
-      ? `<div class="nut-modal-section-title">Mis alimentos</div>${customHtml}`
-      : '<p class="nut-empty-hint muted">Error de red. Comprueba tu conexión.</p>';
+    // Si falla la red, al menos mostrar los locales
+    resultsEl.innerHTML =
+      (customHtml ? `<div class="nut-modal-section-title">Mis alimentos</div>${customHtml}` : '') +
+      (builtinHtml ? `<div class="nut-modal-section-title">Catálogo español</div>${builtinHtml}` : '') +
+      (!customHtml && !builtinHtml ? '<p class="nut-empty-hint muted">Error de red. Comprueba tu conexión.</p>' : '');
   }
 }
 

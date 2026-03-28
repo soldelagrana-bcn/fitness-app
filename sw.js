@@ -1,10 +1,11 @@
-const CACHE = 'sol-fitness-v5';
+const CACHE = 'sol-fitness-v6';
 const BASE = '/fitness-app';
 const ASSETS = [
   BASE + '/',
   BASE + '/index.html',
   BASE + '/css/app.css',
   BASE + '/js/data.js',
+  BASE + '/js/foods.js',
   BASE + '/js/store.js',
   BASE + '/js/app.js',
   BASE + '/manifest.json'
