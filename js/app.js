@@ -1140,11 +1140,24 @@ function renderAjustes() {
       </section>
 
       <section>
+        <h4 class="section-title">Sincronizar entre dispositivos</h4>
+        <div class="card">
+          <p class="muted" style="font-size:13px;margin-bottom:12px">Para pasar tus datos del móvil al ordenador (o viceversa): copia el código en un dispositivo y pégalo en el otro.</p>
+          <button class="btn btn-primary" data-action="copy-sync-code">📋 Copiar código de sync</button>
+          <div style="margin-top:14px">
+            <label style="font-size:12px;font-weight:700;color:var(--text-mid);display:block;margin-bottom:6px">Importar código de sync</label>
+            <textarea id="sync-import-textarea" class="import-textarea" placeholder="Pega aquí el código copiado desde otro dispositivo..."></textarea>
+            <button class="btn btn-secondary" style="margin-top:8px" data-action="import-sync-code">Importar código</button>
+          </div>
+        </div>
+      </section>
+
+      <section>
         <h4 class="section-title">Datos</h4>
         <div class="card">
-          <button class="btn btn-secondary" data-action="export-data">📤 Exportar mis datos</button>
+          <button class="btn btn-secondary" data-action="export-data">📤 Exportar mis datos (archivo)</button>
           <div class="import-file-row">
-            <label class="btn btn-secondary" for="import-file-input">📥 Importar backup</label>
+            <label class="btn btn-secondary" for="import-file-input">📥 Importar backup (archivo)</label>
             <input type="file" id="import-file-input" accept=".json" style="display:none">
           </div>
         </div>
@@ -1446,6 +1459,38 @@ function handleAction(action, dataset, e) {
         input.value = '';
         renderChartPeso();
         showToast('Peso registrado ✓');
+      }
+      break;
+    }
+
+    case 'copy-sync-code': {
+      const syncData = btoa(unescape(encodeURIComponent(Store.exportAll())));
+      navigator.clipboard.writeText(syncData)
+        .then(() => showToast('Código copiado al portapapeles ✓'))
+        .catch(() => {
+          // Fallback si clipboard API no está disponible
+          const ta = document.createElement('textarea');
+          ta.value = syncData;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          showToast('Código copiado ✓');
+        });
+      break;
+    }
+
+    case 'import-sync-code': {
+      const ta = document.getElementById('sync-import-textarea');
+      if (ta && ta.value.trim()) {
+        try {
+          const json = decodeURIComponent(escape(atob(ta.value.trim())));
+          const ok = Store.importAll(json);
+          if (ok) { showToast('Datos sincronizados ✓'); navigate('hoy'); }
+          else showToast('Código inválido. Asegúrate de copiar el código completo.', 'error');
+        } catch(e) {
+          showToast('Código inválido. Asegúrate de copiar el código completo.', 'error');
+        }
       }
       break;
     }

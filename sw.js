@@ -1,12 +1,13 @@
 const CACHE = 'sol-fitness-v4';
+const BASE = '/fitness-app';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/css/app.css',
-  '/js/data.js',
-  '/js/store.js',
-  '/js/app.js',
-  '/manifest.json'
+  BASE + '/',
+  BASE + '/index.html',
+  BASE + '/css/app.css',
+  BASE + '/js/data.js',
+  BASE + '/js/store.js',
+  BASE + '/js/app.js',
+  BASE + '/manifest.json'
 ];
 
 self.addEventListener('install', e => {
