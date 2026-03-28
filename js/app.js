@@ -2109,7 +2109,7 @@ async function doFoodSearch(query) {
   const customHtml = custom.map(buildRow).join('');
 
   try {
-    const url = `https://world.openfoodfacts.org/api/v2/search?search_terms=${encodeURIComponent(query)}&page_size=25&sort_by=unique_scans_n&fields=product_name,brands,nutriments,code`;
+    const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&action=process&page_size=25&sort_by=unique_scans_n&fields=product_name,brands,nutriments,code`;
     const resp = await fetch(url);
     const data = await resp.json();
     const products = (data.products || []).filter(p =>
