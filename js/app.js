@@ -569,16 +569,14 @@ function renderWorkout(params) {
 }
 
 function renderSetLogger(ej, ejIdx) {
-  const nextSet = ej.reps_completadas.findIndex(r => r === null);
-  if (nextSet === -1) return '<p class="set-complete-msg">✓ Ejercicio completado</p>';
-  const isFirstSet = nextSet === 0;
-
-  const isLastSet = nextSet === ej.series - 1;
+  if (ej.reps_completadas.every(r => r !== null)) {
+    return '<p class="set-complete-msg">✓ Ejercicio completado</p>';
+  }
   return `
     <div class="set-logger" id="logger-${ejIdx}">
       <div class="set-logger-header">
-        <span>Set ${nextSet + 1} de ${ej.series}</span>
-        ${isLastSet && ej.fallo_ultimo_set ? '<span class="fallo-hint">💥 ¡Al fallo!</span>' : ''}
+        <span>${ej.series} series · objetivo ${ej.reps_objetivo} reps</span>
+        ${ej.fallo_ultimo_set ? '<span class="fallo-hint">💥 Último set al fallo</span>' : ''}
       </div>
       <div class="reps-input-row">
         <button class="reps-btn" data-action="reps-minus" data-ej="${ejIdx}">−</button>
@@ -586,20 +584,18 @@ function renderSetLogger(ej, ejIdx) {
           value="${ej.reps_objetivo}" min="1" max="50" inputmode="numeric">
         <button class="reps-btn" data-action="reps-plus" data-ej="${ejIdx}">+</button>
       </div>
-      ${isLastSet ? `
-        <div class="rir-row">
-          <label>RIR (reps en depósito):</label>
-          <div class="rir-buttons">
-            ${[0,1,2,3,4].map(r => `
-              <button class="rir-btn ${r === 2 ? 'selected' : ''}"
-                data-action="set-rir" data-ej="${ejIdx}" data-rir="${r}">${r}</button>
-            `).join('')}
-          </div>
-        </div>` : ''}
-      <button class="btn btn-complete-set" data-action="complete-set" data-ej="${ejIdx}" data-set="${nextSet}">
-        ✓ Set ${nextSet + 1} completado
+      <div class="rir-row">
+        <label>RIR último set:</label>
+        <div class="rir-buttons">
+          ${[0,1,2,3,4].map(r => `
+            <button class="rir-btn ${r === 2 ? 'selected' : ''}"
+              data-action="set-rir" data-ej="${ejIdx}" data-rir="${r}">${r}</button>
+          `).join('')}
+        </div>
+      </div>
+      <button class="btn btn-complete-set" data-action="complete-exercise" data-ej="${ejIdx}">
+        ✓ Completar ejercicio
       </button>
-      ${isFirstSet ? '<p class="swipe-hint">← Desliza para completar</p>' : ''}
     </div>`;
 }
 
@@ -1416,21 +1412,18 @@ function handleAction(action, dataset, e) {
       break;
     }
 
-    case 'complete-set': {
+    case 'complete-exercise': {
       const ejIdx = parseInt(dataset.ej);
-      const setIdx = parseInt(dataset.set);
       const repsInput = document.getElementById(`reps-${ejIdx}`);
-      const reps = repsInput ? parseInt(repsInput.value) : activeWorkout.bloques[activeWorkout.bloque_actual].ejercicios[ejIdx].reps_objetivo;
-
       const ej = activeWorkout.bloques[activeWorkout.bloque_actual].ejercicios[ejIdx];
-      ej.reps_completadas[setIdx] = reps || ej.reps_objetivo;
+      const reps = (repsInput ? parseInt(repsInput.value) : null) || ej.reps_objetivo;
 
-      // Guardar RIR si es último set
-      const isLastSet = setIdx === ej.series - 1;
-      if (isLastSet) {
-        const rirBtn = document.querySelector('.rir-btn.selected');
-        if (rirBtn) ej.rir_ultimo_set = parseInt(rirBtn.dataset.rir);
-      }
+      // Marcar todas las series de golpe
+      ej.reps_completadas = ej.reps_completadas.map(() => reps);
+
+      // Guardar RIR
+      const rirBtn = document.querySelector('.rir-btn.selected');
+      if (rirBtn) ej.rir_ultimo_set = parseInt(rirBtn.dataset.rir);
 
       // Actualizar carga en store
       if (ej.carga_kg !== null) Store.saveCarga(ej.nombre, ej.carga_kg);
@@ -1439,9 +1432,6 @@ function handleAction(action, dataset, e) {
       if (ej.carga_kg && Store.checkAndSavePR(ej.nombre, ej.carga_kg)) {
         showToast('🏆 ¡Nuevo récord personal! ' + ej.nombre, 'pr');
       }
-
-      // Arrancar timer de descanso
-      startRestTimer(60);
 
       Store.saveWorkout(activeWorkout);
       navigate('workout');
