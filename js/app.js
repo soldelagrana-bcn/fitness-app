@@ -2163,10 +2163,16 @@ async function doFoodSearch(query) {
   const customHtml = custom.map(buildRow).join('');
 
   try {
-    const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&action=process&page_size=25&sort_by=unique_scans_n&fields=product_name,brands,nutriments,code`;
+    const offUrl = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&action=process&page_size=25&sort_by=unique_scans_n&fields=product_name,brands,nutriments,code`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
-    const resp = await fetch(url, { signal: controller.signal });
+    let resp;
+    try {
+      resp = await fetch(offUrl, { signal: controller.signal });
+    } catch {
+      // Fallback: proxy CORS si el direct request falla
+      resp = await fetch(`https://corsproxy.io/?${encodeURIComponent(offUrl)}`, { signal: controller.signal });
+    }
     clearTimeout(timeout);
     const data = await resp.json();
     const products = (data.products || []).filter(p =>
