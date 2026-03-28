@@ -2109,15 +2109,18 @@ async function doFoodSearch(query) {
   const customHtml = custom.map(buildRow).join('');
 
   try {
-    const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&search_simple=1&action=process&page_size=15&fields=product_name,brands,nutriments,code&lc=es`;
+    const url = `https://world.openfoodfacts.org/api/v2/search?search_terms=${encodeURIComponent(query)}&page_size=25&sort_by=unique_scans_n&fields=product_name,brands,nutriments,code`;
     const resp = await fetch(url);
     const data = await resp.json();
-    const products = (data.products || []).filter(p => p.product_name && p.nutriments);
+    const products = (data.products || []).filter(p =>
+      p.product_name &&
+      p.nutriments &&
+      (p.nutriments['energy-kcal_100g'] || p.nutriments['energy-kcal']) > 0
+    );
 
     const offHtml = products.map(p => {
       const n = p.nutriments;
       const kcal = Math.round(n['energy-kcal_100g'] || n['energy-kcal'] || 0);
-      if (!kcal) return '';
       const food = {
         id: 'off_' + (p.code || Date.now()),
         nombre: p.product_name + (p.brands ? ` — ${p.brands}` : ''),
@@ -2131,10 +2134,10 @@ async function doFoodSearch(query) {
     }).join('');
 
     if (!offHtml && !customHtml) {
-      resultsEl.innerHTML = '<p class="nut-empty-hint muted">Sin resultados. Prueba con otro nombre.</p>';
+      resultsEl.innerHTML = '<p class="nut-empty-hint muted">Sin resultados. Prueba en inglés o con otro nombre.</p>';
     } else {
       resultsEl.innerHTML = (customHtml ? `<div class="nut-modal-section-title">Mis alimentos</div>${customHtml}` : '')
-        + (offHtml ? `<div class="nut-modal-section-title">Open Food Facts</div>${offHtml}` : '');
+        + (offHtml ? `<div class="nut-modal-section-title">Resultados</div>${offHtml}` : '');
     }
   } catch {
     resultsEl.innerHTML = customHtml
@@ -2260,16 +2263,26 @@ async function openLiveBarcodeScanner() {
   requestAnimationFrame(() => overlay.classList.add('visible'));
 
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
     const video = document.getElementById('barcode-video');
+    video.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
     video.srcObject = stream;
     overlay._stream = stream;
+    await new Promise((resolve) => {
+      video.addEventListener('loadedmetadata', resolve, { once: true });
+    });
     await video.play();
 
-    const detector = new BarcodeDetector({ formats: ['ean_8', 'ean_13', 'code_128', 'upc_a'] });
+    const detector = new BarcodeDetector({ formats: ['ean_8', 'ean_13', 'code_128', 'upc_a', 'upc_e'] });
     let scanning = true;
+    let lastScan = 0;
     const scan = async () => {
       if (!scanning || !document.getElementById('barcode-overlay')) return;
+      const now = Date.now();
+      if (now - lastScan < 200) { requestAnimationFrame(scan); return; }
+      lastScan = now;
       try {
         const codes = await detector.detect(video);
         if (codes.length) {
@@ -2282,8 +2295,10 @@ async function openLiveBarcodeScanner() {
     };
     requestAnimationFrame(scan);
   } catch {
-    showToast('No se pudo acceder a la cámara', 'error');
-    overlay.remove();
+    closeBarcodeScanner();
+    // Fallback: abrir cámara como captura de imagen
+    showToast('Abriendo cámara...', 'info');
+    openFileBarcodeCapture();
   }
 }
 
