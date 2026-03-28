@@ -35,6 +35,10 @@ const GARMIN_SEED = {
 async function syncToSupabase() {
   const cfg = Store.getSupabaseConfig();
   if (!cfg.url || !cfg.key) return;
+  // No subir si no hay datos reales (evita sobreescribir con datos vacíos)
+  const workouts = Store.getWorkouts().filter(w => w.completado);
+  const weights = Store.getWeightLog();
+  if (workouts.length === 0 && weights.length === 0) return;
   const now = new Date().toISOString();
   const data = JSON.parse(Store.exportAll());
   try {
@@ -66,9 +70,25 @@ async function syncFromSupabase() {
     const rows = await res.json();
     if (!rows || !rows.length) return;
     const row = rows[0];
+    // No importar si los datos remotos están vacíos
+    if (!row.data || !row.data.workouts || row.data.workouts.length === 0) return;
     const remoteTs = new Date(row.updated_at).getTime();
     const localTs = Store.getLastSyncedAt() ? new Date(Store.getLastSyncedAt()).getTime() : 0;
     if (remoteTs > localTs) {
+      // Merge workouts: combinar local + remoto, sin duplicados por ID
+      const localWorkouts = Store.getWorkouts();
+      const remoteWorkouts = row.data.workouts || [];
+      const merged = [...localWorkouts];
+      for (const rw of remoteWorkouts) {
+        if (!merged.find(lw => lw.id === rw.id)) merged.push(rw);
+      }
+      row.data.workouts = merged;
+      // Merge weight_log por fecha
+      const localWeights = Store.getWeightLog();
+      const remoteWeights = row.data.weight_log || [];
+      const weightMap = {};
+      for (const w of [...localWeights, ...remoteWeights]) weightMap[w.fecha] = w;
+      row.data.weight_log = Object.values(weightMap);
       const ok = Store.importAll(JSON.stringify(row.data));
       if (ok) {
         Store.saveLastSyncedAt(row.updated_at);
