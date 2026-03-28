@@ -2110,7 +2110,10 @@ async function doFoodSearch(query) {
 
   try {
     const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&action=process&page_size=25&sort_by=unique_scans_n&fields=product_name,brands,nutriments,code`;
-    const resp = await fetch(url);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const resp = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
     const data = await resp.json();
     const products = (data.products || []).filter(p =>
       p.product_name &&
