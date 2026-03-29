@@ -100,6 +100,7 @@ async function syncFromSupabase() {
     if (ok) {
       Store.saveLastSyncedAt(row.updated_at);
       if (mergedCount > localCount) {
+        syncToSupabase(); // subir datos fusionados para que el otro dispositivo los tenga
         renderApp();
         showToast('Datos actualizados desde la nube ☁️');
       }
@@ -2150,15 +2151,19 @@ function closeNutModal() {
   });
 }
 
+function normalizeSearch(s) {
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
 async function doFoodSearch(query) {
   const resultsEl = document.getElementById('nut-search-results');
   if (!resultsEl) return;
   resultsEl.innerHTML = '<div class="nut-loading">Buscando...</div>';
 
-  const q = query.toLowerCase();
-  const custom = Store.getFoodsDB().filter(f => f.nombre.toLowerCase().includes(q));
+  const q = normalizeSearch(query);
+  const custom = Store.getFoodsDB().filter(f => normalizeSearch(f.nombre).includes(q));
   const builtin = (typeof FOODS_BUILTIN !== 'undefined')
-    ? FOODS_BUILTIN.filter(f => f.nombre.toLowerCase().includes(q))
+    ? FOODS_BUILTIN.filter(f => normalizeSearch(f.nombre).includes(q))
     : [];
 
   const buildRow = (f) => {
@@ -2269,33 +2274,45 @@ function openPortionModal(food) {
 
   modal.querySelector('#nut-qty-input').addEventListener('input', (ev) => {
     const qty = parseFloat(ev.target.value) || 0;
+    const unit = document.getElementById('nut-unit-select')?.value || 'g';
     const preview = document.getElementById('nut-portion-preview');
-    if (preview) preview.innerHTML = calcPortionPreview(food, qty);
+    if (preview) preview.innerHTML = calcPortionPreview(food, qty, unit);
+  });
+  modal.querySelector('#nut-unit-select').addEventListener('change', (ev) => {
+    const qty = parseFloat(document.getElementById('nut-qty-input')?.value) || 0;
+    const preview = document.getElementById('nut-portion-preview');
+    if (preview) preview.innerHTML = calcPortionPreview(food, qty, ev.target.value);
   });
 }
 
-function calcPortionPreview(food, qty) {
-  const f = qty / 100;
+function calcPortionPreview(food, qty, unit) {
+  let grams = qty;
+  if (unit === 'uds') grams = qty * (food.peso_ud_g || 100);
+  const f = grams / 100;
   const kcal  = Math.round((food.kcal100  || 0) * f);
   const prot  = Math.round((food.prot100  || 0) * f * 10) / 10;
   const carbs = Math.round((food.carbs100 || 0) * f * 10) / 10;
   const fat   = Math.round((food.fat100   || 0) * f * 10) / 10;
+  const gramsInfo = (unit === 'uds' && food.peso_ud_g)
+    ? `<div style="font-size:11px;color:#888;text-align:center;margin-top:4px;">${qty} ud × ${food.peso_ud_g}g = ${Math.round(grams)}g</div>`
+    : '';
   return `
     <div class="nut-preview-row">
       <span class="nut-preview-big">${kcal}<small> kcal</small></span>
       <span>P <strong>${prot}g</strong></span>
       <span>C <strong>${carbs}g</strong></span>
       <span>G <strong>${fat}g</strong></span>
-    </div>`;
+    </div>${gramsInfo}`;
 }
 
 function adjustQty(delta) {
   const input = document.getElementById('nut-qty-input');
   if (!input) return;
+  const unit = document.getElementById('nut-unit-select')?.value || 'g';
   input.value = Math.max(1, (parseFloat(input.value) || 0) + delta);
   if (nutSelectedFood) {
     const preview = document.getElementById('nut-portion-preview');
-    if (preview) preview.innerHTML = calcPortionPreview(nutSelectedFood, parseFloat(input.value));
+    if (preview) preview.innerHTML = calcPortionPreview(nutSelectedFood, parseFloat(input.value), unit);
   }
 }
 
@@ -2303,7 +2320,9 @@ function confirmAddFood() {
   if (!nutSelectedFood || !nutCurrentMeal) return;
   const qty  = parseFloat(document.getElementById('nut-qty-input')?.value) || 100;
   const unit = document.getElementById('nut-unit-select')?.value || 'g';
-  const f = qty / 100;
+  let grams = qty;
+  if (unit === 'uds') grams = qty * (nutSelectedFood.peso_ud_g || 100);
+  const f = grams / 100;
 
   const entry = {
     id: 'e_' + Date.now(),
