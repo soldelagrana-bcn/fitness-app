@@ -70,9 +70,9 @@ async function syncFromSupabase() {
     const rows = await res.json();
     if (!rows || !rows.length) return;
     const row = rows[0];
-    if (!row.data || !row.data.workouts || row.data.workouts.length === 0) return;
+    if (!row.data) return;
 
-    // Merge workouts: para cada ID, preferir el que esté completado; si ambos igual, el más reciente
+    // ── WORKOUTS: merge por ID, preferir completado ──────────
     const localWorkouts = Store.getWorkouts();
     const remoteWorkouts = row.data.workouts || [];
     const workoutMap = {};
@@ -80,29 +80,42 @@ async function syncFromSupabase() {
       const existing = workoutMap[w.id];
       if (!existing) {
         workoutMap[w.id] = w;
-      } else {
-        // Preferir el completado; si empate, el más reciente por fecha
-        if (w.completado && !existing.completado) workoutMap[w.id] = w;
+      } else if (w.completado && !existing.completado) {
+        workoutMap[w.id] = w;
       }
     }
-    row.data.workouts = Object.values(workoutMap);
+    const mergedWorkouts = Object.values(workoutMap);
 
-    // Merge weight_log por fecha
+    // GUARD DURO: nunca reducir workouts completados
+    const localCount = localWorkouts.filter(w => w.completado).length;
+    const mergedCount = mergedWorkouts.filter(w => w.completado).length;
+    if (mergedCount < localCount) return; // el merge empeoraría los datos — abortar
+
+    // ── WEIGHT LOG: merge por fecha ──────────────────────────
     const localWeights = Store.getWeightLog();
     const remoteWeights = row.data.weight_log || [];
     const weightMap = {};
     for (const w of [...localWeights, ...remoteWeights]) weightMap[w.fecha] = w;
-    row.data.weight_log = Object.values(weightMap);
 
-    const localCount = localWorkouts.filter(w => w.completado).length;
-    const mergedCount = row.data.workouts.filter(w => w.completado).length;
-    const ok = Store.importAll(JSON.stringify(row.data));
+    // ── IMPORTAR solo workouts + weight_log + nutrition ──────
+    // Config y cargas NUNCA se sobreescriben desde el servidor (son datos locales)
+    const mergedData = {
+      workouts: mergedWorkouts,
+      weight_log: Object.values(weightMap),
+      nutrition: row.data.nutrition || {}
+    };
+
+    const ok = Store.importAll(JSON.stringify(mergedData));
     if (ok) {
       Store.saveLastSyncedAt(row.updated_at);
-      if (mergedCount > localCount) {
+      const hasNewWorkouts = mergedCount > localCount;
+      const hasNewNutrition = row.data.nutrition && Object.keys(row.data.nutrition).length > 0;
+      if (hasNewWorkouts) {
         syncToSupabase(); // subir datos fusionados para que el otro dispositivo los tenga
         renderApp();
         showToast('Datos actualizados desde la nube ☁️');
+      } else if (hasNewNutrition) {
+        renderApp(); // actualizar vista de nutrición si había datos nuevos
       }
     }
   } catch(e) { /* silent */ }
@@ -1839,6 +1852,7 @@ function handleAction(action, dataset, e) {
     case 'nut-remove-entry': {
       Store.removeNutritionEntry(dataset.fecha, dataset.id);
       navigate('nutricion');
+      syncToSupabase();
       break;
     }
 
@@ -2342,6 +2356,7 @@ function confirmAddFood() {
   closeNutModal();
   navigate('nutricion');
   showToast(`${nutSelectedFood.nombre} añadido ✓`);
+  syncToSupabase();
 }
 
 // ============================================================

@@ -158,6 +158,33 @@ const Store = {
     return acts[0] || null;
   },
 
+  // ---- REGISTRO DE NUTRICIÓN (últimos N días) ----
+  getNutritionLogs(days = 60) {
+    const result = {};
+    const today = new Date();
+    for (let i = 0; i < days; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const fecha = d.toISOString().split('T')[0];
+      const raw = localStorage.getItem(`sol_nutlog_${fecha}`);
+      if (raw) { try { result[fecha] = JSON.parse(raw); } catch(e) {} }
+    }
+    return result;
+  },
+  // Merge aditivo: solo añade entradas que no existen localmente (nunca borra)
+  mergeNutritionLogs(remoteLogsObj) {
+    if (!remoteLogsObj || typeof remoteLogsObj !== 'object') return;
+    for (const [fecha, remoteLog] of Object.entries(remoteLogsObj)) {
+      if (!remoteLog || !Array.isArray(remoteLog.entries)) continue;
+      const local = this.getNutritionLog(fecha);
+      const localIds = new Set((local.entries || []).map(e => e.id));
+      const newEntries = remoteLog.entries.filter(e => e.id && !localIds.has(e.id));
+      if (newEntries.length > 0) {
+        this.saveNutritionLog(fecha, { entries: [...(local.entries || []), ...newEntries] });
+      }
+    }
+  },
+
   // ---- EXPORT / IMPORT ----
   exportAll() {
     return JSON.stringify({
@@ -165,16 +192,17 @@ const Store = {
       workouts: this.getWorkouts(),
       cargas: this.getCargas(),
       weight_log: this.getWeightLog(),
+      nutrition: this.getNutritionLogs(60),
       exported_at: new Date().toISOString()
     }, null, 2);
   },
+  // importAll solo actualiza workouts y weight_log (config y cargas siempre locales)
   importAll(jsonStr) {
     try {
       const data = JSON.parse(jsonStr);
-      if (data.config) localStorage.setItem(this.keys.config, JSON.stringify(data.config));
       if (data.workouts) localStorage.setItem(this.keys.workouts, JSON.stringify(data.workouts));
-      if (data.cargas) localStorage.setItem(this.keys.cargas, JSON.stringify(data.cargas));
       if (data.weight_log) localStorage.setItem(this.keys.weight_log, JSON.stringify(data.weight_log));
+      if (data.nutrition) this.mergeNutritionLogs(data.nutrition);
       return true;
     } catch (e) {
       return false;
