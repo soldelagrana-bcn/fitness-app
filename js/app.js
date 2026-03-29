@@ -118,14 +118,11 @@ async function syncFromSupabase() {
     if (ok) {
       Store.saveLastSyncedAt(row.updated_at);
       const hasNewWorkouts = mergedCount > localCount;
-      const remoteNutDays = row.data.nutrition ? Object.keys(row.data.nutrition).length : 0;
       if (hasNewWorkouts) {
-        syncToSupabase();
-        renderApp();
-        showToast(`☁️ Sync: ${mergedCount} entrenos, ${remoteNutDays} días nutrición`);
-      } else if (remoteNutDays > 0) {
-        renderApp();
+        showToast(`☁️ Sync: ${mergedCount} entrenos`);
       }
+      // Siempre re-renderizar tras un sync exitoso para reflejar cualquier dato nuevo
+      renderApp();
     }
     return { ok: true, workouts: mergedCount, nutDays: Object.keys(row.data.nutrition || {}).length };
   } catch(e) {
