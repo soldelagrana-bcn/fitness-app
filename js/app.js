@@ -34,12 +34,13 @@ const GARMIN_SEED = {
 // ============================================================
 async function syncToSupabase() {
   const cfg = Store.getSupabaseConfig();
-  if (!cfg.url || !cfg.key) return;
-  // No subir si no hay datos reales (evita sobreescribir con datos vacíos)
+  if (!cfg.url || !cfg.key) return { ok: false, error: 'Sin configuración' };
   const workouts = Store.getWorkouts().filter(w => w.completado);
   const weights = Store.getWeightLog();
-  const nutrition = Store.getNutritionLogs(7); // últimos 7 días
-  if (workouts.length === 0 && weights.length === 0 && Object.keys(nutrition).length === 0) return;
+  const nutrition = Store.getNutritionLogs(7);
+  if (workouts.length === 0 && weights.length === 0 && Object.keys(nutrition).length === 0) {
+    return { ok: false, error: 'Sin datos locales que subir' };
+  }
   const now = new Date().toISOString();
   const data = JSON.parse(Store.exportAll());
   try {
@@ -53,8 +54,15 @@ async function syncToSupabase() {
       },
       body: JSON.stringify({ id: 'sol', data, updated_at: now })
     });
-    if (res.ok) Store.saveLastSyncedAt(now);
-  } catch(e) { /* silent */ }
+    if (res.ok) {
+      Store.saveLastSyncedAt(now);
+      return { ok: true, workouts: workouts.length, nutDays: Object.keys(nutrition).length };
+    }
+    const errText = await res.text().catch(() => res.status);
+    return { ok: false, error: `HTTP ${res.status}: ${errText}` };
+  } catch(e) {
+    return { ok: false, error: e.message || 'Error de red' };
+  }
 }
 
 async function syncFromSupabase() {
@@ -110,16 +118,19 @@ async function syncFromSupabase() {
     if (ok) {
       Store.saveLastSyncedAt(row.updated_at);
       const hasNewWorkouts = mergedCount > localCount;
-      const hasNewNutrition = row.data.nutrition && Object.keys(row.data.nutrition).length > 0;
+      const remoteNutDays = row.data.nutrition ? Object.keys(row.data.nutrition).length : 0;
       if (hasNewWorkouts) {
-        syncToSupabase(); // subir datos fusionados para que el otro dispositivo los tenga
+        syncToSupabase();
         renderApp();
-        showToast('Datos actualizados desde la nube ☁️');
-      } else if (hasNewNutrition) {
-        renderApp(); // actualizar vista de nutrición si había datos nuevos
+        showToast(`☁️ Sync: ${mergedCount} entrenos, ${remoteNutDays} días nutrición`);
+      } else if (remoteNutDays > 0) {
+        renderApp();
       }
     }
-  } catch(e) { /* silent */ }
+    return { ok: true, workouts: mergedCount, nutDays: Object.keys(row.data.nutrition || {}).length };
+  } catch(e) {
+    return { ok: false, error: e.message || 'Error de red' };
+  }
 }
 
 // ---- ROUTER ----
@@ -1572,7 +1583,19 @@ function handleAction(action, dataset, e) {
 
     case 'sync-now': {
       showToast('Sincronizando...');
-      syncFromSupabase().then(() => syncToSupabase());
+      syncFromSupabase().then(async (pullResult) => {
+        const pushResult = await syncToSupabase();
+        if (pushResult && !pushResult.ok && pushResult.error && !pushResult.error.includes('Sin datos')) {
+          showToast(`Error al subir: ${pushResult.error}`, 'error');
+        } else if (pullResult && !pullResult.ok && pullResult.error) {
+          showToast(`Error al descargar: ${pullResult.error}`, 'error');
+        } else {
+          const w = pushResult?.workouts ?? 0;
+          const n = pushResult?.nutDays ?? 0;
+          showToast(`✓ Sync: ${w} entrenos, ${n} días nutrición`);
+          navigate('ajustes'); // refrescar para actualizar "Última sync"
+        }
+      });
       break;
     }
 
@@ -2631,9 +2654,23 @@ document.addEventListener('DOMContentLoaded', () => {
   const savedTheme = localStorage.getItem('sol_theme') || 'light';
   document.documentElement.setAttribute('data-theme', savedTheme);
 
-  // Registrar Service Worker
+  // Registrar Service Worker y recargar automáticamente cuando hay nueva versión
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/fitness-app/sw.js').catch(() => {});
+    navigator.serviceWorker.register('/fitness-app/sw.js').then(reg => {
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'activated') {
+            // Nueva versión activa — recargar para cargar JS/CSS frescos
+            window.location.reload();
+          }
+        });
+      });
+    }).catch(() => {});
+    // Si el SW cambia (otra pestaña activó la nueva versión), recargar también
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      window.location.reload();
+    });
   }
 
   // Sync bidireccional al arrancar: primero pull, luego push datos locales
