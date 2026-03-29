@@ -38,7 +38,8 @@ async function syncToSupabase() {
   // No subir si no hay datos reales (evita sobreescribir con datos vacíos)
   const workouts = Store.getWorkouts().filter(w => w.completado);
   const weights = Store.getWeightLog();
-  if (workouts.length === 0 && weights.length === 0) return;
+  const nutrition = Store.getNutritionLogs(7); // últimos 7 días
+  if (workouts.length === 0 && weights.length === 0 && Object.keys(nutrition).length === 0) return;
   const now = new Date().toISOString();
   const data = JSON.parse(Store.exportAll());
   try {
@@ -2635,12 +2636,14 @@ document.addEventListener('DOMContentLoaded', () => {
     navigator.serviceWorker.register('/fitness-app/sw.js').catch(() => {});
   }
 
-  // Sync desde Supabase al arrancar
-  syncFromSupabase();
+  // Sync bidireccional al arrancar: primero pull, luego push datos locales
+  syncFromSupabase().then(() => syncToSupabase());
 
   // Re-sync cuando el usuario vuelve a la app (cambia de pestaña, desbloquea móvil, etc.)
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') syncFromSupabase();
+    if (document.visibilityState === 'visible') {
+      syncFromSupabase().then(() => syncToSupabase());
+    }
   });
 
   // Nav buttons
