@@ -70,28 +70,36 @@ async function syncFromSupabase() {
     const rows = await res.json();
     if (!rows || !rows.length) return;
     const row = rows[0];
-    // No importar si los datos remotos están vacíos
     if (!row.data || !row.data.workouts || row.data.workouts.length === 0) return;
-    const remoteTs = new Date(row.updated_at).getTime();
-    const localTs = Store.getLastSyncedAt() ? new Date(Store.getLastSyncedAt()).getTime() : 0;
-    if (remoteTs > localTs) {
-      // Merge workouts: combinar local + remoto, sin duplicados por ID
-      const localWorkouts = Store.getWorkouts();
-      const remoteWorkouts = row.data.workouts || [];
-      const merged = [...localWorkouts];
-      for (const rw of remoteWorkouts) {
-        if (!merged.find(lw => lw.id === rw.id)) merged.push(rw);
+
+    // Merge workouts: para cada ID, preferir el que esté completado; si ambos igual, el más reciente
+    const localWorkouts = Store.getWorkouts();
+    const remoteWorkouts = row.data.workouts || [];
+    const workoutMap = {};
+    for (const w of [...localWorkouts, ...remoteWorkouts]) {
+      const existing = workoutMap[w.id];
+      if (!existing) {
+        workoutMap[w.id] = w;
+      } else {
+        // Preferir el completado; si empate, el más reciente por fecha
+        if (w.completado && !existing.completado) workoutMap[w.id] = w;
       }
-      row.data.workouts = merged;
-      // Merge weight_log por fecha
-      const localWeights = Store.getWeightLog();
-      const remoteWeights = row.data.weight_log || [];
-      const weightMap = {};
-      for (const w of [...localWeights, ...remoteWeights]) weightMap[w.fecha] = w;
-      row.data.weight_log = Object.values(weightMap);
-      const ok = Store.importAll(JSON.stringify(row.data));
-      if (ok) {
-        Store.saveLastSyncedAt(row.updated_at);
+    }
+    row.data.workouts = Object.values(workoutMap);
+
+    // Merge weight_log por fecha
+    const localWeights = Store.getWeightLog();
+    const remoteWeights = row.data.weight_log || [];
+    const weightMap = {};
+    for (const w of [...localWeights, ...remoteWeights]) weightMap[w.fecha] = w;
+    row.data.weight_log = Object.values(weightMap);
+
+    const localCount = localWorkouts.filter(w => w.completado).length;
+    const mergedCount = row.data.workouts.filter(w => w.completado).length;
+    const ok = Store.importAll(JSON.stringify(row.data));
+    if (ok) {
+      Store.saveLastSyncedAt(row.updated_at);
+      if (mergedCount > localCount) {
         renderApp();
         showToast('Datos actualizados desde la nube ☁️');
       }
@@ -2595,6 +2603,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Sync desde Supabase al arrancar
   syncFromSupabase();
+
+  // Re-sync cuando el usuario vuelve a la app (cambia de pestaña, desbloquea móvil, etc.)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') syncFromSupabase();
+  });
 
   // Nav buttons
   document.querySelectorAll('.nav-btn').forEach(btn => {
