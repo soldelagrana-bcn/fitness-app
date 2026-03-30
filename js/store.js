@@ -261,7 +261,11 @@ const Store = {
     const workouts = this.getWorkouts().filter(w => w.completado && w.fecha);
     let inicioMs;
     if (workouts.length > 0) {
-      const sorted = workouts.map(w => new Date(w.fecha + 'T12:00:00')).sort((a, b) => a - b);
+      const sorted = workouts.map(w => {
+        // Usar w.fecha si existe, si no extraer del id (workout_YYYY-MM-DD_dia)
+        const dateStr = w.fecha || ((w.id || '').match(/workout_(\d{4}-\d{2}-\d{2})/) || [])[1];
+        return dateStr ? new Date(dateStr + 'T12:00:00') : null;
+      }).filter(Boolean).sort((a, b) => a - b);
       const first = sorted[0];
       // Normalizar al lunes de esa semana
       const dow = first.getDay(); // 0=dom, 1=lun...
