@@ -257,13 +257,28 @@ const Store = {
 
   // ---- SEMANA ACTUAL (número 1-4) ----
   getSemanaActual() {
-    const config = this.getConfig();
-    if (!config.fecha_inicio) return 1;
-    const inicio = new Date(config.fecha_inicio);
+    // Calcular desde el primer entreno completado (más fiable que fecha_inicio)
+    const workouts = this.getWorkouts().filter(w => w.completado && w.fecha);
+    let inicioMs;
+    if (workouts.length > 0) {
+      const sorted = workouts.map(w => new Date(w.fecha + 'T12:00:00')).sort((a, b) => a - b);
+      const first = sorted[0];
+      // Normalizar al lunes de esa semana
+      const dow = first.getDay(); // 0=dom, 1=lun...
+      const diffToMon = dow === 0 ? -6 : 1 - dow;
+      const monday = new Date(first);
+      monday.setDate(first.getDate() + diffToMon);
+      monday.setHours(0, 0, 0, 0);
+      inicioMs = monday.getTime();
+    } else {
+      const config = this.getConfig();
+      if (!config.fecha_inicio) return 1;
+      inicioMs = new Date(config.fecha_inicio + 'T00:00:00').getTime();
+    }
     const today = new Date();
-    const diffMs = today - inicio;
-    const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1;
-    return Math.min(diffWeeks, 4);
+    today.setHours(0, 0, 0, 0);
+    const diffWeeks = Math.floor((today.getTime() - inicioMs) / (7 * 24 * 60 * 60 * 1000)) + 1;
+    return Math.min(Math.max(diffWeeks, 1), 4);
   },
 
   // ---- RÉCORDS PERSONALES ----
