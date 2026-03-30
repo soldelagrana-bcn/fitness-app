@@ -257,32 +257,31 @@ const Store = {
 
   // ---- SEMANA ACTUAL (número 1-4) ----
   getSemanaActual() {
-    // Calcular desde el primer entreno completado (más fiable que fecha_inicio)
-    const workouts = this.getWorkouts().filter(w => w.completado && w.fecha);
-    let inicioMs;
+    // Usar Date.UTC para evitar problemas con cambio de horario (DST)
+    const workouts = this.getWorkouts().filter(w => w.completado);
+    let startDateStr;
     if (workouts.length > 0) {
-      const sorted = workouts.map(w => {
-        // Usar w.fecha si existe, si no extraer del id (workout_YYYY-MM-DD_dia)
-        const dateStr = w.fecha || ((w.id || '').match(/workout_(\d{4}-\d{2}-\d{2})/) || [])[1];
-        return dateStr ? new Date(dateStr + 'T12:00:00') : null;
-      }).filter(Boolean).sort((a, b) => a - b);
-      const first = sorted[0];
-      // Normalizar al lunes de esa semana
-      const dow = first.getDay(); // 0=dom, 1=lun...
-      const diffToMon = dow === 0 ? -6 : 1 - dow;
-      const monday = new Date(first);
-      monday.setDate(first.getDate() + diffToMon);
-      monday.setHours(0, 0, 0, 0);
-      inicioMs = monday.getTime();
+      const dates = workouts.map(w =>
+        w.fecha || ((w.id || '').match(/workout_(\d{4}-\d{2}-\d{2})/) || [])[1]
+      ).filter(Boolean).sort();
+      if (dates.length === 0) return 1;
+      const [fy, fm, fd] = dates[0].split('-').map(Number);
+      const firstMs = Date.UTC(fy, fm - 1, fd);
+      const dow = new Date(firstMs).getUTCDay();
+      const monMs = firstMs + (dow === 0 ? -6 : 1 - dow) * 86400000;
+      const mon = new Date(monMs);
+      startDateStr = `${mon.getUTCFullYear()}-${String(mon.getUTCMonth()+1).padStart(2,'0')}-${String(mon.getUTCDate()).padStart(2,'0')}`;
     } else {
       const config = this.getConfig();
-      if (!config.fecha_inicio) return 1;
-      inicioMs = new Date(config.fecha_inicio + 'T00:00:00').getTime();
+      startDateStr = config.fecha_inicio;
+      if (!startDateStr) return 1;
     }
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const diffWeeks = Math.floor((today.getTime() - inicioMs) / (7 * 24 * 60 * 60 * 1000)) + 1;
-    return Math.min(Math.max(diffWeeks, 1), 4);
+    const [sy, sm, sd] = startDateStr.split('-').map(Number);
+    const now = new Date();
+    const diffDays = Math.round(
+      (Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - Date.UTC(sy, sm - 1, sd)) / 86400000
+    );
+    return Math.min(Math.max(Math.floor(diffDays / 7) + 1, 1), 4);
   },
 
   // ---- RÉCORDS PERSONALES ----
