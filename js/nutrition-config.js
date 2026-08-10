@@ -11,7 +11,7 @@ const NUTRITION_PROFILE = {
   nombre: 'Sol',
   objetivo: 'Recomposición corporal — look fino, mantener tono',
   restriccion_salud: 'Colesterol total 220-230 → controlar grasas saturadas',
-  desayuno: 'dulce',          // los desayunos son SIEMPRE dulces, nunca salados
+  desayuno: 'dulce o salado', // ambos valen: dulce, o huevo/claras con aguacate y masa madre
   unidades: 'g/ml',           // nunca onzas, tazas ni cacitos
 };
 

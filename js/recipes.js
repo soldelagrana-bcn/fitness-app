@@ -31,10 +31,11 @@ const PROTEIN_POWDERS = {
 
 // ============================================================
 // RECETAS SEMILLA
-// Los desayunos son SIEMPRE dulces (tag 'dulce', nunca 'salado').
+// Los desayunos pueden ser dulces o salados; se etiquetan como
+// tales para poder alternar, no para restringir.
 // ============================================================
 const RECIPES_SEED = [
-  // ── DESAYUNOS (siempre dulces) ────────────────────────────
+  // ── DESAYUNOS DULCES ──────────────────────────────────────
   {
     id: 'r_des_01',
     name: 'Bowl de skyr con arándanos y avena',
@@ -104,6 +105,50 @@ const RECIPES_SEED = [
       { ingredient_id: 'b200', amount_g: 10 },  // Miel
     ],
     notes: 'Triturar todo y hacer a la sartén sin aceite.',
+  },
+
+  // ── DESAYUNOS SALADOS ─────────────────────────────────────
+  {
+    id: 'r_des_06',
+    name: 'Masa madre con huevo, claras y aguacate',
+    meal_type: 'desayuno',
+    is_fixed: false,
+    tags: ['salado', 'habitual'],
+    ingredients: [
+      { ingredient_id: 'b220', amount_g: 60 },  // Pan de masa madre
+      { ingredient_id: 'b023', amount_g: 60 },  // Huevo entero (1 ud)
+      { ingredient_id: 'b024', amount_g: 100 }, // Clara pasteurizada
+      { ingredient_id: 'b101', amount_g: 50 },  // Aguacate
+    ],
+    notes: 'La grasa viene del aguacate y la yema: insaturada en su mayor parte.',
+  },
+  {
+    id: 'r_des_07',
+    name: 'Tostada de masa madre con salmón ahumado y aguacate',
+    meal_type: 'desayuno',
+    is_fixed: false,
+    tags: ['salado', 'pescado_azul'],
+    ingredients: [
+      { ingredient_id: 'b220', amount_g: 60 },  // Pan de masa madre
+      { ingredient_id: 'b218', amount_g: 70 },  // Salmón ahumado
+      { ingredient_id: 'b101', amount_g: 40 },  // Aguacate
+      { ingredient_id: 'b094', amount_g: 60 },  // Tomate
+    ],
+    notes: 'Pescado azul de buena mañana: bien los días con margen de grasa.',
+  },
+  {
+    id: 'r_des_08',
+    name: 'Revuelto de claras con espinacas y pan integral',
+    meal_type: 'desayuno',
+    is_fixed: false,
+    tags: ['salado', 'ligero'],
+    ingredients: [
+      { ingredient_id: 'b024', amount_g: 180 }, // Clara pasteurizada
+      { ingredient_id: 'b023', amount_g: 60 },  // Huevo entero (1 ud)
+      { ingredient_id: 'b090', amount_g: 80 },  // Espinacas
+      { ingredient_id: 'b221', amount_g: 50 },  // Masa madre integral
+    ],
+    notes: '',
   },
 
   // ── ALMUERZOS ─────────────────────────────────────────────
@@ -429,17 +474,6 @@ const Recipes = {
 
   hasTag(recipe, tag) {
     return (recipe.tags || []).indexOf(tag) >= 0;
-  },
-
-  /**
-   * Coherencia con el perfil: los desayunos son siempre dulces.
-   * Devuelve un motivo si la receta no encaja en el hueco.
-   */
-  violatesProfile(recipe, mealType) {
-    if (mealType === 'desayuno' && this.hasTag(recipe, 'salado')) {
-      return 'Los desayunos son siempre dulces';
-    }
-    return null;
   },
 
   /** Uso correcto de las dos proteínas en polvo. */

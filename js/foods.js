@@ -199,6 +199,10 @@ const FOODS_BUILTIN = [
   { id:'b217', cat:'Proteínas', nombre:'Trucha fresca',                kcal100:119, prot100:20.5, carbs100:0.0,  fat100:3.5, sat100:0.8, fiber100:0.0, tags:['pescado_azul'] },
   { id:'b218', cat:'Proteínas', nombre:'Salmón ahumado',               kcal100:180, prot100:23.0, carbs100:0.5,  fat100:9.0, sat100:1.9, fiber100:0.0, tags:['pescado_azul'] },
   { id:'b219', cat:'Otros', nombre:'Gelatina proteica sin azúcar',     kcal100:12,  prot100:2.5,  carbs100:0.4,  fat100:0.0, sat100:0.0, fiber100:0.0 },
+
+  // ── PANES DE MASA MADRE ──────────────────────────────────
+  { id:'b220', cat:'Carbohidratos', nombre:'Pan de masa madre',            kcal100:260, prot100:9.5,  carbs100:50.0, fat100:1.5, sat100:0.3, fiber100:3.5 },
+  { id:'b221', cat:'Carbohidratos', nombre:'Pan de masa madre integral',   kcal100:247, prot100:10.0, carbs100:44.0, fat100:1.8, sat100:0.4, fiber100:6.5 },
 ];
 
 // ============================================================

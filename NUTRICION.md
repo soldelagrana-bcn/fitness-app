@@ -40,6 +40,9 @@ debe ir detrás del toggle `DAY_TYPE_TARGETS_ENABLED`, desactivado por defecto.
 Definidas en `HEALTH_RULES` y aplicadas por `Planner.alerts(fecha)`:
 
 - Grasa saturada por encima del **20% del objetivo de grasa** (11 g con 55 g de grasa).
+  Al sugerir, cada comida tiene su parte proporcional de ese margen con algo de holgura
+  (`SAT_SHARE_TOLERANCE`), para que un huevo entero o algo de aguacate no disparen un
+  aviso constante y el aviso siga significando algo.
 - Día por debajo de **1500 kcal** — el riesgo documentado aquí es el subconsumo.
 - Proteína por debajo de **115 g**.
 
@@ -90,6 +93,13 @@ Tienen uso excluyente y el motor lo respeta:
   ni suelta.
 
 `Recipes.proteinPowderWarning()` avisa en la ficha y en el editor si se mezclan.
+
+## Comidas y etiquetas
+
+Los desayunos pueden ser **dulces o salados** — desde un bowl de skyr con frutos rojos
+hasta huevo con claras, aguacate y pan de masa madre. Las etiquetas `dulce` y `salado`
+son descriptivas y sirven para alternar, no para restringir: el motor no filtra ninguna
+receta por ellas.
 
 ## Unidades
 

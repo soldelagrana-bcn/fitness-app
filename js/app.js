@@ -3474,7 +3474,6 @@ function renderRecipeEditorBody() {
   const body = document.getElementById('recipe-editor-body');
   if (!body || !recipeDraft) return;
   const macros = Recipes.computeMacros(recipeDraft);
-  const profileIssue = Recipes.violatesProfile(recipeDraft, recipeDraft.meal_type);
   const powderIssue = Recipes.proteinPowderWarning(recipeDraft);
 
   const ingRows = (recipeDraft.ingredients || []).map((i, idx) => {
@@ -3512,7 +3511,6 @@ function renderRecipeEditorBody() {
       <span>P ${macros.prot}g</span><span>C ${macros.carbs}g</span><span>G ${macros.fat}g</span>
       <span class="muted">sat ${macros.sat}g</span>
     </div>
-    ${profileIssue ? `<div class="cerrar-sug-warn">⚠ ${profileIssue}</div>` : ''}
     ${powderIssue ? `<div class="cerrar-sug-warn">⚠ ${powderIssue}</div>` : ''}
 
     <label class="editor-label">Etiquetas (separadas por comas)</label>
@@ -3674,7 +3672,6 @@ function openSlotSwapModal(date, mealType) {
 
   // Se ordenan por lo bien que encajan en el hueco que deja el resto del día
   const options = Recipes.byMealType(mealType)
-    .filter(r => !Recipes.violatesProfile(r, mealType))
     .filter(r => Planner.postWorkoutAllowed(r, date))
     .map(r => {
       const factor = Planner.fitFactor(r, gap);

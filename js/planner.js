@@ -20,6 +20,12 @@ const MEAL_WEIGHTS = {
 // de la app; las recetas usan 'snack'. Puente entre ambos.
 const MEAL_KEY_ALIASES = { snacks: 'snack', snack: 'snacks' };
 
+// Cuánto puede pasarse una comida de su parte proporcional del
+// margen diario de grasa saturada antes de avisar. Sin holgura,
+// un desayuno con huevo y aguacate avisaría siempre y el aviso
+// dejaría de significar nada.
+const SAT_SHARE_TOLERANCE = 1.5;
+
 const Planner = {
 
   // ==========================================================
@@ -284,13 +290,17 @@ const Planner = {
 
     // --- Grasa saturada: control de colesterol.
     // El presupuesto se reparte con las comidas que faltan, para que
-    // una sola comida no se coma todo el margen del día.
+    // una sola comida no se coma todo el margen del día. Se tolera
+    // pasarse algo de la parte proporcional (un huevo entero o algo
+    // de aguacate no deberían saltar la alarma); lo que no se tolera
+    // es comerse el margen que queda para todo el día.
     const satLeft = Math.max(0, NutritionConfig.satFatLimitG() - (ctx.satSoFar || 0));
-    const satBudget = satLeft * (ctx.satShare != null ? ctx.satShare : 1);
+    const satShare = satLeft * (ctx.satShare != null ? ctx.satShare : 1);
+    const satBudget = Math.min(satLeft, satShare * SAT_SHARE_TOLERANCE);
     let satScore = 100;
     if (m.sat > satBudget) {
       satScore = Math.max(0, 100 - ((m.sat - satBudget) / Math.max(satBudget, 3)) * 60);
-      warnings.push(`aporta ${m.sat.toFixed(1)}g de saturadas (quedan ${satBudget.toFixed(1)}g)`);
+      warnings.push(`aporta ${m.sat.toFixed(1)}g de saturadas (quedan ${satLeft.toFixed(1)}g hoy)`);
     }
 
     // --- Grasa total.
@@ -392,7 +402,6 @@ const Planner = {
     };
 
     const candidates = Recipes.byMealType(mealKey)
-      .filter(r => !Recipes.violatesProfile(r, mealKey))
       .filter(r => this.postWorkoutAllowed(r, fecha));
 
     const scored = candidates.map(recipe => {
@@ -523,7 +532,6 @@ const Planner = {
           .concat(history.map(h => h.recipeId));
 
         const pool = Recipes.byMealType(mealKey)
-          .filter(r => !Recipes.violatesProfile(r, mealKey))
           .filter(r => this.postWorkoutAllowed(r, date));
         if (!pool.length) {
           slots.push({ meal_type: mealKey, recipe_id: null, factor: 1, is_locked: false });
