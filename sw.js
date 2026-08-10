@@ -1,12 +1,15 @@
-const CACHE = 'sol-fitness-v8';
+const CACHE = 'sol-fitness-v9';
 const BASE = '/fitness-app';
 const ASSETS = [
   BASE + '/',
   BASE + '/index.html',
   BASE + '/css/app.css',
   BASE + '/js/data.js',
+  BASE + '/js/nutrition-config.js',
   BASE + '/js/foods.js',
   BASE + '/js/store.js',
+  BASE + '/js/recipes.js',
+  BASE + '/js/planner.js',
   BASE + '/js/app.js',
   BASE + '/manifest.json',
   BASE + '/icons/icon-180.png',

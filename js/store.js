@@ -185,6 +185,108 @@ const Store = {
     }
   },
 
+  // ---- RECETAS PROPIAS ----
+  getRecipes() {
+    const d = localStorage.getItem('sol_recipes');
+    return d ? JSON.parse(d) : [];
+  },
+  saveRecipe(recipe) {
+    const list = this.getRecipes();
+    const idx = list.findIndex(r => r.id === recipe.id);
+    if (idx >= 0) list[idx] = recipe; else list.push(recipe);
+    localStorage.setItem('sol_recipes', JSON.stringify(list));
+  },
+  deleteRecipe(id) {
+    const list = this.getRecipes().filter(r => r.id !== id);
+    localStorage.setItem('sol_recipes', JSON.stringify(list));
+  },
+
+  // Ediciones sobre recetas semilla: se guardan aparte para no
+  // perder la receta original cuando se actualiza la app.
+  getRecipeOverrides() {
+    const d = localStorage.getItem('sol_recipe_overrides');
+    return d ? JSON.parse(d) : {};
+  },
+  saveRecipeOverride(id, recipe) {
+    const ov = this.getRecipeOverrides();
+    ov[id] = recipe;
+    localStorage.setItem('sol_recipe_overrides', JSON.stringify(ov));
+  },
+  getDeletedSeedRecipes() {
+    const d = localStorage.getItem('sol_recipes_deleted');
+    return d ? JSON.parse(d) : [];
+  },
+  deleteSeedRecipe(id) {
+    const del = this.getDeletedSeedRecipes();
+    if (del.indexOf(id) < 0) del.push(id);
+    localStorage.setItem('sol_recipes_deleted', JSON.stringify(del));
+  },
+
+  // ---- USO DE RECETAS (para priorizar las habituales) ----
+  getRecipeUsage() {
+    const d = localStorage.getItem('sol_recipe_usage');
+    return d ? JSON.parse(d) : {};
+  },
+  bumpRecipeUsage(id) {
+    const usage = this.getRecipeUsage();
+    usage[id] = (usage[id] || 0) + 1;
+    localStorage.setItem('sol_recipe_usage', JSON.stringify(usage));
+  },
+
+  // ---- DESPENSA ----
+  // { ingredient_id, estimated_quantity (g/ml), last_purchased, habitual }
+  getPantry() {
+    const d = localStorage.getItem('sol_pantry');
+    return d ? JSON.parse(d) : [];
+  },
+  savePantryItem(item) {
+    const list = this.getPantry();
+    const idx = list.findIndex(p => p.ingredient_id === item.ingredient_id);
+    if (idx >= 0) list[idx] = Object.assign(list[idx], item);
+    else list.push(item);
+    localStorage.setItem('sol_pantry', JSON.stringify(list));
+  },
+  removePantryItem(ingredientId) {
+    const list = this.getPantry().filter(p => p.ingredient_id !== ingredientId);
+    localStorage.setItem('sol_pantry', JSON.stringify(list));
+  },
+  getPantryQty(ingredientId) {
+    const item = this.getPantry().find(p => p.ingredient_id === ingredientId);
+    return item ? (item.estimated_quantity || 0) : 0;
+  },
+
+  // ---- MENÚ SEMANAL ----
+  getWeeklyMenu(weekStart) {
+    const d = localStorage.getItem(`sol_menu_${weekStart}`);
+    return d ? JSON.parse(d) : null;
+  },
+  saveWeeklyMenu(menu) {
+    localStorage.setItem(`sol_menu_${menu.week_start}`, JSON.stringify(menu));
+  },
+  getAllWeeklyMenus() {
+    const result = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('sol_menu_')) {
+        try { result[k.replace('sol_menu_', '')] = JSON.parse(localStorage.getItem(k)); } catch (e) {}
+      }
+    }
+    return result;
+  },
+
+  // ---- LISTA DE LA COMPRA (items marcados como comprados) ----
+  getShoppingChecked(weekStart) {
+    const d = localStorage.getItem(`sol_shopping_${weekStart}`);
+    return d ? JSON.parse(d) : [];
+  },
+  toggleShoppingChecked(weekStart, ingredientId) {
+    const checked = this.getShoppingChecked(weekStart);
+    const idx = checked.indexOf(ingredientId);
+    if (idx >= 0) checked.splice(idx, 1); else checked.push(ingredientId);
+    localStorage.setItem(`sol_shopping_${weekStart}`, JSON.stringify(checked));
+    return checked;
+  },
+
   // ---- EXPORT / IMPORT ----
   exportAll() {
     return JSON.stringify({
@@ -193,6 +295,13 @@ const Store = {
       cargas: this.getCargas(),
       weight_log: this.getWeightLog(),
       nutrition: this.getNutritionLogs(60),
+      targets: (typeof NutritionConfig !== 'undefined') ? NutritionConfig.targets() : null,
+      recipes: this.getRecipes(),
+      recipe_overrides: this.getRecipeOverrides(),
+      recipes_deleted: this.getDeletedSeedRecipes(),
+      recipe_usage: this.getRecipeUsage(),
+      pantry: this.getPantry(),
+      menus: this.getAllWeeklyMenus(),
       exported_at: new Date().toISOString()
     }, null, 2);
   },
@@ -203,10 +312,59 @@ const Store = {
       if (data.workouts) localStorage.setItem(this.keys.workouts, JSON.stringify(data.workouts));
       if (data.weight_log) localStorage.setItem(this.keys.weight_log, JSON.stringify(data.weight_log));
       if (data.nutrition) this.mergeNutritionLogs(data.nutrition);
+      if (data.targets && typeof NutritionConfig !== 'undefined') NutritionConfig.saveTargets(data.targets);
+      if (Array.isArray(data.recipes)) this.mergeRecipes(data.recipes);
+      if (data.recipe_overrides) {
+        localStorage.setItem('sol_recipe_overrides',
+          JSON.stringify(Object.assign(this.getRecipeOverrides(), data.recipe_overrides)));
+      }
+      if (Array.isArray(data.recipes_deleted)) {
+        const merged = Array.from(new Set(this.getDeletedSeedRecipes().concat(data.recipes_deleted)));
+        localStorage.setItem('sol_recipes_deleted', JSON.stringify(merged));
+      }
+      if (data.recipe_usage) {
+        const local = this.getRecipeUsage();
+        for (const [id, n] of Object.entries(data.recipe_usage)) {
+          local[id] = Math.max(local[id] || 0, n);
+        }
+        localStorage.setItem('sol_recipe_usage', JSON.stringify(local));
+      }
+      if (Array.isArray(data.pantry)) this.mergePantry(data.pantry);
+      if (data.menus) {
+        for (const [week, menu] of Object.entries(data.menus)) {
+          if (menu && menu.week_start) this.saveWeeklyMenu(menu);
+        }
+      }
       return true;
     } catch (e) {
       return false;
     }
+  },
+
+  // Merge aditivo de recetas: nunca borra las locales
+  mergeRecipes(remoteRecipes) {
+    const local = this.getRecipes();
+    const byId = {};
+    for (const r of local) byId[r.id] = r;
+    for (const r of remoteRecipes) {
+      if (r && r.id && !byId[r.id]) byId[r.id] = r;
+    }
+    localStorage.setItem('sol_recipes', JSON.stringify(Object.values(byId)));
+  },
+
+  // Merge de despensa: gana la compra más reciente
+  mergePantry(remotePantry) {
+    const local = this.getPantry();
+    const byId = {};
+    for (const p of local) byId[p.ingredient_id] = p;
+    for (const p of remotePantry) {
+      if (!p || !p.ingredient_id) continue;
+      const existing = byId[p.ingredient_id];
+      if (!existing || (p.last_purchased || '') > (existing.last_purchased || '')) {
+        byId[p.ingredient_id] = p;
+      }
+    }
+    localStorage.setItem('sol_pantry', JSON.stringify(Object.values(byId)));
   },
 
   // ---- GENERAR WORKOUT DE HOY ----

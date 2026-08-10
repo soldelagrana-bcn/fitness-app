@@ -14,6 +14,14 @@ const PERFIL = {
   fecha_inicio: null // se setea al iniciar
 };
 
+// ------------------------------------------------------------
+// INACTIVO — targets por tipo de día.
+// Los objetivos diarios son FIJOS y viven en nutrition-config.js
+// (NutritionConfig.targets()). Estas tablas se conservan solo por
+// si algún día se reactiva el reparto por tipo de día, detrás del
+// toggle DAY_TYPE_TARGETS_ENABLED (desactivado por defecto).
+// No usar para calcular objetivos.
+// ------------------------------------------------------------
 const MACROS_POR_DIA = {
   gym: { kcal: 1900, proteina: 115, carbos: 220, grasa: 60, label: "Día de gym" },
   gym_tenis: { kcal: 2000, proteina: 115, carbos: 235, grasa: 65, label: "Gym + Tenis" },
@@ -22,6 +30,7 @@ const MACROS_POR_DIA = {
 };
 
 // Tipo de día por día de la semana (0=Dom, 1=Lun, 2=Mar, 3=Mié, 4=Jue, 5=Vie, 6=Sáb)
+// También inactivo para el cálculo de objetivos (ver nota anterior).
 const TIPO_DIA_SEMANA = {
   0: "descanso",   // Domingo
   1: "gym",        // Lunes
