@@ -1,0 +1,2610 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#F7F6F2">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Nutrición">
+<meta name="description" content="App personal de nutrición: objetivos fijos, recetas, menú semanal y lista de la compra.">
+<title>Nutrición · Sol</title>
+</head>
+<body>
+<style>
+/* ============================================================
+   Identidad: azul de loza sobre papel cálido.
+   Sans del sistema para el idioma, monoespaciada tabular para
+   cada gramo — la app es un instrumento de medida, no una red.
+   ============================================================ */
+:root {
+  color-scheme: light;
+  --ground:        #F7F6F2;
+  --surface:       #FFFFFF;
+  --sunken:        #ECEAE3;
+  --line:          #E3E0D7;
+  --line-soft:     #EFEDE6;
+
+  --ink:           #1C2429;
+  --ink-soft:      #5C686E;
+  --ink-faint:     #939EA4;
+
+  --accent:        #1F5673;
+  --accent-ink:    #FFFFFF;
+  --accent-wash:   #E9F0F4;
+  --accent-line:   #C4D8E3;
+
+  --good:          #3F7D5A;
+  --good-wash:     #E7F1EB;
+  --warn:          #A8760F;
+  --warn-wash:     #F7EFDD;
+  --crit:          #A8443A;
+  --crit-wash:     #F7E8E6;
+
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "Helvetica Neue", sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+  --r-lg: 14px;
+  --r-md: 10px;
+  --r-sm: 7px;
+  --shadow: 0 1px 2px rgba(28,36,41,.06), 0 4px 14px rgba(28,36,41,.05);
+  --shadow-up: 0 -1px 0 var(--line), 0 -8px 24px rgba(28,36,41,.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground:      #14181B;
+    --surface:     #1C2227;
+    --sunken:      #262E34;
+    --line:        #2E373D;
+    --line-soft:   #242C31;
+
+    --ink:         #E9EBE7;
+    --ink-soft:    #9CA7AD;
+    --ink-faint:   #6A757B;
+
+    --accent:      #79ADCB;
+    --accent-ink:  #0F1418;
+    --accent-wash: #1B2C37;
+    --accent-line: #2C4655;
+
+    --good:        #63AC80;
+    --good-wash:   #1A2A22;
+    --warn:        #D2A244;
+    --warn-wash:   #2C2517;
+    --crit:        #D4756C;
+    --crit-wash:   #2E1D1B;
+
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.3);
+    --shadow-up: 0 -1px 0 var(--line), 0 -8px 24px rgba(0,0,0,.35);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground:      #14181B;
+  --surface:     #1C2227;
+  --sunken:      #262E34;
+  --line:        #2E373D;
+  --line-soft:   #242C31;
+
+  --ink:         #E9EBE7;
+  --ink-soft:    #9CA7AD;
+  --ink-faint:   #6A757B;
+
+  --accent:      #79ADCB;
+  --accent-ink:  #0F1418;
+  --accent-wash: #1B2C37;
+  --accent-line: #2C4655;
+
+  --good:        #63AC80;
+  --good-wash:   #1A2A22;
+  --warn:        #D2A244;
+  --warn-wash:   #2C2517;
+  --crit:        #D4756C;
+  --crit-wash:   #2E1D1B;
+
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.3);
+  --shadow-up: 0 -1px 0 var(--line), 0 -8px 24px rgba(0,0,0,.35);
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* ---- Estructura ---- */
+.app {
+  max-width: 460px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--ground);
+}
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 14px 18px 10px;
+  background: color-mix(in srgb, var(--ground) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line-soft);
+}
+.topbar h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 640;
+  letter-spacing: -0.01em;
+}
+.topbar .when {
+  flex: 1;
+  font-size: 12px;
+  color: var(--ink-faint);
+  font-family: var(--mono);
+}
+.icon-btn {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 14px;
+  align-self: center;
+}
+.icon-btn:active { background: var(--sunken); }
+
+main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; gap: 14px; }
+
+.tabs {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  max-width: 460px;
+  margin: 0 auto;
+  background: var(--surface);
+  box-shadow: var(--shadow-up);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.tab {
+  border: 0; background: none;
+  padding: 10px 4px 12px;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  color: var(--ink-faint);
+  font-size: 10.5px; font-weight: 600;
+  letter-spacing: .02em;
+  border-top: 2px solid transparent;
+}
+.tab[aria-current="page"] { color: var(--accent); border-top-color: var(--accent); }
+.tab svg { width: 19px; height: 19px; }
+
+/* ---- Piezas ---- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 15px;
+  box-shadow: var(--shadow);
+}
+.eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.section-head {
+  display: flex; align-items: baseline; gap: 8px;
+  margin-top: 4px;
+}
+.section-head h2 { margin: 0; font-size: 13px; font-weight: 660; letter-spacing: -.005em; }
+.section-head .rest { margin-left: auto; font-size: 11px; color: var(--ink-faint); font-family: var(--mono); }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--ink-soft); }
+.faint { color: var(--ink-faint); }
+
+/* ---- Lectura principal: lo que FALTA ---- */
+.readout { display: flex; flex-direction: column; gap: 2px; }
+.readout-figure {
+  display: flex; align-items: baseline; gap: 8px;
+  margin: 2px 0 12px;
+}
+.readout-figure .big {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 50px;
+  font-weight: 550;
+  letter-spacing: -.035em;
+  line-height: 1;
+  color: var(--accent);
+}
+.readout-figure .unit { font-size: 13px; color: var(--ink-faint); font-weight: 600; }
+.readout.over .big { color: var(--crit); }
+.readout.done .big { color: var(--good); }
+
+.ledger { display: flex; flex-direction: column; gap: 9px; border-top: 1px solid var(--line-soft); padding-top: 12px; }
+.ledger-row { display: grid; grid-template-columns: 62px 1fr 84px; align-items: center; gap: 9px; }
+.ledger-row .k { font-size: 11.5px; color: var(--ink-soft); font-weight: 560; }
+.ledger-row .v { font-size: 11.5px; text-align: right; color: var(--ink); }
+.ledger-row .v small { color: var(--ink-faint); }
+.rail { height: 4px; background: var(--sunken); border-radius: 3px; overflow: hidden; }
+.rail > i { display: block; height: 100%; background: var(--accent); border-radius: 3px; transition: width .45s ease; }
+.rail > i.good { background: var(--good); }
+.rail > i.warn { background: var(--warn); }
+.rail > i.crit { background: var(--crit); }
+
+.trained {
+  display: flex; align-items: center; gap: 9px;
+  margin-top: 12px; padding-top: 11px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 12px; color: var(--ink-soft);
+}
+.switch {
+  margin-left: auto;
+  width: 42px; height: 24px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--sunken);
+  position: relative; transition: background .2s, border-color .2s;
+}
+.switch::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--surface); box-shadow: 0 1px 2px rgba(0,0,0,.2);
+  transition: transform .2s;
+}
+.switch[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); }
+.switch[aria-pressed="true"]::after { transform: translateX(18px); }
+
+/* ---- Avisos ---- */
+.notes { display: flex; flex-direction: column; gap: 7px; }
+.note {
+  display: flex; gap: 9px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 12.5px;
+}
+.note .bar { width: 3px; border-radius: 2px; flex: 0 0 3px; background: var(--ink-faint); }
+.note b { display: block; font-weight: 620; font-size: 12.5px; }
+.note span { color: var(--ink-soft); font-size: 11.5px; }
+.note.info { background: var(--accent-wash); border-color: var(--accent-line); }
+.note.info .bar { background: var(--accent); }
+.note.warn { background: var(--warn-wash); border-color: color-mix(in srgb, var(--warn) 30%, transparent); }
+.note.warn .bar { background: var(--warn); }
+.note.crit { background: var(--crit-wash); border-color: color-mix(in srgb, var(--crit) 30%, transparent); }
+.note.crit .bar { background: var(--crit); }
+
+/* ---- Chips ---- */
+.chips { display: flex; gap: 5px; }
+.chip {
+  flex: 1;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+  border-radius: 999px;
+  padding: 6px 4px;
+  font-size: 11.5px; font-weight: 600;
+  white-space: nowrap;
+}
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.chips.scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.chips.scroll::-webkit-scrollbar { display: none; }
+.chips.scroll .chip { flex: 0 0 auto; padding: 6px 12px; }
+
+/* ---- Sugerencias ---- */
+.hint { font-size: 11.5px; color: var(--ink-faint); margin: 9px 0 10px; }
+.sugs { display: flex; flex-direction: column; gap: 9px; }
+.sug { border: 1px solid var(--line); border-radius: var(--r-md); padding: 11px; background: var(--surface); }
+.sug-top { display: flex; align-items: flex-start; gap: 8px; }
+.sug-name { flex: 1; font-size: 13.5px; font-weight: 620; line-height: 1.3; text-wrap: balance; }
+.fit {
+  flex: 0 0 auto;
+  font-family: var(--mono); font-size: 10.5px; font-weight: 600;
+  color: var(--accent); background: var(--accent-wash);
+  border: 1px solid var(--accent-line);
+  border-radius: 999px; padding: 1px 7px;
+}
+.macro-row {
+  display: flex; flex-wrap: wrap; gap: 4px 10px;
+  margin-top: 6px;
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+  font-size: 11.5px; color: var(--ink-soft);
+}
+.macro-row b { color: var(--ink); font-weight: 620; }
+.pill {
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  background: var(--sunken); color: var(--ink-soft);
+  border-radius: 999px; padding: 1px 7px;
+}
+.why { font-size: 11.5px; margin-top: 6px; color: var(--good); }
+.careful { font-size: 11.5px; margin-top: 4px; color: var(--warn); }
+.sug-actions { display: flex; gap: 6px; margin-top: 10px; }
+.btn {
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 8px 12px;
+  font-size: 12.5px; font-weight: 620;
+}
+.btn:active { background: var(--sunken); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.grow { flex: 1; }
+.btn.wide { width: 100%; }
+.btn.danger { color: var(--crit); }
+.btn.small { padding: 6px 10px; font-size: 11.5px; }
+
+.ing-close { margin-top: 12px; border-top: 1px solid var(--line-soft); padding-top: 10px; }
+.ing-row {
+  display: flex; align-items: baseline; gap: 9px;
+  width: 100%; text-align: left;
+  border: 0; border-bottom: 1px solid var(--line-soft);
+  background: none; padding: 8px 0;
+}
+.ing-row:last-child { border-bottom: 0; }
+.ing-row .n { flex: 1; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ing-row .g { font-family: var(--mono); font-size: 12.5px; font-weight: 620; color: var(--accent); }
+.ing-row .m { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); min-width: 92px; text-align: right; }
+
+/* ---- Comidas del día ---- */
+.meal { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); overflow: hidden; }
+.meal + .meal { margin-top: 8px; }
+.meal-head { display: flex; align-items: center; gap: 9px; padding: 10px 12px; }
+.meal-name { font-size: 13px; font-weight: 620; }
+.meal-kcal { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+.mini {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft);
+  width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 14px; line-height: 1; padding: 0;
+}
+.mini.accent { color: var(--accent); border-color: var(--accent-line); background: var(--accent-wash); }
+.entries { border-top: 1px solid var(--line-soft); }
+.entry { display: flex; align-items: center; gap: 9px; padding: 8px 12px; border-bottom: 1px solid var(--line-soft); }
+.entry:last-child { border-bottom: 0; }
+.entry .info { flex: 1; min-width: 0; }
+.entry .nm { display: block; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entry .qt { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); }
+.entry .kc { font-family: var(--mono); font-size: 12px; font-weight: 620; }
+.x { border: 0; background: none; color: var(--ink-faint); font-size: 13px; padding: 2px 4px; line-height: 1; }
+.x:active { color: var(--crit); }
+
+/* ---- Recetas ---- */
+.rec { width: 100%; text-align: left; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); padding: 12px; }
+.rec + .rec { margin-top: 8px; }
+.rec-top { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
+.rec-name { flex: 1; font-size: 13.5px; font-weight: 620; min-width: 0; text-wrap: balance; }
+.tag {
+  font-size: 9.5px; font-weight: 680; text-transform: uppercase; letter-spacing: .06em;
+  padding: 2px 6px; border-radius: 4px; background: var(--sunken); color: var(--ink-soft);
+}
+.tag.fixed { background: var(--accent-wash); color: var(--accent); }
+.tag.blue { background: var(--good-wash); color: var(--good); }
+.rec-foot { margin-top: 7px; font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); }
+
+/* ---- Menú ---- */
+.weeknav { display: flex; align-items: center; gap: 10px; }
+.weeknav .lbl { flex: 1; text-align: center; font-family: var(--mono); font-size: 12.5px; font-weight: 600; }
+.day { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); overflow: hidden; }
+.day + .day { margin-top: 8px; }
+.day.today { border-color: var(--accent); }
+.day-head { display: flex; align-items: baseline; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line-soft); }
+.day-name { font-size: 12.5px; font-weight: 660; text-transform: capitalize; }
+.day-tot { margin-left: auto; font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); }
+.day-tot .ok { color: var(--good); }
+.day-tot .no { color: var(--warn); }
+.slot { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line-soft); }
+.slot:last-child { border-bottom: 0; }
+.slot-key { font-size: 9.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); width: 38px; flex: 0 0 38px; }
+.slot-body { flex: 1; min-width: 0; border: 0; background: none; text-align: left; padding: 0; }
+.slot-name { display: block; font-size: 12.5px; font-weight: 560; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot-macros { display: block; font-family: var(--mono); font-size: 10px; color: var(--ink-faint); }
+.lock { border: 0; background: none; font-size: 12px; padding: 3px; opacity: .3; }
+.lock[aria-pressed="true"] { opacity: 1; }
+
+/* ---- Despensa y compra ---- */
+.prow { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--line-soft); }
+.prow:last-child { border-bottom: 0; }
+.prow .info { flex: 1; min-width: 0; }
+.prow .nm { display: block; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prow .sub { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); }
+.stepper { display: flex; align-items: center; gap: 3px; }
+.cook { width: 100%; text-align: left; border: 0; background: none; padding: 9px 0; border-bottom: 1px solid var(--line-soft); }
+.cook:last-child { border-bottom: 0; }
+.cook .bar2 { height: 3px; background: var(--sunken); border-radius: 2px; overflow: hidden; margin-bottom: 6px; }
+.cook .bar2 > i { display: block; height: 100%; background: var(--good); }
+.cook .nm { font-size: 12.5px; font-weight: 560; }
+.cook .sub { font-size: 10.5px; color: var(--ink-faint); }
+.shop-group + .shop-group { margin-top: 12px; }
+.shop-cat { font-size: 10px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 3px; }
+.shop {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  text-align: left; border: 0; background: none;
+  padding: 8px 0; border-bottom: 1px solid var(--line-soft);
+}
+.shop:last-child { border-bottom: 0; }
+.shop .box { width: 15px; height: 15px; border: 1.5px solid var(--line); border-radius: 4px; flex: 0 0 15px; display: grid; place-items: center; font-size: 10px; color: var(--accent-ink); }
+.shop[aria-pressed="true"] .box { background: var(--accent); border-color: var(--accent); }
+.shop[aria-pressed="true"] .nm { text-decoration: line-through; color: var(--ink-faint); }
+.shop .nm { flex: 1; font-size: 12.5px; min-width: 0; }
+.shop .qt { font-family: var(--mono); font-size: 12px; font-weight: 620; }
+
+/* ---- Hojas (modales) ---- */
+.scrim {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(16,22,26,.42);
+  opacity: 0; transition: opacity .22s ease;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.scrim.on { opacity: 1; }
+.sheet {
+  width: 100%; max-width: 460px;
+  max-height: 88dvh;
+  background: var(--ground);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  display: flex; flex-direction: column;
+  transform: translateY(14px); transition: transform .22s ease;
+  overflow: hidden;
+}
+.scrim.on .sheet { transform: translateY(0); }
+.sheet-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 18px 11px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.sheet-head h3 { margin: 0; flex: 1; font-size: 14.5px; font-weight: 660; }
+.sheet-body { overflow-y: auto; padding: 14px 18px 24px; display: flex; flex-direction: column; gap: 12px; }
+
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field > label { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+.input, .ta {
+  width: 100%;
+  border: 1px solid var(--line); border-radius: var(--r-sm);
+  background: var(--surface); padding: 9px 10px;
+  font-size: 14px;
+}
+.ta { resize: vertical; min-height: 62px; font-size: 12.5px; }
+.input.numeric { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 620; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.pick { width: 100%; text-align: left; border: 0; background: none; padding: 9px 0; border-bottom: 1px solid var(--line-soft); display: flex; align-items: center; gap: 9px; }
+.pick .info { flex: 1; min-width: 0; }
+.pick .nm { display: block; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pick .sub { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); }
+.pick .dens { font-family: var(--mono); font-size: 11px; font-weight: 620; color: var(--accent); }
+
+.ing-edit { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
+.ing-edit .nm { flex: 1; font-size: 12.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ing-edit input { width: 72px; text-align: right; font-family: var(--mono); font-weight: 620; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); padding: 6px 8px; font-size: 13px; }
+.ing-edit .u { font-size: 11px; color: var(--ink-faint); width: 16px; }
+
+.preview {
+  display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline;
+  background: var(--accent-wash); border: 1px solid var(--accent-line);
+  border-radius: var(--r-md); padding: 11px;
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+  font-size: 12px; color: var(--ink-soft);
+}
+.preview b { font-size: 17px; color: var(--accent); font-weight: 620; }
+
+.checkline { display: flex; align-items: center; gap: 9px; font-size: 13px; }
+.checkline input { width: 17px; height: 17px; accent-color: var(--accent); }
+
+.empty { text-align: center; color: var(--ink-faint); font-size: 12.5px; padding: 20px 8px; }
+.detail-ing { display: flex; align-items: baseline; gap: 9px; padding: 7px 0; border-bottom: 1px solid var(--line-soft); }
+.detail-ing:last-of-type { border-bottom: 0; }
+.detail-ing .nm { flex: 1; font-size: 12.5px; }
+.detail-ing .g { font-family: var(--mono); font-size: 12.5px; font-weight: 620; }
+.detail-ing .m { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); min-width: 88px; text-align: right; }
+.notes-box { background: var(--sunken); border-radius: var(--r-sm); padding: 9px 11px; font-size: 12px; color: var(--ink-soft); }
+
+.toast {
+  position: fixed; left: 50%; bottom: 84px; z-index: 60;
+  transform: translate(-50%, 8px);
+  background: var(--ink); color: var(--ground);
+  padding: 9px 15px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 600;
+  opacity: 0; transition: opacity .2s, transform .2s;
+  pointer-events: none; max-width: 88vw; text-align: center;
+}
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+</style>
+
+<div class="app">
+  <header class="topbar">
+    <h1>Nutrición</h1>
+    <span class="when num" id="when"></span>
+    <button class="icon-btn" id="gear" aria-label="Ajustes">⚙</button>
+  </header>
+
+  <main id="view"></main>
+
+  <nav class="tabs" id="tabs" aria-label="Secciones">
+    <button class="tab" data-tab="hoy" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21a9 9 0 1 0-9-9"/><path d="M12 7v5l3 2"/><path d="M3 12H1.5M3 12l2-2M3 12l2 2"/></svg>
+      Hoy
+    </button>
+    <button class="tab" data-tab="recetas">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M8 7.5h7M8 11h5"/></svg>
+      Recetas
+    </button>
+    <button class="tab" data-tab="menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+      Menú
+    </button>
+    <button class="tab" data-tab="compra">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h2l2.2 10.5a2 2 0 0 0 2 1.6h6.9a2 2 0 0 0 2-1.55L21 8H7"/><circle cx="10" cy="20" r="1.2"/><circle cx="18" cy="20" r="1.2"/></svg>
+      Compra
+    </button>
+  </nav>
+</div>
+
+<div id="sheets"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   PERFIL Y OBJETIVOS — única fuente de verdad
+   Objetivos FIJOS: no varían por tipo de día.
+   ============================================================ */
+const DEFAULT_TARGETS = { kcal: 1600, protein: 115, carbs: 165, fat: 55 };
+
+const RULES = {
+  satPctOfFat: 0.20,   // saturadas: máx 20% del objetivo de grasa
+  kcalMin: 1500,       // el riesgo documentado es comer de menos
+  proteinFloor: 115,   // piso no negociable
+  fatMarginForGoodFats: 12,
+  satShareTolerance: 1.5,
+};
+
+const MEALS = [
+  { key: 'desayuno', name: 'Desayuno', short: 'Des', weight: 0.25 },
+  { key: 'almuerzo', name: 'Almuerzo', short: 'Alm', weight: 0.35 },
+  { key: 'snack',    name: 'Snack',    short: 'Snk', weight: 0.12 },
+  { key: 'cena',     name: 'Cena',     short: 'Cena', weight: 0.28 },
+];
+
+// Las dos proteínas en polvo tienen uso excluyente.
+const POWDER_POST = 'b210';   // Evolate whey — solo post-entreno
+const POWDER_RECIPES = 'b211'; // Garden of Life — solo recetas
+
+/* ---- Catálogo de alimentos (valores por 100 g / 100 ml) ---- */
+const FOODS = [
+  // ── LÁCTEOS ──────────────────────────────────────────────
+  { id:'b001', cat:'Lácteos', nombre:'Yogur natural Hacendado',           kcal100:61,  prot100:3.8,  carbs100:4.7,  fat100:3.3, sat100:2.1, fiber100:0.0 },
+  { id:'b002', cat:'Lácteos', nombre:'Yogur griego natural Hacendado',    kcal100:100, prot100:5.7,  carbs100:4.0,  fat100:7.0, sat100:4.6, fiber100:0.0 },
+  { id:'b003', cat:'Lácteos', nombre:'Yogur griego 0% Hacendado',         kcal100:57,  prot100:9.5,  carbs100:6.0,  fat100:0.3, sat100:0.2, fiber100:0.0 },
+  { id:'b004', cat:'Lácteos', nombre:'Skyr natural Hacendado',            kcal100:63,  prot100:10.5, carbs100:4.3,  fat100:0.4, sat100:0.3, fiber100:0.0 },
+  { id:'b005', cat:'Lácteos', nombre:'Yogur proteico Hacendado',          kcal100:87,  prot100:12.0, carbs100:6.6,  fat100:1.0, sat100:0.6, fiber100:0.0 },
+  { id:'b006', cat:'Lácteos', nombre:'Yogur natural Ametller Origen',     kcal100:56,  prot100:4.0,  carbs100:4.5,  fat100:2.1, sat100:1.4, fiber100:0.0 },
+  { id:'b007', cat:'Lácteos', nombre:'Kéfir natural Hacendado',           kcal100:60,  prot100:3.3,  carbs100:4.5,  fat100:3.2, sat100:2.0, fiber100:0.0 },
+  { id:'b008', cat:'Lácteos', nombre:'Queso fresco Hacendado',            kcal100:72,  prot100:8.5,  carbs100:1.8,  fat100:3.5, sat100:2.3, fiber100:0.0 },
+  { id:'b009', cat:'Lácteos', nombre:'Queso cottage Carrefour',           kcal100:98,  prot100:11.0, carbs100:3.4,  fat100:4.3, sat100:2.7, fiber100:0.0 },
+  { id:'b010', cat:'Lácteos', nombre:'Requesón Hacendado',                kcal100:78,  prot100:7.1,  carbs100:4.1,  fat100:3.5, sat100:2.2, fiber100:0.0 },
+  { id:'b011', cat:'Lácteos', nombre:'Leche entera Hacendado',            kcal100:65,  prot100:3.2,  carbs100:4.7,  fat100:3.6, sat100:2.3, fiber100:0.0 },
+  { id:'b012', cat:'Lácteos', nombre:'Leche semidesnatada Hacendado',     kcal100:46,  prot100:3.3,  carbs100:4.8,  fat100:1.6, sat100:1.0, fiber100:0.0 },
+  { id:'b013', cat:'Lácteos', nombre:'Leche desnatada Hacendado',         kcal100:35,  prot100:3.4,  carbs100:4.9,  fat100:0.1, sat100:0.1, fiber100:0.0 },
+  { id:'b014', cat:'Lácteos', nombre:'Leche entera Ametller Origen',      kcal100:67,  prot100:3.3,  carbs100:4.8,  fat100:3.7, sat100:2.4, fiber100:0.0 },
+  { id:'b015', cat:'Lácteos', nombre:'Bebida de avena Hacendado',         kcal100:46,  prot100:1.1,  carbs100:7.7,  fat100:1.5, sat100:0.2, fiber100:0.8 },
+  { id:'b016', cat:'Lácteos', nombre:'Bebida de almendras Hacendado',     kcal100:24,  prot100:0.7,  carbs100:2.7,  fat100:1.2, sat100:0.1, fiber100:0.4 },
+  { id:'b017', cat:'Lácteos', nombre:'Bebida de soja Hacendado',          kcal100:35,  prot100:3.3,  carbs100:2.6,  fat100:1.9, sat100:0.3, fiber100:0.5 },
+  // ── PROTEÍNAS ANIMALES ────────────────────────────────────
+  { id:'b020', cat:'Proteínas', nombre:'Pechuga de pollo (fresca)',           kcal100:110, prot100:23.6, carbs100:0.0,  fat100:1.7, sat100:0.5, fiber100:0.0 },
+  { id:'b021', cat:'Proteínas', nombre:'Pechuga de pollo La Sirena (cong.)',  kcal100:100, prot100:22.0, carbs100:0.5,  fat100:1.0, sat100:0.3, fiber100:0.0 },
+  { id:'b022', cat:'Proteínas', nombre:'Contramuslo de pollo',               kcal100:163, prot100:20.0, carbs100:0.0,  fat100:9.0, sat100:2.6, fiber100:0.0 },
+  { id:'b023', cat:'Proteínas', nombre:'Huevo entero (M)',                    kcal100:147, prot100:12.6, carbs100:0.7,  fat100:10.6, sat100:3.1, fiber100:0.0, peso_ud_g:60 },
+  { id:'b024', cat:'Proteínas', nombre:'Clara de huevo pasteurizada',         kcal100:52,  prot100:10.9, carbs100:0.7,  fat100:0.2, sat100:0.0, fiber100:0.0 },
+  { id:'b025', cat:'Proteínas', nombre:'Atún al natural (lata)',              kcal100:103, prot100:23.0, carbs100:0.0,  fat100:0.9, sat100:0.3, fiber100:0.0 },
+  { id:'b026', cat:'Proteínas', nombre:'Atún en aceite (lata)',               kcal100:200, prot100:27.0, carbs100:0.0,  fat100:11.0, sat100:1.8, fiber100:0.0 },
+  { id:'b027', cat:'Proteínas', nombre:'Salmón fresco',                       kcal100:206, prot100:20.0, carbs100:0.0,  fat100:13.0, sat100:3.1, fiber100:0.0, tags:['pescado_azul'] },
+  { id:'b028', cat:'Proteínas', nombre:'Merluza fresca',                      kcal100:72,  prot100:16.0, carbs100:0.0,  fat100:0.8, sat100:0.2, fiber100:0.0 },
+  { id:'b029', cat:'Proteínas', nombre:'Merluza La Sirena (congelada)',       kcal100:70,  prot100:16.0, carbs100:0.0,  fat100:0.9, sat100:0.2, fiber100:0.0 },
+  { id:'b030', cat:'Proteínas', nombre:'Rape La Sirena (congelado)',          kcal100:75,  prot100:17.0, carbs100:0.0,  fat100:0.5, sat100:0.1, fiber100:0.0 },
+  { id:'b031', cat:'Proteínas', nombre:'Gambas peladas La Sirena (cong.)',    kcal100:85,  prot100:18.0, carbs100:0.5,  fat100:1.0, sat100:0.3, fiber100:0.0 },
+  { id:'b032', cat:'Proteínas', nombre:'Gambas frescas',                      kcal100:85,  prot100:18.0, carbs100:0.5,  fat100:1.0, sat100:0.3, fiber100:0.0 },
+  { id:'b033', cat:'Proteínas', nombre:'Sardinas en aceite (lata)',           kcal100:200, prot100:19.0, carbs100:0.0,  fat100:13.0, sat100:2.7, fiber100:0.0, tags:['pescado_azul'] },
+  { id:'b034', cat:'Proteínas', nombre:'Caballa en aceite (lata)',            kcal100:215, prot100:18.0, carbs100:0.0,  fat100:16.0, sat100:3.5, fiber100:0.0, tags:['pescado_azul'] },
+  { id:'b035', cat:'Proteínas', nombre:'Lomo de cerdo (fresco)',              kcal100:143, prot100:21.0, carbs100:0.0,  fat100:7.0, sat100:2.5, fiber100:0.0 },
+  { id:'b036', cat:'Proteínas', nombre:'Carne picada de ternera 5%',          kcal100:120, prot100:20.0, carbs100:0.0,  fat100:5.0, sat100:2.2, fiber100:0.0 },
+  { id:'b037', cat:'Proteínas', nombre:'Carne picada mixta Hacendado',        kcal100:200, prot100:17.0, carbs100:0.0,  fat100:15.0, sat100:6.0, fiber100:0.0 },
+  { id:'b038', cat:'Proteínas', nombre:'Pavo en lonchas Hacendado',           kcal100:84,  prot100:17.4, carbs100:0.3,  fat100:1.5, sat100:0.5, fiber100:0.0 },
+  { id:'b039', cat:'Proteínas', nombre:'Jamón cocido extra Hacendado',        kcal100:100, prot100:16.0, carbs100:1.5,  fat100:3.5, sat100:1.2, fiber100:0.0 },
+  { id:'b040', cat:'Proteínas', nombre:'Jamón serrano',                       kcal100:240, prot100:27.5, carbs100:0.2,  fat100:14.0, sat100:5.0, fiber100:0.0 },
+  { id:'b041', cat:'Proteínas', nombre:'Tofu natural Hacendado',              kcal100:82,  prot100:8.0,  carbs100:1.9,  fat100:4.8, sat100:0.7, fiber100:0.9 },
+  { id:'b042', cat:'Proteínas', nombre:'Tempeh',                              kcal100:192, prot100:19.0, carbs100:9.0,  fat100:11.0, sat100:2.2, fiber100:6.0 },
+  // ── CARBOHIDRATOS ─────────────────────────────────────────
+  { id:'b050', cat:'Carbohidratos', nombre:'Arroz blanco cocido',             kcal100:130, prot100:2.7,  carbs100:28.0, fat100:0.3, sat100:0.1, fiber100:0.4 },
+  { id:'b051', cat:'Carbohidratos', nombre:'Arroz integral cocido',           kcal100:122, prot100:2.7,  carbs100:25.0, fat100:1.0, sat100:0.2, fiber100:1.8 },
+  { id:'b052', cat:'Carbohidratos', nombre:'Arroz basmati cocido',            kcal100:130, prot100:2.7,  carbs100:28.0, fat100:0.3, sat100:0.1, fiber100:0.6 },
+  { id:'b053', cat:'Carbohidratos', nombre:'Pasta blanca cocida',             kcal100:158, prot100:5.8,  carbs100:31.0, fat100:0.9, sat100:0.2, fiber100:1.8 },
+  { id:'b054', cat:'Carbohidratos', nombre:'Pasta integral cocida',           kcal100:150, prot100:6.0,  carbs100:29.0, fat100:1.4, sat100:0.3, fiber100:4.5 },
+  { id:'b055', cat:'Carbohidratos', nombre:'Copos de avena Hacendado',        kcal100:365, prot100:13.0, carbs100:58.0, fat100:7.0, sat100:1.3, fiber100:10.0 },
+  { id:'b056', cat:'Carbohidratos', nombre:'Pan de molde blanco Hacendado',   kcal100:267, prot100:8.0,  carbs100:50.0, fat100:3.5, sat100:0.7, fiber100:2.5,  peso_ud_g:25 },
+  { id:'b057', cat:'Carbohidratos', nombre:'Pan de molde integral Hacendado', kcal100:241, prot100:9.0,  carbs100:44.0, fat100:3.5, sat100:0.7, fiber100:6.0,  peso_ud_g:25 },
+  { id:'b058', cat:'Carbohidratos', nombre:'Tortitas de arroz Hacendado',     kcal100:385, prot100:7.0,  carbs100:81.0, fat100:2.9, sat100:0.6, fiber100:2.0,  peso_ud_g:10 },
+  { id:'b059', cat:'Carbohidratos', nombre:'Patata cocida',                   kcal100:77,  prot100:2.0,  carbs100:17.0, fat100:0.1, sat100:0.0, fiber100:1.8 },
+  { id:'b060', cat:'Carbohidratos', nombre:'Patata al horno',                 kcal100:93,  prot100:2.5,  carbs100:21.0, fat100:0.1, sat100:0.0, fiber100:2.2 },
+  { id:'b061', cat:'Carbohidratos', nombre:'Boniato cocido',                  kcal100:86,  prot100:1.6,  carbs100:20.0, fat100:0.1, sat100:0.0, fiber100:3.0 },
+  { id:'b062', cat:'Carbohidratos', nombre:'Quinoa cocida',                   kcal100:120, prot100:4.4,  carbs100:21.0, fat100:1.9, sat100:0.2, fiber100:2.8 },
+  { id:'b063', cat:'Carbohidratos', nombre:'Pan de centeno Carrefour',        kcal100:259, prot100:8.5,  carbs100:48.0, fat100:3.3, sat100:0.6, fiber100:6.5 },
+  { id:'b064', cat:'Carbohidratos', nombre:'Muesli Hacendado',                kcal100:372, prot100:10.0, carbs100:60.0, fat100:9.0, sat100:1.5, fiber100:7.5 },
+  { id:'b065', cat:'Carbohidratos', nombre:'Maíz cocido',                     kcal100:96,  prot100:3.4,  carbs100:21.0, fat100:1.5, sat100:0.2, fiber100:2.7 },
+  // ── FRUTAS ────────────────────────────────────────────────
+  { id:'b070', cat:'Frutas', nombre:'Plátano / Banana',  kcal100:89,  prot100:1.1,  carbs100:23.0, fat100:0.3, sat100:0.1, fiber100:2.6,  peso_ud_g:120 },
+  { id:'b071', cat:'Frutas', nombre:'Manzana',           kcal100:52,  prot100:0.3,  carbs100:14.0, fat100:0.2, sat100:0.0, fiber100:2.4,  peso_ud_g:160 },
+  { id:'b072', cat:'Frutas', nombre:'Naranja',           kcal100:47,  prot100:0.9,  carbs100:12.0, fat100:0.1, sat100:0.0, fiber100:2.4,  peso_ud_g:150 },
+  { id:'b073', cat:'Frutas', nombre:'Fresas',            kcal100:32,  prot100:0.7,  carbs100:8.0,  fat100:0.3, sat100:0.0, fiber100:2.0 },
+  { id:'b074', cat:'Frutas', nombre:'Arándanos',         kcal100:57,  prot100:0.7,  carbs100:14.0, fat100:0.3, sat100:0.0, fiber100:2.4 },
+  { id:'b075', cat:'Frutas', nombre:'Kiwi',              kcal100:61,  prot100:1.1,  carbs100:15.0, fat100:0.5, sat100:0.0, fiber100:3.0,  peso_ud_g:75  },
+  { id:'b076', cat:'Frutas', nombre:'Pera',              kcal100:57,  prot100:0.4,  carbs100:15.0, fat100:0.1, sat100:0.0, fiber100:3.1,  peso_ud_g:160 },
+  { id:'b077', cat:'Frutas', nombre:'Uvas',              kcal100:69,  prot100:0.7,  carbs100:18.0, fat100:0.2, sat100:0.1, fiber100:0.9 },
+  { id:'b078', cat:'Frutas', nombre:'Piña',              kcal100:50,  prot100:0.5,  carbs100:13.0, fat100:0.1, sat100:0.0, fiber100:1.4 },
+  { id:'b079', cat:'Frutas', nombre:'Mango',             kcal100:65,  prot100:0.5,  carbs100:17.0, fat100:0.3, sat100:0.1, fiber100:1.6 },
+  { id:'b080', cat:'Frutas', nombre:'Melón',             kcal100:34,  prot100:0.8,  carbs100:8.0,  fat100:0.2, sat100:0.1, fiber100:0.9 },
+  { id:'b081', cat:'Frutas', nombre:'Sandía',            kcal100:30,  prot100:0.6,  carbs100:8.0,  fat100:0.2, sat100:0.0, fiber100:0.4 },
+  { id:'b082', cat:'Frutas', nombre:'Melocotón',         kcal100:39,  prot100:0.9,  carbs100:10.0, fat100:0.3, sat100:0.0, fiber100:1.5,  peso_ud_g:150 },
+  { id:'b083', cat:'Frutas', nombre:'Mandarina',         kcal100:53,  prot100:0.8,  carbs100:13.0, fat100:0.3, sat100:0.0, fiber100:1.8,  peso_ud_g:80  },
+  { id:'b084', cat:'Frutas', nombre:'Cerezas',           kcal100:63,  prot100:1.1,  carbs100:16.0, fat100:0.2, sat100:0.0, fiber100:2.1 },
+  { id:'b085', cat:'Frutas', nombre:'Granada',           kcal100:83,  prot100:1.7,  carbs100:19.0, fat100:1.2, sat100:0.1, fiber100:4.0 },
+  { id:'b086', cat:'Frutas', nombre:'Dátiles secos',     kcal100:277, prot100:1.8,  carbs100:75.0, fat100:0.2, sat100:0.0, fiber100:8.0 },
+  { id:'b087', cat:'Frutas', nombre:'Ciruela',           kcal100:46,  prot100:0.7,  carbs100:11.0, fat100:0.3, sat100:0.0, fiber100:1.4,  peso_ud_g:60  },
+  { id:'b088', cat:'Frutas', nombre:'Higo',              kcal100:74,  prot100:0.8,  carbs100:19.0, fat100:0.3, sat100:0.1, fiber100:2.9,  peso_ud_g:50  },
+  { id:'b089', cat:'Frutas', nombre:'Papaya',            kcal100:43,  prot100:0.5,  carbs100:11.0, fat100:0.3, sat100:0.1, fiber100:1.7 },
+  // ── VERDURAS ──────────────────────────────────────────────
+  { id:'b090', cat:'Verduras', nombre:'Espinacas',          kcal100:23,  prot100:2.9,  carbs100:3.6,  fat100:0.4, sat100:0.1, fiber100:2.2 },
+  { id:'b091', cat:'Verduras', nombre:'Brócoli',            kcal100:34,  prot100:2.8,  carbs100:7.0,  fat100:0.4, sat100:0.1, fiber100:2.6 },
+  { id:'b092', cat:'Verduras', nombre:'Zanahoria',          kcal100:41,  prot100:0.9,  carbs100:10.0, fat100:0.2, sat100:0.0, fiber100:2.8 },
+  { id:'b093', cat:'Verduras', nombre:'Pepino',             kcal100:16,  prot100:0.7,  carbs100:4.0,  fat100:0.1, sat100:0.0, fiber100:0.5 },
+  { id:'b094', cat:'Verduras', nombre:'Tomate',             kcal100:18,  prot100:0.9,  carbs100:4.0,  fat100:0.2, sat100:0.0, fiber100:1.2 },
+  { id:'b095', cat:'Verduras', nombre:'Lechuga',            kcal100:15,  prot100:1.4,  carbs100:2.9,  fat100:0.2, sat100:0.0, fiber100:1.3 },
+  { id:'b096', cat:'Verduras', nombre:'Cebolla',            kcal100:40,  prot100:1.1,  carbs100:9.0,  fat100:0.1, sat100:0.0, fiber100:1.7 },
+  { id:'b097', cat:'Verduras', nombre:'Pimiento rojo',      kcal100:31,  prot100:1.0,  carbs100:7.0,  fat100:0.3, sat100:0.1, fiber100:2.1 },
+  { id:'b098', cat:'Verduras', nombre:'Pimiento verde',     kcal100:20,  prot100:0.9,  carbs100:4.6,  fat100:0.2, sat100:0.1, fiber100:1.7 },
+  { id:'b099', cat:'Verduras', nombre:'Calabacín',          kcal100:17,  prot100:1.2,  carbs100:3.1,  fat100:0.3, sat100:0.1, fiber100:1.1 },
+  { id:'b100', cat:'Verduras', nombre:'Berenjena',          kcal100:24,  prot100:1.0,  carbs100:5.7,  fat100:0.2, sat100:0.0, fiber100:3.0 },
+  { id:'b101', cat:'Verduras', nombre:'Aguacate',           kcal100:160, prot100:2.0,  carbs100:9.0,  fat100:15.0, sat100:2.1, fiber100:6.7, tags:['grasa_insaturada'] },
+  { id:'b102', cat:'Verduras', nombre:'Champiñones',        kcal100:22,  prot100:3.1,  carbs100:3.3,  fat100:0.3, sat100:0.1, fiber100:1.0 },
+  { id:'b103', cat:'Verduras', nombre:'Judías verdes',      kcal100:31,  prot100:1.8,  carbs100:7.0,  fat100:0.2, sat100:0.0, fiber100:3.4 },
+  { id:'b104', cat:'Verduras', nombre:'Coliflor',           kcal100:25,  prot100:1.9,  carbs100:5.0,  fat100:0.3, sat100:0.1, fiber100:2.0 },
+  { id:'b105', cat:'Verduras', nombre:'Rúcula',             kcal100:25,  prot100:2.6,  carbs100:3.7,  fat100:0.7, sat100:0.1, fiber100:1.6 },
+  { id:'b106', cat:'Verduras', nombre:'Edamame',            kcal100:121, prot100:11.0, carbs100:9.0,  fat100:5.0, sat100:0.6, fiber100:5.2 },
+  { id:'b107', cat:'Verduras', nombre:'Remolacha cocida',   kcal100:43,  prot100:1.6,  carbs100:10.0, fat100:0.2, sat100:0.0, fiber100:2.0 },
+  { id:'b108', cat:'Verduras', nombre:'Ajo',                kcal100:149, prot100:6.4,  carbs100:33.0, fat100:0.5, sat100:0.1, fiber100:2.1 },
+  // ── LEGUMBRES ─────────────────────────────────────────────
+  { id:'b110', cat:'Legumbres', nombre:'Garbanzos cocidos',      kcal100:164, prot100:9.0,  carbs100:27.0, fat100:2.6, sat100:0.3, fiber100:7.6 },
+  { id:'b111', cat:'Legumbres', nombre:'Lentejas cocidas',       kcal100:116, prot100:9.0,  carbs100:20.0, fat100:0.4, sat100:0.1, fiber100:7.9 },
+  { id:'b112', cat:'Legumbres', nombre:'Alubias blancas cocidas',kcal100:127, prot100:8.7,  carbs100:22.0, fat100:0.5, sat100:0.1, fiber100:6.0 },
+  { id:'b113', cat:'Legumbres', nombre:'Alubias negras cocidas', kcal100:132, prot100:8.9,  carbs100:24.0, fat100:0.5, sat100:0.1, fiber100:8.7 },
+  { id:'b114', cat:'Legumbres', nombre:'Hummus Hacendado',       kcal100:170, prot100:7.0,  carbs100:11.0, fat100:11.0, sat100:1.5, fiber100:5.0 },
+  // ── GRASAS Y FRUTOS SECOS ─────────────────────────────────
+  { id:'b120', cat:'Grasas', nombre:'Aceite de oliva virgen extra',  kcal100:884, prot100:0.0,  carbs100:0.0,  fat100:100.0, sat100:14.0, fiber100:0.0, tags:['grasa_insaturada'] },
+  { id:'b121', cat:'Grasas', nombre:'Mantequilla',                    kcal100:717, prot100:0.9,  carbs100:0.1,  fat100:81.0, sat100:51.0, fiber100:0.0 },
+  { id:'b122', cat:'Grasas', nombre:'Almendras',                      kcal100:579, prot100:21.0, carbs100:22.0, fat100:50.0, sat100:3.8, fiber100:12.5, tags:['grasa_insaturada'] },
+  { id:'b123', cat:'Grasas', nombre:'Nueces',                         kcal100:654, prot100:15.0, carbs100:14.0, fat100:65.0, sat100:6.1, fiber100:6.7, tags:['grasa_insaturada'] },
+  { id:'b124', cat:'Grasas', nombre:'Anacardos',                      kcal100:553, prot100:18.0, carbs100:33.0, fat100:44.0, sat100:7.8, fiber100:3.3 },
+  { id:'b125', cat:'Grasas', nombre:'Cacahuetes',                     kcal100:567, prot100:26.0, carbs100:16.0, fat100:49.0, sat100:6.8, fiber100:8.5 },
+  { id:'b126', cat:'Grasas', nombre:'Crema de cacahuete Hacendado',   kcal100:588, prot100:25.0, carbs100:20.0, fat100:50.0, sat100:8.0, fiber100:6.0 },
+  { id:'b127', cat:'Grasas', nombre:'Semillas de chía',               kcal100:486, prot100:17.0, carbs100:42.0, fat100:31.0, sat100:3.3, fiber100:34.4, tags:['grasa_insaturada'] },
+  { id:'b128', cat:'Grasas', nombre:'Semillas de lino',               kcal100:534, prot100:18.0, carbs100:29.0, fat100:42.0, sat100:3.7, fiber100:27.3, tags:['grasa_insaturada'] },
+  { id:'b129', cat:'Grasas', nombre:'Chocolate negro 85% Hacendado',  kcal100:600, prot100:9.0,  carbs100:14.0, fat100:52.0, sat100:31.0, fiber100:12.0 },
+  // ── PROTEÍNA Y SUPLEMENTOS ────────────────────────────────
+  { id:'b130', cat:'Suplementos', nombre:'Proteína de suero Hacendado',  kcal100:380, prot100:72.0, carbs100:10.0, fat100:7.0, sat100:3.5, fiber100:0.5 },
+  { id:'b131', cat:'Suplementos', nombre:'Bebida proteica Hacendado',    kcal100:60,  prot100:9.0,  carbs100:4.0,  fat100:1.2, sat100:0.8, fiber100:0.5 },
+  // ── PREPARADOS Y OTROS ────────────────────────────────────
+  { id:'b140', cat:'Otros', nombre:'Croquetas La Sirena (cong.)',         kcal100:214, prot100:7.5,  carbs100:21.0, fat100:12.0, sat100:3.5, fiber100:1.5, peso_ud_g:20 },
+  { id:'b141', cat:'Otros', nombre:'Salsa de soja',                       kcal100:53,  prot100:8.0,  carbs100:7.0,  fat100:0.1, sat100:0.0, fiber100:0.8 },
+  { id:'b142', cat:'Otros', nombre:'Ketchup Hacendado',                   kcal100:104, prot100:1.6,  carbs100:26.0, fat100:0.1, sat100:0.0, fiber100:1.0 },
+  { id:'b143', cat:'Otros', nombre:'Mayonesa Hacendado',                  kcal100:690, prot100:1.2,  carbs100:1.2,  fat100:77.0, sat100:6.5, fiber100:0.0 },
+  { id:'b144', cat:'Otros', nombre:'Queso parmesano rallado',             kcal100:431, prot100:38.0, carbs100:0.0,  fat100:30.0, sat100:19.0, fiber100:0.0 },
+  { id:'b145', cat:'Otros', nombre:'Mozzarella fresca',                   kcal100:253, prot100:18.0, carbs100:2.6,  fat100:19.0, sat100:12.0, fiber100:0.0 },
+  // ── BÁSICOS ADICIONALES ───────────────────────────────────
+  { id:'b150', cat:'Lácteos', nombre:'Queso manchego curado',             kcal100:392, prot100:27.0, carbs100:0.5,  fat100:32.0, sat100:21.0, fiber100:0.0 },
+  { id:'b151', cat:'Lácteos', nombre:'Queso mozzarella rallado Hacendado',kcal100:318, prot100:24.0, carbs100:2.4,  fat100:24.0, sat100:15.0, fiber100:0.0 },
+  { id:'b152', cat:'Lácteos', nombre:'Nata para cocinar Hacendado',       kcal100:194, prot100:2.5,  carbs100:3.5,  fat100:19.0, sat100:12.5, fiber100:0.0 },
+  { id:'b153', cat:'Lácteos', nombre:'Batido de chocolate Hacendado',     kcal100:71,  prot100:3.4,  carbs100:11.0, fat100:1.5, sat100:1.0, fiber100:0.5 },
+  { id:'b160', cat:'Proteínas', nombre:'Pechuga de pavo (fresca)',        kcal100:104, prot100:22.0, carbs100:0.0,  fat100:1.7, sat100:0.5, fiber100:0.0 },
+  { id:'b161', cat:'Proteínas', nombre:'Bacalao fresco',                  kcal100:82,  prot100:18.0, carbs100:0.0,  fat100:0.7, sat100:0.1, fiber100:0.0 },
+  { id:'b162', cat:'Proteínas', nombre:'Boquerones frescos',              kcal100:131, prot100:20.0, carbs100:0.0,  fat100:5.0, sat100:1.3, fiber100:0.0, tags:['pescado_azul'] },
+  { id:'b163', cat:'Proteínas', nombre:'Mejillones al natural (lata)',    kcal100:84,  prot100:12.0, carbs100:3.5,  fat100:2.5, sat100:0.5, fiber100:0.0 },
+  { id:'b164', cat:'Proteínas', nombre:'Calamares',                       kcal100:92,  prot100:16.0, carbs100:3.0,  fat100:1.5, sat100:0.4, fiber100:0.0 },
+  { id:'b170', cat:'Carbohidratos', nombre:'Avena instantánea Quaker',   kcal100:356, prot100:12.5, carbs100:60.0, fat100:7.0, sat100:1.3, fiber100:10.0 },
+  { id:'b171', cat:'Carbohidratos', nombre:'Pan baguette',                kcal100:262, prot100:9.0,  carbs100:51.0, fat100:2.0, sat100:0.4, fiber100:2.7,  peso_ud_g:30 },
+  { id:'b172', cat:'Carbohidratos', nombre:'Tostada de pan (rebanada)',   kcal100:313, prot100:9.0,  carbs100:61.0, fat100:3.5, sat100:0.7, fiber100:3.5,  peso_ud_g:25 },
+  { id:'b173', cat:'Carbohidratos', nombre:'Macarrones (secos)',          kcal100:350, prot100:12.0, carbs100:70.0, fat100:1.5, sat100:0.3, fiber100:3.0 },
+  { id:'b174', cat:'Carbohidratos', nombre:'Espagueti (secos)',           kcal100:352, prot100:12.0, carbs100:70.0, fat100:1.5, sat100:0.3, fiber100:3.0 },
+  { id:'b175', cat:'Carbohidratos', nombre:'Arroz redondo (seco)',        kcal100:356, prot100:7.0,  carbs100:79.0, fat100:0.6, sat100:0.2, fiber100:1.0 },
+  { id:'b176', cat:'Carbohidratos', nombre:'Legumbres (garbanzo cocido)', kcal100:164, prot100:9.0,  carbs100:27.0, fat100:2.6, sat100:0.3, fiber100:7.6 },
+  { id:'b180', cat:'Verduras', nombre:'Maíz dulce (lata)',               kcal100:86,  prot100:3.2,  carbs100:19.0, fat100:1.2, sat100:0.2, fiber100:2.4 },
+  { id:'b181', cat:'Verduras', nombre:'Espárragos',                       kcal100:20,  prot100:2.2,  carbs100:3.9,  fat100:0.1, sat100:0.0, fiber100:2.1 },
+  { id:'b182', cat:'Verduras', nombre:'Coles de Bruselas',                kcal100:43,  prot100:3.4,  carbs100:9.0,  fat100:0.3, sat100:0.1, fiber100:3.8 },
+  { id:'b183', cat:'Verduras', nombre:'Alcachofas',                       kcal100:47,  prot100:3.3,  carbs100:10.5, fat100:0.2, sat100:0.0, fiber100:5.4 },
+  { id:'b184', cat:'Verduras', nombre:'Puerro',                           kcal100:31,  prot100:1.5,  carbs100:7.0,  fat100:0.3, sat100:0.0, fiber100:1.8 },
+  { id:'b185', cat:'Verduras', nombre:'Apio',                             kcal100:16,  prot100:0.7,  carbs100:3.0,  fat100:0.2, sat100:0.0, fiber100:1.6 },
+  { id:'b186', cat:'Verduras', nombre:'Col lombarda',                     kcal100:29,  prot100:1.4,  carbs100:6.0,  fat100:0.2, sat100:0.0, fiber100:2.1 },
+  { id:'b187', cat:'Verduras', nombre:'Nabo',                             kcal100:28,  prot100:0.9,  carbs100:6.0,  fat100:0.1, sat100:0.0, fiber100:1.8 },
+  { id:'b190', cat:'Grasas', nombre:'Aceite de coco',                    kcal100:862, prot100:0.0,  carbs100:0.0,  fat100:100.0, sat100:87.0, fiber100:0.0 },
+  { id:'b191', cat:'Grasas', nombre:'Tahini (pasta de sésamo)',          kcal100:595, prot100:17.0, carbs100:21.0, fat100:54.0, sat100:7.6, fiber100:9.3, tags:['grasa_insaturada'] },
+  { id:'b192', cat:'Grasas', nombre:'Pistachos',                         kcal100:562, prot100:20.0, carbs100:28.0, fat100:45.0, sat100:5.6, fiber100:10.3, tags:['grasa_insaturada'] },
+  { id:'b193', cat:'Grasas', nombre:'Avellanas',                         kcal100:628, prot100:15.0, carbs100:17.0, fat100:61.0, sat100:4.5, fiber100:9.7, tags:['grasa_insaturada'] },
+  { id:'b200', cat:'Otros', nombre:'Miel',                               kcal100:304, prot100:0.3,  carbs100:82.0, fat100:0.0, sat100:0.0, fiber100:0.2 },
+  { id:'b201', cat:'Otros', nombre:'Mermelada Hacendado',                kcal100:265, prot100:0.4,  carbs100:65.0, fat100:0.1, sat100:0.0, fiber100:1.0 },
+  { id:'b202', cat:'Otros', nombre:'Cacao en polvo Hacendado',           kcal100:375, prot100:21.0, carbs100:36.0, fat100:12.0, sat100:7.0, fiber100:30.0 },
+  { id:'b203', cat:'Otros', nombre:'Café solo (sin azúcar)',             kcal100:2,   prot100:0.1,  carbs100:0.0,  fat100:0.0, sat100:0.0, fiber100:0.0 },
+  { id:'b204', cat:'Otros', nombre:'Leche de coco (lata)',               kcal100:185, prot100:1.7,  carbs100:2.7,  fat100:18.0, sat100:16.0, fiber100:1.0 },
+  { id:'b205', cat:'Otros', nombre:'Tomate triturado (lata)',            kcal100:32,  prot100:1.5,  carbs100:6.0,  fat100:0.2, sat100:0.0, fiber100:1.4 },
+  { id:'b206', cat:'Otros', nombre:'Caldo de pollo (brick)',             kcal100:10,  prot100:1.0,  carbs100:1.0,  fat100:0.2, sat100:0.1, fiber100:0.0 },
+  // ── SUPLEMENTOS DE SOL (uso diferenciado) ────────────────
+  // Evolate whey: SOLO post-entreno. Garden of Life: SOLO recetas.
+  { id:'b210', cat:'Suplementos', nombre:'Proteína Evolate whey isolate',      kcal100:380, prot100:86.0, carbs100:3.0,  fat100:2.0, sat100:1.0, fiber100:0.0, tags:['post_entreno','whey'] },
+  { id:'b211', cat:'Suplementos', nombre:'Proteína Garden of Life plant-based', kcal100:375, prot100:70.0, carbs100:12.0, fat100:5.0, sat100:1.0, fiber100:8.0, tags:['solo_recetas','plant'] },
+  // ── ALTA DENSIDAD PROTEICA ───────────────────────────────
+  { id:'b212', cat:'Lácteos', nombre:'Quark 0% Hacendado',            kcal100:60,  prot100:12.0, carbs100:4.0,  fat100:0.2, sat100:0.1, fiber100:0.0 },
+  { id:'b213', cat:'Lácteos', nombre:'Queso batido 0% Hacendado',     kcal100:47,  prot100:8.0,  carbs100:4.0,  fat100:0.2, sat100:0.1, fiber100:0.0 },
+  { id:'b214', cat:'Lácteos', nombre:'Skyr proteico sabores Hacendado', kcal100:65, prot100:11.0, carbs100:5.0, fat100:0.2, sat100:0.1, fiber100:0.0 },
+  { id:'b215', cat:'Proteínas', nombre:'Clara de huevo en polvo',      kcal100:370, prot100:80.0, carbs100:7.0,  fat100:0.5, sat100:0.2, fiber100:0.0 },
+  { id:'b216', cat:'Proteínas', nombre:'Bonito del norte al natural',  kcal100:108, prot100:24.0, carbs100:0.0,  fat100:1.2, sat100:0.3, fiber100:0.0 },
+  { id:'b217', cat:'Proteínas', nombre:'Trucha fresca',                kcal100:119, prot100:20.5, carbs100:0.0,  fat100:3.5, sat100:0.8, fiber100:0.0, tags:['pescado_azul'] },
+  { id:'b218', cat:'Proteínas', nombre:'Salmón ahumado',               kcal100:180, prot100:23.0, carbs100:0.5,  fat100:9.0, sat100:1.9, fiber100:0.0, tags:['pescado_azul'] },
+  { id:'b219', cat:'Otros', nombre:'Gelatina proteica sin azúcar',     kcal100:12,  prot100:2.5,  carbs100:0.4,  fat100:0.0, sat100:0.0, fiber100:0.0 },
+  // ── PANES DE MASA MADRE ──────────────────────────────────
+  { id:'b220', cat:'Carbohidratos', nombre:'Pan de masa madre',            kcal100:260, prot100:9.5,  carbs100:50.0, fat100:1.5, sat100:0.3, fiber100:3.5 },
+  { id:'b221', cat:'Carbohidratos', nombre:'Pan de masa madre integral',   kcal100:247, prot100:10.0, carbs100:44.0, fat100:1.8, sat100:0.4, fiber100:6.5 },
+];
+
+/* ---- Recetas de partida ---- */
+const SEED_RECIPES = [
+
+  // ── DESAYUNOS DULCES ──────────────────────────────────────
+  {
+    id: 'r_des_01',
+    name: 'Bowl de skyr con arándanos y avena',
+    meal_type: 'desayuno',
+    is_fixed: true,
+    tags: ['dulce', 'rapido', 'habitual'],
+    ingredients: [
+      { ingredient_id: 'b004', amount_g: 200 }, // Skyr natural
+      { ingredient_id: 'b074', amount_g: 80 },  // Arándanos
+      { ingredient_id: 'b055', amount_g: 30 },  // Copos de avena
+      { ingredient_id: 'b127', amount_g: 8 },   // Chía
+    ],
+    notes: 'Mezclar la chía la noche antes si se quiere más cremoso.',
+  },
+  {
+    id: 'r_des_02',
+    name: 'Porridge proteico de avena y plátano',
+    meal_type: 'desayuno',
+    is_fixed: false,
+    tags: ['dulce', 'caliente'],
+    ingredients: [
+      { ingredient_id: 'b055', amount_g: 45 },  // Copos de avena
+      { ingredient_id: 'b016', amount_g: 200 }, // Bebida de almendras (ml)
+      { ingredient_id: 'b070', amount_g: 80 },  // Plátano
+      { ingredient_id: 'b211', amount_g: 15 },  // Garden of Life (receta)
+    ],
+    notes: 'Proteína vegetal Garden of Life — nunca la Evolate aquí.',
+  },
+  {
+    id: 'r_des_03',
+    name: 'Tostadas con quark, mermelada y fresas',
+    meal_type: 'desayuno',
+    is_fixed: false,
+    tags: ['dulce', 'rapido'],
+    ingredients: [
+      { ingredient_id: 'b057', amount_g: 60 },  // Pan de molde integral
+      { ingredient_id: 'b212', amount_g: 120 }, // Quark 0%
+      { ingredient_id: 'b201', amount_g: 15 },  // Mermelada
+      { ingredient_id: 'b073', amount_g: 80 },  // Fresas
+    ],
+    notes: '',
+  },
+  {
+    id: 'r_des_04',
+    name: 'Yogur griego 0% con frutos rojos',
+    meal_type: 'desayuno',
+    is_fixed: false,
+    tags: ['dulce', 'rapido', 'habitual'],
+    ingredients: [
+      { ingredient_id: 'b003', amount_g: 200 }, // Yogur griego 0%
+      { ingredient_id: 'b074', amount_g: 60 },  // Arándanos
+      { ingredient_id: 'b073', amount_g: 60 },  // Fresas
+      { ingredient_id: 'b126', amount_g: 10 },  // Crema de cacahuete (dosis pequeña)
+    ],
+    notes: 'La crema de cacahuete va en dosis pequeña: es grasa del día, no la fuente de proteína.',
+  },
+  {
+    id: 'r_des_05',
+    name: 'Tortitas de avena y clara con miel',
+    meal_type: 'desayuno',
+    is_fixed: false,
+    tags: ['dulce', 'caliente'],
+    ingredients: [
+      { ingredient_id: 'b055', amount_g: 40 },  // Copos de avena
+      { ingredient_id: 'b024', amount_g: 150 }, // Clara pasteurizada
+      { ingredient_id: 'b070', amount_g: 60 },  // Plátano
+      { ingredient_id: 'b200', amount_g: 10 },  // Miel
+    ],
+    notes: 'Triturar todo y hacer a la sartén sin aceite.',
+  },
+
+  // ── DESAYUNOS SALADOS ─────────────────────────────────────
+  {
+    id: 'r_des_06',
+    name: 'Masa madre con huevo, claras y aguacate',
+    meal_type: 'desayuno',
+    is_fixed: false,
+    tags: ['salado', 'habitual'],
+    ingredients: [
+      { ingredient_id: 'b220', amount_g: 60 },  // Pan de masa madre
+      { ingredient_id: 'b023', amount_g: 60 },  // Huevo entero (1 ud)
+      { ingredient_id: 'b024', amount_g: 100 }, // Clara pasteurizada
+      { ingredient_id: 'b101', amount_g: 50 },  // Aguacate
+    ],
+    notes: 'La grasa viene del aguacate y la yema: insaturada en su mayor parte.',
+  },
+  {
+    id: 'r_des_07',
+    name: 'Tostada de masa madre con salmón ahumado y aguacate',
+    meal_type: 'desayuno',
+    is_fixed: false,
+    tags: ['salado', 'pescado_azul'],
+    ingredients: [
+      { ingredient_id: 'b220', amount_g: 60 },  // Pan de masa madre
+      { ingredient_id: 'b218', amount_g: 70 },  // Salmón ahumado
+      { ingredient_id: 'b101', amount_g: 40 },  // Aguacate
+      { ingredient_id: 'b094', amount_g: 60 },  // Tomate
+    ],
+    notes: 'Pescado azul de buena mañana: bien los días con margen de grasa.',
+  },
+  {
+    id: 'r_des_08',
+    name: 'Revuelto de claras con espinacas y pan integral',
+    meal_type: 'desayuno',
+    is_fixed: false,
+    tags: ['salado', 'ligero'],
+    ingredients: [
+      { ingredient_id: 'b024', amount_g: 180 }, // Clara pasteurizada
+      { ingredient_id: 'b023', amount_g: 60 },  // Huevo entero (1 ud)
+      { ingredient_id: 'b090', amount_g: 80 },  // Espinacas
+      { ingredient_id: 'b221', amount_g: 50 },  // Masa madre integral
+    ],
+    notes: '',
+  },
+
+  // ── ALMUERZOS ─────────────────────────────────────────────
+  {
+    id: 'r_alm_01',
+    name: 'Pollo a la plancha con arroz basmati y brócoli',
+    meal_type: 'almuerzo',
+    is_fixed: false,
+    tags: ['salado', 'habitual'],
+    ingredients: [
+      { ingredient_id: 'b020', amount_g: 160 }, // Pechuga de pollo
+      { ingredient_id: 'b052', amount_g: 180 }, // Arroz basmati cocido
+      { ingredient_id: 'b091', amount_g: 150 }, // Brócoli
+      { ingredient_id: 'b120', amount_g: 8 },   // AOVE
+    ],
+    notes: '',
+  },
+  {
+    id: 'r_alm_02',
+    name: 'Merluza al horno con patata y espárragos',
+    meal_type: 'almuerzo',
+    is_fixed: false,
+    tags: ['salado'],
+    ingredients: [
+      { ingredient_id: 'b028', amount_g: 200 }, // Merluza
+      { ingredient_id: 'b059', amount_g: 200 }, // Patata cocida
+      { ingredient_id: 'b181', amount_g: 120 }, // Espárragos
+      { ingredient_id: 'b120', amount_g: 8 },   // AOVE
+    ],
+    notes: '',
+  },
+  {
+    id: 'r_alm_03',
+    name: 'Bowl de lentejas con pavo y verduras',
+    meal_type: 'almuerzo',
+    is_fixed: false,
+    tags: ['salado', 'fibra'],
+    ingredients: [
+      { ingredient_id: 'b111', amount_g: 200 }, // Lentejas cocidas
+      { ingredient_id: 'b160', amount_g: 120 }, // Pechuga de pavo
+      { ingredient_id: 'b097', amount_g: 80 },  // Pimiento rojo
+      { ingredient_id: 'b092', amount_g: 60 },  // Zanahoria
+      { ingredient_id: 'b120', amount_g: 6 },   // AOVE
+    ],
+    notes: 'Buena carga de fibra.',
+  },
+  {
+    id: 'r_alm_04',
+    name: 'Ensalada de bonito, garbanzos y tomate',
+    meal_type: 'almuerzo',
+    is_fixed: false,
+    tags: ['salado', 'rapido', 'fibra'],
+    ingredients: [
+      { ingredient_id: 'b216', amount_g: 120 }, // Bonito al natural
+      { ingredient_id: 'b110', amount_g: 150 }, // Garbanzos cocidos
+      { ingredient_id: 'b094', amount_g: 150 }, // Tomate
+      { ingredient_id: 'b096', amount_g: 40 },  // Cebolla
+      { ingredient_id: 'b120', amount_g: 8 },   // AOVE
+    ],
+    notes: '',
+  },
+  {
+    id: 'r_alm_05',
+    name: 'Salmón con quinoa y espinacas',
+    meal_type: 'almuerzo',
+    is_fixed: false,
+    tags: ['salado', 'pescado_azul'],
+    ingredients: [
+      { ingredient_id: 'b027', amount_g: 140 }, // Salmón
+      { ingredient_id: 'b062', amount_g: 160 }, // Quinoa cocida
+      { ingredient_id: 'b090', amount_g: 120 }, // Espinacas
+      { ingredient_id: 'b120', amount_g: 5 },   // AOVE
+    ],
+    notes: 'Pescado azul: buena opción los días con margen de grasa.',
+  },
+
+  // ── SNACKS ────────────────────────────────────────────────
+  {
+    id: 'r_snk_01',
+    name: 'Batido post-entreno Evolate',
+    meal_type: 'snack',
+    is_fixed: false,
+    tags: ['dulce', 'post_entreno'],
+    ingredients: [
+      { ingredient_id: 'b210', amount_g: 30 },  // Evolate whey (SOLO post-entreno)
+      { ingredient_id: 'b016', amount_g: 250 }, // Bebida de almendras (ml)
+      { ingredient_id: 'b070', amount_g: 60 },  // Plátano
+    ],
+    notes: 'Exclusivo post-entreno. Fuera del post-entreno usar Garden of Life.',
+  },
+  {
+    id: 'r_snk_02',
+    name: 'Quark con canela y arándanos',
+    meal_type: 'snack',
+    is_fixed: false,
+    tags: ['dulce', 'rapido', 'habitual'],
+    ingredients: [
+      { ingredient_id: 'b212', amount_g: 150 }, // Quark 0%
+      { ingredient_id: 'b074', amount_g: 70 },  // Arándanos
+    ],
+    notes: '',
+  },
+  {
+    id: 'r_snk_03',
+    name: 'Requesón con miel y nueces',
+    meal_type: 'snack',
+    is_fixed: false,
+    tags: ['dulce'],
+    ingredients: [
+      { ingredient_id: 'b010', amount_g: 150 }, // Requesón
+      { ingredient_id: 'b200', amount_g: 8 },   // Miel
+      { ingredient_id: 'b123', amount_g: 12 },  // Nueces (dosis pequeña)
+    ],
+    notes: 'Nueces en dosis pequeña — grasa insaturada, no fuente principal de proteína.',
+  },
+  {
+    id: 'r_snk_04',
+    name: 'Tortitas de arroz con pavo',
+    meal_type: 'snack',
+    is_fixed: false,
+    tags: ['salado', 'rapido'],
+    ingredients: [
+      { ingredient_id: 'b058', amount_g: 20 },  // Tortitas de arroz
+      { ingredient_id: 'b038', amount_g: 80 },  // Pavo en lonchas
+    ],
+    notes: '',
+  },
+  {
+    id: 'r_snk_05',
+    name: 'Skyr con kiwi',
+    meal_type: 'snack',
+    is_fixed: false,
+    tags: ['dulce', 'rapido'],
+    ingredients: [
+      { ingredient_id: 'b004', amount_g: 150 }, // Skyr
+      { ingredient_id: 'b075', amount_g: 100 }, // Kiwi
+    ],
+    notes: '',
+  },
+
+  // ── CENAS ─────────────────────────────────────────────────
+  {
+    id: 'r_cen_01',
+    name: 'Tortilla de claras con espinacas y champiñones',
+    meal_type: 'cena',
+    is_fixed: false,
+    tags: ['salado', 'ligero', 'habitual'],
+    ingredients: [
+      { ingredient_id: 'b024', amount_g: 200 }, // Clara pasteurizada
+      { ingredient_id: 'b023', amount_g: 60 },  // Huevo entero (1 ud)
+      { ingredient_id: 'b090', amount_g: 100 }, // Espinacas
+      { ingredient_id: 'b102', amount_g: 100 }, // Champiñones
+      { ingredient_id: 'b120', amount_g: 5 },   // AOVE
+    ],
+    notes: '',
+  },
+  {
+    id: 'r_cen_02',
+    name: 'Sardinas al horno con ensalada',
+    meal_type: 'cena',
+    is_fixed: false,
+    tags: ['salado', 'pescado_azul'],
+    ingredients: [
+      { ingredient_id: 'b162', amount_g: 150 }, // Boquerones
+      { ingredient_id: 'b095', amount_g: 80 },  // Lechuga
+      { ingredient_id: 'b094', amount_g: 120 }, // Tomate
+      { ingredient_id: 'b120', amount_g: 8 },   // AOVE
+    ],
+    notes: 'Pescado azul.',
+  },
+  {
+    id: 'r_cen_03',
+    name: 'Wok de gambas con calabacín y arroz integral',
+    meal_type: 'cena',
+    is_fixed: false,
+    tags: ['salado'],
+    ingredients: [
+      { ingredient_id: 'b031', amount_g: 160 }, // Gambas peladas
+      { ingredient_id: 'b099', amount_g: 150 }, // Calabacín
+      { ingredient_id: 'b051', amount_g: 120 }, // Arroz integral cocido
+      { ingredient_id: 'b141', amount_g: 10 },  // Salsa de soja
+      { ingredient_id: 'b120', amount_g: 6 },   // AOVE
+    ],
+    notes: '',
+  },
+  {
+    id: 'r_cen_04',
+    name: 'Trucha a la plancha con judías verdes y boniato',
+    meal_type: 'cena',
+    is_fixed: false,
+    tags: ['salado', 'pescado_azul'],
+    ingredients: [
+      { ingredient_id: 'b217', amount_g: 160 }, // Trucha
+      { ingredient_id: 'b103', amount_g: 150 }, // Judías verdes
+      { ingredient_id: 'b061', amount_g: 120 }, // Boniato cocido
+      { ingredient_id: 'b120', amount_g: 5 },   // AOVE
+    ],
+    notes: '',
+  },
+  {
+    id: 'r_cen_05',
+    name: 'Pechuga de pavo con crema de calabacín',
+    meal_type: 'cena',
+    is_fixed: false,
+    tags: ['salado', 'ligero'],
+    ingredients: [
+      { ingredient_id: 'b160', amount_g: 150 }, // Pechuga de pavo
+      { ingredient_id: 'b099', amount_g: 200 }, // Calabacín
+      { ingredient_id: 'b184', amount_g: 60 },  // Puerro
+      { ingredient_id: 'b120', amount_g: 6 },   // AOVE
+    ],
+    notes: '',
+  },
+];
+
+/* ============================================================
+   ALMACENAMIENTO — todo local, en este navegador
+   ============================================================ */
+const DB = {
+  get(k, fb) {
+    try { const v = localStorage.getItem('nut_' + k); return v ? JSON.parse(v) : fb; }
+    catch (e) { return fb; }
+  },
+  set(k, v) {
+    try { localStorage.setItem('nut_' + k, JSON.stringify(v)); return true; }
+    catch (e) { toast('No se pudo guardar: almacenamiento lleno'); return false; }
+  },
+  del(k) { try { localStorage.removeItem('nut_' + k); } catch (e) {} },
+  keys() {
+    const out = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf('nut_') === 0) out.push(k.slice(4));
+      }
+    } catch (e) {}
+    return out;
+  },
+};
+
+/* ---- Objetivos: se editan en un solo sitio ---- */
+function targets() {
+  const saved = DB.get('targets', null) || {};
+  const t = Object.assign({}, DEFAULT_TARGETS, saved);
+  return {
+    kcal:    Number(t.kcal)    || DEFAULT_TARGETS.kcal,
+    protein: Number(t.protein) || DEFAULT_TARGETS.protein,
+    carbs:   Number(t.carbs)   || DEFAULT_TARGETS.carbs,
+    fat:     Number(t.fat)     || DEFAULT_TARGETS.fat,
+  };
+}
+function saveTargets(patch) { DB.set('targets', Object.assign(targets(), patch)); }
+function targetsAreCustom() {
+  const t = targets();
+  return Object.keys(DEFAULT_TARGETS).some(k => t[k] !== DEFAULT_TARGETS[k]);
+}
+function satLimit(t) { return round1((t || targets()).fat * RULES.satPctOfFat); }
+function kcalFromMacros(t) {
+  const x = t || targets();
+  return Math.round(x.protein * 4 + x.carbs * 4 + x.fat * 9);
+}
+/* Recalcula CH y grasa dejando la proteína intacta (es un piso). */
+function rebalance(kcal, protein, fatShare) {
+  fatShare = fatShare == null ? 0.35 : fatShare;
+  const left = Math.max(0, kcal - protein * 4);
+  const fatKcal = left * fatShare;
+  return {
+    kcal: kcal, protein: protein,
+    fat: Math.round(fatKcal / 9),
+    carbs: Math.round((left - fatKcal) / 4),
+  };
+}
+
+/* ---- Alimentos ---- */
+let foodIndex = null;
+function allFoods() { return FOODS.concat(DB.get('foods', [])); }
+function foodById(id) {
+  if (!foodIndex) { foodIndex = {}; allFoods().forEach(f => { foodIndex[f.id] = f; }); }
+  return foodIndex[id] || null;
+}
+function invalidateFoods() { foodIndex = null; }
+/* Densidad proteica: criterio de ORDEN al sugerir, nunca filtro. */
+function density(food) { return (food && food.kcal100) ? food.prot100 / food.kcal100 : 0; }
+function macrosOf(food, grams) {
+  const f = (grams || 0) / 100;
+  return {
+    kcal: (food.kcal100 || 0) * f, prot: (food.prot100 || 0) * f,
+    carbs: (food.carbs100 || 0) * f, fat: (food.fat100 || 0) * f,
+    sat: (food.sat100 || 0) * f, fiber: (food.fiber100 || 0) * f,
+  };
+}
+function foodHasTag(f, tag) { return !!(f && f.tags && f.tags.indexOf(tag) >= 0); }
+
+/* ---- Recetas ---- */
+function recipeMacros(r) {
+  const t = { kcal: 0, prot: 0, carbs: 0, fat: 0, sat: 0, fiber: 0 };
+  (r.ingredients || []).forEach(i => {
+    const f = foodById(i.ingredient_id);
+    if (!f) return;
+    const m = macrosOf(f, i.amount_g);
+    for (const k in t) t[k] += m[k];
+  });
+  for (const k in t) t[k] = round1(t[k]);
+  t.kcal = Math.round(t.kcal);
+  return t;
+}
+function allRecipes() {
+  const deleted = DB.get('deleted', []);
+  const over = DB.get('overrides', {});
+  const own = DB.get('recipes', []);
+  const seeds = SEED_RECIPES
+    .filter(r => deleted.indexOf(r.id) < 0)
+    .map(r => over[r.id] ? Object.assign({}, r, over[r.id]) : r);
+  return seeds.concat(own).map(r => Object.assign({}, r, { macros: recipeMacros(r) }));
+}
+function recipesFor(mealKey) { return allRecipes().filter(r => r.meal_type === mealKey); }
+function recipeById(id) { return allRecipes().find(r => r.id === id) || null; }
+function isSeed(id) { return SEED_RECIPES.some(r => r.id === id); }
+function saveRecipe(r) {
+  const clean = Object.assign({}, r);
+  delete clean.macros;
+  delete clean.isNew;
+  if (isSeed(clean.id)) {
+    const over = DB.get('overrides', {}); over[clean.id] = clean; DB.set('overrides', over);
+  } else {
+    const own = DB.get('recipes', []);
+    const i = own.findIndex(x => x.id === clean.id);
+    if (i >= 0) own[i] = clean; else own.push(clean);
+    DB.set('recipes', own);
+  }
+}
+function deleteRecipe(id) {
+  if (isSeed(id)) {
+    const d = DB.get('deleted', []); if (d.indexOf(id) < 0) d.push(id); DB.set('deleted', d);
+  } else {
+    DB.set('recipes', DB.get('recipes', []).filter(r => r.id !== id));
+  }
+}
+function usage() { return DB.get('usage', {}); }
+function bumpUsage(id) { const u = usage(); u[id] = (u[id] || 0) + 1; DB.set('usage', u); }
+function isHabitual(r) { return hasTag(r, 'habitual') || (usage()[r.id] || 0) >= 3; }
+function hasTag(r, tag) { return (r.tags || []).indexOf(tag) >= 0; }
+
+/* Uso correcto de las dos proteínas en polvo. */
+function powderWarning(r) {
+  const ids = (r.ingredients || []).map(i => i.ingredient_id);
+  const post = hasTag(r, 'post_entreno');
+  if (ids.indexOf(POWDER_POST) >= 0 && !post)
+    return 'La Evolate whey es solo post-entreno; en recetas usa la Garden of Life.';
+  if (ids.indexOf(POWDER_RECIPES) >= 0 && post)
+    return 'La Garden of Life es solo para recetas; post-entreno usa la Evolate.';
+  return null;
+}
+
+/* ---- Registro del día ---- */
+function dayLog(fecha) { return DB.get('log_' + fecha, { entries: [] }); }
+function saveDayLog(fecha, log) { DB.set('log_' + fecha, log); }
+function addEntry(fecha, e) { const l = dayLog(fecha); l.entries.push(e); saveDayLog(fecha, l); }
+function removeEntry(fecha, id) {
+  const l = dayLog(fecha);
+  l.entries = l.entries.filter(e => e.id !== id);
+  saveDayLog(fecha, l);
+}
+function dayTotals(fecha) {
+  return dayLog(fecha).entries.reduce((a, e) => ({
+    kcal: a.kcal + (e.kcal || 0), prot: a.prot + (e.prot || 0),
+    carbs: a.carbs + (e.carbs || 0), fat: a.fat + (e.fat || 0),
+    sat: a.sat + (e.sat || 0), fiber: a.fiber + (e.fiber || 0),
+  }), { kcal: 0, prot: 0, carbs: 0, fat: 0, sat: 0, fiber: 0 });
+}
+function remaining(fecha) {
+  const t = targets(), d = dayTotals(fecha);
+  return { kcal: t.kcal - d.kcal, prot: t.protein - d.prot, carbs: t.carbs - d.carbs, fat: t.fat - d.fat };
+}
+function trainedOn(fecha) { return DB.get('trained_' + fecha, false) === true; }
+function setTrained(fecha, v) { DB.set('trained_' + fecha, !!v); }
+
+/* ---- Despensa ---- */
+function pantry() { return DB.get('pantry', []); }
+function savePantry(item) {
+  const list = pantry();
+  const i = list.findIndex(p => p.ingredient_id === item.ingredient_id);
+  if (i >= 0) list[i] = Object.assign(list[i], item); else list.push(item);
+  DB.set('pantry', list);
+}
+function removePantry(id) { DB.set('pantry', pantry().filter(p => p.ingredient_id !== id)); }
+function pantryQty(id) { const p = pantry().find(x => x.ingredient_id === id); return p ? (p.estimated_quantity || 0) : 0; }
+
+/* ============================================================
+   MOTOR — "¿qué me falta para cerrar el día?"
+   ============================================================ */
+function mealsLogged(fecha) {
+  const s = {};
+  dayLog(fecha).entries.forEach(e => { s[e.meal] = true; });
+  return s;
+}
+function pendingMeals(fecha) {
+  const logged = mealsLogged(fecha);
+  return MEALS.map(m => m.key).filter(k => !logged[k]);
+}
+/* Cuánto le toca a una comida de lo que queda del día. */
+function shareForMeal(fecha, mealKey) {
+  const rem = remaining(fecha);
+  const pending = pendingMeals(fecha);
+  const pool = pending.indexOf(mealKey) >= 0 ? pending : pending.concat([mealKey]);
+  const w = k => (MEALS.find(m => m.key === k) || {}).weight || 0.25;
+  const total = pool.reduce((s, k) => s + w(k), 0) || 1;
+  const share = w(mealKey) / total;
+  return {
+    kcal: rem.kcal * share, prot: rem.prot * share,
+    carbs: rem.carbs * share, fat: rem.fat * share,
+    share: share, isLast: pool.length === 1,
+  };
+}
+
+/* Reglas de salud. */
+function alerts(fecha) {
+  const t = targets(), d = dayTotals(fecha), out = [];
+  const closed = fecha < today();
+  const lim = satLimit(t);
+  if (d.sat > lim) out.push({
+    level: 'warn', title: 'Grasa saturada alta',
+    detail: fmt1(d.sat) + ' g de ' + lim + ' g (20 % del objetivo de grasa).',
+  });
+  if (d.kcal > 0 && d.kcal < RULES.kcalMin) out.push({
+    level: closed ? 'crit' : 'info',
+    title: closed ? 'El día cerró por debajo de 1500 kcal'
+                  : 'Te faltan ' + Math.round(RULES.kcalMin - d.kcal) + ' kcal para el mínimo',
+    detail: closed ? Math.round(d.kcal) + ' kcal. Aquí el riesgo es comer de menos.'
+                   : 'Mínimo diario ' + RULES.kcalMin + ' kcal.',
+  });
+  // En un día todavía vacío estos mínimos no informan de nada: se
+  // callan hasta que hay algo registrado.
+  if (d.prot < RULES.proteinFloor && (d.kcal > 0 || closed)) out.push({
+    level: closed ? 'crit' : 'info',
+    title: closed ? 'La proteína quedó por debajo del piso'
+                  : 'Faltan ' + Math.round(RULES.proteinFloor - d.prot) + ' g de proteína',
+    detail: Math.round(d.prot) + ' g de ' + RULES.proteinFloor + ' g.',
+  });
+  return out;
+}
+
+function clampFactor(f) { return Math.max(0.6, Math.min(1.6, Math.round(f * 20) / 20)); }
+/* Factor para acercar una receta al hueco: si cuadrando kcal ya se
+   cubre la proteína manda las kcal; si no, manda el piso de proteína. */
+function fitFactor(recipe, gap) {
+  const m = recipe.macros || recipeMacros(recipe);
+  const fP = (m.prot > 0 && gap.prot > 0) ? gap.prot / m.prot : null;
+  const fK = (m.kcal > 0 && gap.kcal > 0) ? gap.kcal / m.kcal : null;
+  if (fP == null && fK == null) return 1;
+  if (fP == null) return clampFactor(fK);
+  if (fK == null) return clampFactor(fP);
+  return clampFactor(fK >= fP ? fK : Math.min(fP, fK * 1.15));
+}
+function scaleRecipe(recipe, factor) {
+  if (!factor || factor === 1) return recipe;
+  const s = Object.assign({}, recipe, {
+    ingredients: (recipe.ingredients || []).map(i => ({
+      ingredient_id: i.ingredient_id,
+      amount_g: Math.max(1, Math.round((i.amount_g * factor) / 5) * 5),
+    })),
+  });
+  s.macros = recipeMacros(s);
+  return s;
+}
+function recipeDensity(r) {
+  const m = r.macros || recipeMacros(r);
+  return m.kcal ? m.prot / m.kcal : 0;
+}
+function hasGoodFats(r) {
+  return (r.ingredients || []).some(i => {
+    const f = foodById(i.ingredient_id);
+    return foodHasTag(f, 'pescado_azul') || foodHasTag(f, 'grasa_insaturada');
+  });
+}
+/* La Evolate solo los días de entreno. */
+function postWorkoutOk(r, fecha) { return !hasTag(r, 'post_entreno') || trainedOn(fecha); }
+
+function scoreRecipe(recipe, gap, ctx) {
+  ctx = ctx || {};
+  const m = recipe.macros || recipeMacros(recipe);
+  const why = [], careful = [];
+
+  // Proteína: es un piso. Quedarse corto penaliza mucho; pasarse, poco.
+  let sP;
+  if (gap.prot <= 0) {
+    sP = m.prot <= 5 ? 100 : Math.max(0, 100 - (m.prot - 5) * 1.5);
+  } else {
+    const r = m.prot / gap.prot;
+    sP = r >= 1 ? Math.max(60, 100 - (r - 1) * 25) : Math.max(0, 100 - (1 - r) * 110);
+    if (r >= 0.85 && r <= 1.25) why.push('cuadra la proteína que falta');
+  }
+
+  // kcal: desviarse en cualquier dirección resta; pasarse, algo más.
+  let sK;
+  if (gap.kcal <= 0) {
+    sK = m.kcal <= 120 ? 80 : Math.max(0, 80 - (m.kcal - 120) / 6);
+    if (m.kcal > 120) careful.push('ya has llegado a las kcal del día');
+  } else {
+    const diff = m.kcal - gap.kcal;
+    const rel = Math.abs(diff) / Math.max(gap.kcal, 120);
+    sK = Math.max(0, 100 - rel * (diff > 0 ? 95 : 70));
+    if (rel <= 0.12) why.push('encaja en las kcal restantes');
+  }
+
+  // Saturadas: se reparte el margen del día entre las comidas que
+  // faltan, con holgura para que un huevo no dispare el aviso.
+  const satLeft = Math.max(0, satLimit() - (ctx.satSoFar || 0));
+  const satShare = satLeft * (ctx.satShare == null ? 1 : ctx.satShare);
+  const satBudget = Math.min(satLeft, satShare * RULES.satShareTolerance);
+  let sS = 100;
+  if (m.sat > satBudget) {
+    sS = Math.max(0, 100 - ((m.sat - satBudget) / Math.max(satBudget, 3)) * 60);
+    careful.push('aporta ' + fmt1(m.sat) + ' g de saturadas (quedan ' + fmt1(satLeft) + ' g hoy)');
+  }
+
+  let sF = 100;
+  if (gap.fat > 0 && m.fat > gap.fat * 1.35) sF = Math.max(30, 100 - ((m.fat - gap.fat) / gap.fat) * 55);
+  let sC = 100;
+  if (gap.carbs > 0) sC = Math.max(35, 100 - (Math.abs(m.carbs - gap.carbs) / Math.max(gap.carbs, 25)) * 45);
+
+  let score = sP * 0.34 + sK * 0.28 + sS * 0.14 + sF * 0.12 + sC * 0.12;
+
+  // Densidad proteica: orden, no filtro.
+  const dens = recipeDensity(recipe);
+  if (dens >= 0.09) { score += 6; why.push('mucha proteína por caloría'); }
+  else if (dens >= 0.06) { score += 3; }
+  else if (dens < 0.03 && m.kcal > 250) { score -= 5; careful.push('muchas kcal para poca proteína'); }
+
+  // Grasas insaturadas y pescado azul cuando hay margen de grasa.
+  const fatMargin = ctx.fatLeft == null ? gap.fat : ctx.fatLeft;
+  if (fatMargin >= RULES.fatMarginForGoodFats && (hasTag(recipe, 'pescado_azul') || hasGoodFats(recipe))) {
+    score += 7; why.push('grasas insaturadas y hoy hay margen de grasa');
+  }
+  if (isHabitual(recipe)) { score += 4; why.push('la haces a menudo'); }
+  if (ctx.recent) {
+    const reps = ctx.recent.filter(id => id === recipe.id).length;
+    if (reps) score -= 14 + (reps - 1) * 12;
+  }
+  return { raw: score, why: why, careful: careful };
+}
+
+function recentRecipeIds(fecha, days) {
+  const ids = [];
+  for (let i = 1; i <= (days || 3); i++) {
+    const d = shiftDate(fecha, -i);
+    dayLog(d).entries.forEach(e => { if (e.recipe_id) ids.push(e.recipe_id); });
+  }
+  return ids;
+}
+
+/* LA función: qué comer en esta comida para cerrar el día. */
+function suggestFor(mealKey, fecha, limit) {
+  const gap = shareForMeal(fecha, mealKey);
+  const tot = dayTotals(fecha), rem = remaining(fecha);
+  const ctx = { satSoFar: tot.sat, fatLeft: rem.fat, satShare: gap.share, recent: recentRecipeIds(fecha, 3) };
+
+  const scored = recipesFor(mealKey)
+    .filter(r => postWorkoutOk(r, fecha))
+    .map(r => {
+      // Se ajusta la porción al hueco y se puntúa lo que de verdad se comerá.
+      const factor = fitFactor(r, gap);
+      const adj = scaleRecipe(r, factor);
+      const s = scoreRecipe(adj, gap, ctx);
+      return { recipe: r, adjusted: adj, factor: factor, macros: adj.macros, raw: s.raw, why: s.why, careful: s.careful };
+    })
+    .sort((a, b) => b.raw - a.raw);
+
+  // Encaje relativo al mejor: con los bonus, varios saturarían en 100.
+  const best = scored.length ? Math.max(scored[0].raw, 1) : 1;
+  scored.forEach(s => { s.fit = Math.max(1, Math.round((s.raw / best) * 100)); });
+  return { gap: gap, remaining: rem, list: scored.slice(0, limit || 3) };
+}
+
+/* Cerrar el hueco de proteína con un solo ingrediente. */
+function suggestIngredients(fecha, limit) {
+  const rem = remaining(fecha);
+  if (rem.prot <= 3 || rem.kcal <= 0) return [];
+  const satLeft = Math.max(0, satLimit() - dayTotals(fecha).sat);
+  const trained = trainedOn(fecha);
+  return allFoods()
+    .filter(f => f.kcal100 > 0 && f.prot100 >= 10)
+    .filter(f => !foodHasTag(f, 'post_entreno') || trained)
+    .filter(f => !foodHasTag(f, 'solo_recetas'))
+    .map(f => {
+      const grams = Math.min(400, Math.max(15, Math.round(((rem.prot / f.prot100) * 100) / 5) * 5));
+      return { food: f, grams: grams, macros: macrosOf(f, grams), dens: density(f) };
+    })
+    .filter(x => x.macros.kcal <= rem.kcal * 1.1 && x.macros.sat <= satLeft + 0.5)
+    .sort((a, b) => b.dens - a.dens)
+    .slice(0, limit || 3);
+}
+
+/* ============================================================
+   MENÚ SEMANAL Y COMPRA
+   ============================================================ */
+function weekStartOf(fecha) {
+  const p = fecha.split('-').map(Number);
+  const ms = Date.UTC(p[0], p[1] - 1, p[2]);
+  const dow = new Date(ms).getUTCDay();
+  return isoFromMs(ms + (dow === 0 ? -6 : 1 - dow) * 86400000);
+}
+function weekDates(ws) {
+  const p = ws.split('-').map(Number);
+  const base = Date.UTC(p[0], p[1] - 1, p[2]);
+  const out = [];
+  for (let i = 0; i < 7; i++) out.push(isoFromMs(base + i * 86400000));
+  return out;
+}
+function daysApart(a, b) {
+  const pa = a.split('-').map(Number), pb = b.split('-').map(Number);
+  return Math.abs(Date.UTC(pb[0], pb[1] - 1, pb[2]) - Date.UTC(pa[0], pa[1] - 1, pa[2])) / 86400000;
+}
+function getMenu(ws) { return DB.get('menu_' + ws, null); }
+function setMenu(m) { DB.set('menu_' + m.week_start, m); }
+
+function slotRecipe(slot) {
+  if (!slot || !slot.recipe_id) return null;
+  const r = recipeById(slot.recipe_id);
+  if (!r) return null;
+  return (slot.factor && slot.factor !== 1) ? scaleRecipe(r, slot.factor) : r;
+}
+function menuDayTotals(day) {
+  const t = { kcal: 0, prot: 0, carbs: 0, fat: 0, sat: 0, fiber: 0 };
+  (day.meal_slots || []).forEach(s => {
+    const r = slotRecipe(s);
+    if (!r) return;
+    for (const k in t) t[k] += r.macros[k] || 0;
+  });
+  return t;
+}
+/* Hueco que le queda a una comida dentro de su día. */
+function slotGap(day, mealKey) {
+  const t = targets();
+  const other = { kcal: 0, prot: 0, carbs: 0, fat: 0 };
+  (day.meal_slots || []).forEach(s => {
+    if (s.meal_type === mealKey) return;
+    const r = slotRecipe(s);
+    if (!r) return;
+    other.kcal += r.macros.kcal; other.prot += r.macros.prot;
+    other.carbs += r.macros.carbs; other.fat += r.macros.fat;
+  });
+  return {
+    kcal: Math.max(0, t.kcal - other.kcal), prot: Math.max(0, t.protein - other.prot),
+    carbs: Math.max(0, t.carbs - other.carbs), fat: Math.max(0, t.fat - other.fat),
+  };
+}
+
+/* Genera 7 días cuadrando cada uno con los objetivos. Escala las
+   porciones: sin eso el menú se queda muy por debajo de las kcal. */
+function generateMenu(ws) {
+  const prev = getMenu(ws);
+  const t = targets();
+  const history = [];
+  const days = weekDates(ws).map(date => {
+    const prevDay = prev && prev.days.find(d => d.date === date);
+    const slots = [];
+    let left = { kcal: t.kcal, prot: t.protein, carbs: t.carbs, fat: t.fat };
+    let satSoFar = 0;
+
+    MEALS.forEach((meal, idx) => {
+      const prevSlot = prevDay && prevDay.meal_slots.find(s => s.meal_type === meal.key);
+      if (prevSlot && prevSlot.is_locked && prevSlot.recipe_id) {
+        const locked = recipeById(prevSlot.recipe_id);
+        if (locked) {
+          const f = prevSlot.factor || 1;
+          const m = scaleRecipe(locked, f).macros;
+          left = { kcal: left.kcal - m.kcal, prot: left.prot - m.prot, carbs: left.carbs - m.carbs, fat: left.fat - m.fat };
+          satSoFar += m.sat || 0;
+          slots.push({ meal_type: meal.key, recipe_id: locked.id, factor: f, is_locked: true });
+          history.push({ date: date, id: locked.id });
+          return;
+        }
+      }
+      const restWeight = MEALS.slice(idx).reduce((s, m) => s + m.weight, 0);
+      const share = meal.weight / restWeight;
+      const gap = { kcal: left.kcal * share, prot: left.prot * share, carbs: left.carbs * share, fat: left.fat * share };
+
+      // Repeticiones cercanas y de toda la semana, para que no salga
+      // siempre el mismo desayuno.
+      const recent = history.filter(h => daysApart(h.date, date) <= 2).map(h => h.id)
+        .concat(history.map(h => h.id));
+
+      const pool = recipesFor(meal.key).filter(r => postWorkoutOk(r, date));
+      if (!pool.length) { slots.push({ meal_type: meal.key, recipe_id: null, factor: 1, is_locked: false }); return; }
+
+      const ranked = pool.map(r => {
+        const factor = fitFactor(r, gap);
+        const adj = scaleRecipe(r, factor);
+        const s = scoreRecipe(adj, gap, { satSoFar: satSoFar, fatLeft: left.fat, satShare: share, recent: recent });
+        return { r: r, factor: factor, adj: adj, raw: s.raw };
+      }).sort((a, b) => b.raw - a.raw);
+
+      const best = ranked[0];
+      const m = best.adj.macros;
+      left = { kcal: left.kcal - m.kcal, prot: left.prot - m.prot, carbs: left.carbs - m.carbs, fat: left.fat - m.fat };
+      satSoFar += m.sat || 0;
+      slots.push({ meal_type: meal.key, recipe_id: best.r.id, factor: best.factor, is_locked: false });
+      history.push({ date: date, id: best.r.id });
+    });
+    return { date: date, meal_slots: slots };
+  });
+  const menu = { week_start: ws, days: days, generated_at: new Date().toISOString() };
+  setMenu(menu);
+  return menu;
+}
+
+/* Lista de la compra: suma el menú y resta lo que ya hay en casa. */
+function shoppingList(menu) {
+  if (!menu) return null;
+  const need = {};
+  menu.days.forEach(d => (d.meal_slots || []).forEach(s => {
+    const r = slotRecipe(s);
+    if (!r) return;
+    (r.ingredients || []).forEach(i => { need[i.ingredient_id] = (need[i.ingredient_id] || 0) + i.amount_g; });
+  }));
+  const lines = [];
+  Object.keys(need).forEach(id => {
+    const f = foodById(id);
+    if (!f) return;
+    const have = pantryQty(id);
+    lines.push({
+      id: id, nombre: f.nombre, cat: f.cat || 'Otros', unit: f.unit || 'g',
+      need: Math.round(need[id]), have: Math.round(have),
+      buy: Math.round(Math.max(0, need[id] - have)),
+    });
+  });
+  const pend = lines.filter(l => l.buy > 0);
+  const byCat = {};
+  pend.forEach(l => { (byCat[l.cat] = byCat[l.cat] || []).push(l); });
+  const groups = Object.keys(byCat).sort().map(c => ({
+    cat: c, items: byCat[c].sort((a, b) => a.nombre.localeCompare(b.nombre)),
+  }));
+  return { groups: groups, count: pend.length, covered: lines.length - pend.length };
+}
+
+/* Recetas que puedes hacer con lo que hay en casa. */
+function cookableNow(minCoverage) {
+  const have = {};
+  pantry().forEach(p => { have[p.ingredient_id] = true; });
+  if (!Object.keys(have).length) return [];
+  const min = minCoverage == null ? 0.5 : minCoverage;
+  return allRecipes().map(r => {
+    const ings = r.ingredients || [];
+    if (!ings.length) return null;
+    const got = ings.filter(i => have[i.ingredient_id]);
+    const missing = ings.filter(i => !have[i.ingredient_id]).map(i => {
+      const f = foodById(i.ingredient_id);
+      return f ? f.nombre : i.ingredient_id;
+    });
+    return { recipe: r, coverage: got.length / ings.length, missing: missing };
+  }).filter(x => x && x.coverage >= min)
+    .sort((a, b) => b.coverage - a.coverage || b.recipe.macros.prot - a.recipe.macros.prot);
+}
+function consumeFromPantry(recipe) {
+  (recipe.ingredients || []).forEach(i => {
+    const cur = pantryQty(i.ingredient_id);
+    if (cur <= 0) return;
+    savePantry({ ingredient_id: i.ingredient_id, estimated_quantity: Math.max(0, cur - i.amount_g) });
+  });
+}
+
+/* ============================================================
+   UTILIDADES
+   ============================================================ */
+function today() { return isoFromDate(new Date()); }
+function isoFromDate(d) {
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+}
+function isoFromMs(ms) {
+  const d = new Date(ms);
+  return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate());
+}
+function shiftDate(fecha, delta) {
+  const p = fecha.split('-').map(Number);
+  return isoFromMs(Date.UTC(p[0], p[1] - 1, p[2]) + delta * 86400000);
+}
+function pad(n) { return n < 10 ? '0' + n : '' + n; }
+function round1(n) { return Math.round(n * 10) / 10; }
+function fmt1(n) { return (Math.round(n * 10) / 10).toFixed(1); }
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function norm(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+function dayName(fecha) {
+  const d = new Date(fecha + 'T12:00:00');
+  return d.toLocaleDateString('es-ES', { weekday: 'long' });
+}
+function shortDate(fecha) {
+  const d = new Date(fecha + 'T12:00:00');
+  return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+}
+function mealName(key) { const m = MEALS.find(x => x.key === key); return m ? m.name : key; }
+
+let toastTimer = null;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('on'), 2200);
+}
+
+/* ============================================================
+   ESTADO DE LA INTERFAZ
+   ============================================================ */
+let tab = 'hoy';
+let curDate = today();
+let suggestMeal = null;
+let recipeFilter = 'todas';
+let menuWeek = null;
+let draft = null;
+
+function render() {
+  const view = document.getElementById('view');
+  if (tab === 'recetas')      view.innerHTML = viewRecetas();
+  else if (tab === 'menu')    view.innerHTML = viewMenu();
+  else if (tab === 'compra')  view.innerHTML = viewCompra();
+  else                        view.innerHTML = viewHoy();
+
+  document.querySelectorAll('.tab').forEach(b => {
+    if (b.dataset.tab === tab) b.setAttribute('aria-current', 'page');
+    else b.removeAttribute('aria-current');
+  });
+  const when = document.getElementById('when');
+  when.textContent = tab === 'hoy'
+    ? (curDate === today() ? 'hoy' : shortDate(curDate))
+    : '';
+  window.scrollTo(0, 0);
+}
+
+/* ============================================================
+   VISTA · HOY
+   El número grande es lo que FALTA, no lo consumido: cerrar el
+   día es la razón de ser de la app.
+   ============================================================ */
+function viewHoy() {
+  const t = targets();
+  const tot = dayTotals(curDate);
+  const rem = remaining(curDate);
+  const lim = satLimit(t);
+  const isToday = curDate === today();
+  const over = rem.kcal < 0;
+  const done = rem.kcal <= 25 && rem.prot <= 0;
+
+  const bar = (val, max, tone) => {
+    const pct = Math.min(100, (val / (max || 1)) * 100);
+    return '<div class="rail"><i class="' + tone + '" style="width:' + pct.toFixed(1) + '%"></i></div>';
+  };
+  const row = (label, val, max, unit, tone) =>
+    '<div class="ledger-row">' +
+      '<span class="k">' + label + '</span>' +
+      bar(val, max, tone) +
+      '<span class="v num">' + Math.round(val) + ' <small>/ ' + max + ' ' + unit + '</small></span>' +
+    '</div>';
+
+  const headWord = done ? 'Día cerrado' : over ? 'Te has pasado' : 'Te falta hoy';
+  const bigNum = done ? Math.round(tot.kcal) : Math.abs(Math.round(rem.kcal));
+  const bigUnit = done ? 'kcal en total' : 'kcal';
+
+  const readout =
+    '<div class="card readout' + (over ? ' over' : done ? ' done' : '') + '">' +
+      '<span class="eyebrow">' + headWord + '</span>' +
+      '<div class="readout-figure"><span class="big">' + bigNum + '</span><span class="unit">' + bigUnit + '</span></div>' +
+      '<div class="ledger">' +
+        row('proteína', tot.prot, t.protein, 'g', tot.prot >= t.protein ? 'good' : '') +
+        row('carbos', tot.carbs, t.carbs, 'g', '') +
+        row('grasa', tot.fat, t.fat, 'g', '') +
+        '<div class="ledger-row">' +
+          '<span class="k">saturadas</span>' +
+          bar(tot.sat, lim, tot.sat > lim ? 'crit' : 'warn') +
+          '<span class="v num">' + fmt1(tot.sat) + ' <small>/ ' + lim + ' g</small></span>' +
+        '</div>' +
+      '</div>' +
+      (isToday ?
+        '<div class="trained"><span>¿Entrenaste hoy?</span>' +
+        '<button class="switch" id="trained-toggle" aria-pressed="' + (trainedOn(curDate) ? 'true' : 'false') +
+        '" aria-label="Marcar si has entrenado hoy"></button></div>' : '') +
+    '</div>';
+
+  const al = alerts(curDate);
+  const notes = al.length
+    ? '<div class="notes">' + al.map(a =>
+        '<div class="note ' + a.level + '"><i class="bar"></i><div><b>' + esc(a.title) + '</b>' +
+        '<span>' + esc(a.detail) + '</span></div></div>').join('') + '</div>'
+    : '';
+
+  const dateNav =
+    '<div class="weeknav">' +
+      '<button class="btn small" data-act="day" data-d="-1" aria-label="Día anterior">‹</button>' +
+      '<span class="lbl">' + (isToday ? 'Hoy' : dayName(curDate) + ' ' + shortDate(curDate)) + '</span>' +
+      '<button class="btn small" data-act="day" data-d="1" ' + (isToday ? 'disabled style="opacity:.35"' : '') +
+        ' aria-label="Día siguiente">›</button>' +
+    '</div>';
+
+  return dateNav + readout + notes + closeDayCard() + mealsSection();
+}
+
+/* ---- Tarjeta central: qué comer para cerrar el día ---- */
+function closeDayCard() {
+  const rem = remaining(curDate);
+  if (rem.kcal <= 25 && rem.prot <= 0) {
+    return '<div class="card"><span class="eyebrow">Cerrado</span>' +
+      '<p class="muted" style="margin:8px 0 0;font-size:13px">Has llegado a los objetivos del día. ' +
+      'Proteína ' + Math.round(targets().protein - rem.prot) + ' g sobre un piso de ' + targets().protein + ' g.</p></div>';
+  }
+  const pending = pendingMeals(curDate);
+  const key = suggestMeal || pending[0] || 'cena';
+  const res = suggestFor(key, curDate, 3);
+
+  const chips = '<div class="chips">' + MEALS.map(m =>
+    '<button class="chip" data-act="suggest" data-meal="' + m.key + '" aria-pressed="' +
+    (m.key === key ? 'true' : 'false') + '">' + m.name + '</button>').join('') + '</div>';
+
+  const list = res.list.length ? res.list.map(s =>
+    '<div class="sug">' +
+      '<div class="sug-top">' +
+        '<span class="sug-name">' + esc(s.recipe.name) + '</span>' +
+        '<span class="fit" title="Encaje con lo que te falta">' + s.fit + '</span>' +
+      '</div>' +
+      '<div class="macro-row"><b>' + s.macros.kcal + ' kcal</b>' +
+        '<span>P ' + fmt1(s.macros.prot) + '</span>' +
+        '<span>C ' + fmt1(s.macros.carbs) + '</span>' +
+        '<span>G ' + fmt1(s.macros.fat) + '</span>' +
+        (s.factor !== 1 ? '<span class="pill">×' + s.factor + '</span>' : '') +
+      '</div>' +
+      (s.why.length ? '<div class="why">' + esc(s.why[0]) + '</div>' : '') +
+      (s.careful.length ? '<div class="careful">' + esc(s.careful[0]) + '</div>' : '') +
+      '<div class="sug-actions">' +
+        '<button class="btn grow" data-act="recipe" data-id="' + s.recipe.id + '">Ver</button>' +
+        '<button class="btn primary grow" data-act="log-sug" data-id="' + s.recipe.id +
+          '" data-f="' + s.factor + '" data-meal="' + key + '">Registrar</button>' +
+      '</div>' +
+    '</div>').join('')
+    : '<p class="empty">No hay recetas de ' + mealName(key).toLowerCase() +
+      '. Crea una en la pestaña Recetas.</p>';
+
+  const ings = suggestIngredients(curDate, 3);
+  const ingBlock = ings.length
+    ? '<div class="ing-close"><span class="eyebrow">O cierra con un ingrediente</span>' +
+      ings.map(o =>
+        '<button class="ing-row" data-act="log-ing" data-id="' + o.food.id + '" data-g="' + o.grams + '">' +
+          '<span class="n">' + esc(o.food.nombre) + '</span>' +
+          '<span class="g">' + o.grams + ' ' + (o.food.unit || 'g') + '</span>' +
+          '<span class="m">' + Math.round(o.macros.kcal) + ' kcal · P' + Math.round(o.macros.prot) + '</span>' +
+        '</button>').join('') + '</div>'
+    : '';
+
+  return '<div class="card">' +
+    '<span class="eyebrow">¿Qué como para cerrar el día?</span>' +
+    '<p class="hint">Para ' + mealName(key).toLowerCase() + ' te tocan ' +
+      '<span class="num">' + Math.max(0, Math.round(res.gap.kcal)) + '</span> kcal y ' +
+      '<span class="num">' + Math.max(0, Math.round(res.gap.prot)) + '</span> g de proteína' +
+      (res.gap.isLast ? ', y es la última comida del día' : '') + '.</p>' +
+    chips +
+    '<div class="sugs" style="margin-top:11px">' + list + '</div>' +
+    ingBlock +
+  '</div>';
+}
+
+/* ---- Comidas registradas ---- */
+function mealsSection() {
+  const entries = dayLog(curDate).entries;
+  const blocks = MEALS.map(m => {
+    const mine = entries.filter(e => e.meal === m.key);
+    const kcal = mine.reduce((a, e) => a + (e.kcal || 0), 0);
+    const prot = mine.reduce((a, e) => a + (e.prot || 0), 0);
+    const rows = mine.map(e =>
+      '<div class="entry"><div class="info">' +
+        '<span class="nm">' + esc(e.nombre) + '</span>' +
+        '<span class="qt">' + e.qty + ' ' + e.unit + ' · P' + fmt1(e.prot) + ' C' + fmt1(e.carbs) + ' G' + fmt1(e.fat) + '</span>' +
+      '</div><span class="kc num">' + Math.round(e.kcal) + '</span>' +
+      '<button class="x" data-act="del-entry" data-id="' + e.id + '" aria-label="Quitar ' + esc(e.nombre) + '">✕</button></div>').join('');
+    return '<div class="meal">' +
+      '<div class="meal-head">' +
+        '<span class="meal-name">' + m.name + '</span>' +
+        '<span class="meal-kcal">' + (kcal ? Math.round(kcal) + ' kcal · P' + Math.round(prot) : '—') + '</span>' +
+        '<button class="mini accent" data-act="suggest" data-meal="' + m.key + '" aria-label="Sugerencias para ' + m.name + '">✦</button>' +
+        '<button class="mini" data-act="add-food" data-meal="' + m.key + '" aria-label="Añadir alimento a ' + m.name + '">+</button>' +
+      '</div>' +
+      (rows ? '<div class="entries">' + rows + '</div>' : '') +
+    '</div>';
+  }).join('');
+  return '<div><div class="section-head"><h2>Lo que has comido</h2></div>' +
+    '<div style="margin-top:9px">' + blocks + '</div></div>';
+}
+
+/* ============================================================
+   VISTA · RECETAS
+   ============================================================ */
+function viewRecetas() {
+  const filters = [{ key: 'todas', name: 'Todas' }].concat(MEALS);
+  const chips = '<div class="chips scroll">' + filters.map(f =>
+    '<button class="chip" data-act="rfilter" data-f="' + f.key + '" aria-pressed="' +
+    (recipeFilter === f.key ? 'true' : 'false') + '">' + f.name + '</button>').join('') + '</div>';
+
+  const list = (recipeFilter === 'todas' ? allRecipes() : recipesFor(recipeFilter))
+    .slice()
+    .sort((a, b) => {
+      const d = (isHabitual(b) ? 1 : 0) - (isHabitual(a) ? 1 : 0);
+      return d !== 0 ? d : a.name.localeCompare(b.name);
+    });
+
+  const cards = list.map(r => {
+    const m = r.macros;
+    const tags = (r.tags || []).filter(x => x !== 'habitual').slice(0, 3)
+      .map(x => '<span class="tag">' + esc(x) + '</span>').join('');
+    return '<button class="rec" data-act="recipe" data-id="' + r.id + '">' +
+      '<div class="rec-top">' +
+        '<span class="rec-name">' + esc(r.name) + '</span>' +
+        (r.is_fixed ? '<span class="tag fixed">fija</span>' : '') +
+        (isHabitual(r) ? '<span class="tag blue">habitual</span>' : '') +
+      '</div>' +
+      '<div class="macro-row"><b>' + m.kcal + ' kcal</b><span>P ' + fmt1(m.prot) +
+        '</span><span>C ' + fmt1(m.carbs) + '</span><span>G ' + fmt1(m.fat) +
+        '</span><span class="faint">sat ' + fmt1(m.sat) + '</span></div>' +
+      '<div class="rec-foot">' + (recipeDensity(r) * 100).toFixed(1) + ' g proteína / 100 kcal ' +
+        (tags ? '&nbsp; ' : '') + '</div>' +
+      (tags ? '<div style="margin-top:5px;display:flex;gap:4px;flex-wrap:wrap">' + tags + '</div>' : '') +
+    '</button>';
+  }).join('');
+
+  return chips +
+    '<button class="btn primary wide" data-act="new-recipe">Nueva receta</button>' +
+    '<div>' + (cards || '<p class="empty">No hay recetas en esta categoría.</p>') + '</div>';
+}
+
+/* ============================================================
+   VISTA · MENÚ SEMANAL
+   ============================================================ */
+function viewMenu() {
+  const ws = menuWeek || weekStartOf(today());
+  const menu = getMenu(ws);
+  const t = targets();
+  const dates = weekDates(ws);
+
+  const nav = '<div class="weeknav">' +
+    '<button class="btn small" data-act="week" data-d="-7" aria-label="Semana anterior">‹</button>' +
+    '<span class="lbl">' + shortDate(dates[0]) + ' – ' + shortDate(dates[6]) + '</span>' +
+    '<button class="btn small" data-act="week" data-d="7" aria-label="Semana siguiente">›</button>' +
+  '</div>';
+
+  if (!menu) {
+    return nav + '<div class="card"><span class="eyebrow">Sin menú</span>' +
+      '<p class="muted" style="margin:8px 0 12px;font-size:13px">Se generará ajustando las porciones para ' +
+      'cuadrar <span class="num">' + t.kcal + '</span> kcal y <span class="num">' + t.protein +
+      '</span> g de proteína cada día, sin repetir receta en días seguidos.</p>' +
+      '<button class="btn primary wide" data-act="gen-menu">Generar menú de la semana</button></div>';
+  }
+
+  const days = menu.days.map(day => {
+    const dt = menuDayTotals(day);
+    const isToday = day.date === today();
+    const kcalOff = Math.abs(dt.kcal - t.kcal) > 150;
+    const protOk = dt.prot >= t.protein;
+    const satOver = dt.sat > satLimit(t);
+    const slots = MEALS.map(m => {
+      const slot = (day.meal_slots || []).find(s => s.meal_type === m.key);
+      const r = slot ? slotRecipe(slot) : null;
+      const locked = !!(slot && slot.is_locked);
+      return '<div class="slot">' +
+        '<span class="slot-key">' + m.short + '</span>' +
+        '<button class="slot-body" data-act="swap" data-date="' + day.date + '" data-meal="' + m.key + '">' +
+          '<span class="slot-name">' + (r ? esc(r.name) : '<span class="faint">— vacío —</span>') + '</span>' +
+          (r ? '<span class="slot-macros">' + r.macros.kcal + ' kcal · P' + Math.round(r.macros.prot) +
+               (slot.factor && slot.factor !== 1 ? ' · ×' + slot.factor : '') + '</span>' : '') +
+        '</button>' +
+        '<button class="lock" data-act="lock" data-date="' + day.date + '" data-meal="' + m.key +
+          '" aria-pressed="' + (locked ? 'true' : 'false') +
+          '" aria-label="' + (locked ? 'Desfijar' : 'Fijar') + ' ' + m.name + '">' +
+          (locked ? '🔒' : '🔓') + '</button>' +
+      '</div>';
+    }).join('');
+    return '<div class="day' + (isToday ? ' today' : '') + '">' +
+      '<div class="day-head">' +
+        '<span class="day-name">' + dayName(day.date) + ' ' + day.date.slice(8) + '</span>' +
+        '<span class="day-tot"><span class="' + (kcalOff ? 'no' : '') + '">' + Math.round(dt.kcal) + ' kcal</span> · ' +
+          '<span class="' + (protOk ? 'ok' : 'no') + '">P' + Math.round(dt.prot) + '</span>' +
+          (satOver ? ' · <span class="no">sat↑</span>' : '') + '</span>' +
+      '</div>' + slots + '</div>';
+  }).join('');
+
+  return nav +
+    '<div style="display:flex;gap:8px">' +
+      '<button class="btn grow" data-act="gen-menu">Regenerar</button>' +
+      '<button class="btn primary grow" data-act="go-shop">Lista de la compra</button>' +
+    '</div>' +
+    '<p class="hint" style="margin:0">Toca una comida para cambiarla. El candado la fija para que no se mueva al regenerar.</p>' +
+    '<div>' + days + '</div>';
+}
+
+/* ============================================================
+   VISTA · DESPENSA Y COMPRA
+   ============================================================ */
+function viewCompra() {
+  const ws = menuWeek || weekStartOf(today());
+  const menu = getMenu(ws);
+  const list = shoppingList(menu);
+  const checked = DB.get('shop_' + ws, []);
+  const items = pantry();
+
+  const pantryRows = items.length ? items.map(p => {
+    const f = foodById(p.ingredient_id);
+    if (!f) return '';
+    return '<div class="prow"><div class="info">' +
+      '<span class="nm">' + esc(f.nombre) + '</span>' +
+      '<span class="sub">' + Math.round(p.estimated_quantity || 0) + ' ' + (f.unit || 'g') +
+        (p.last_purchased ? ' · ' + p.last_purchased : '') + '</span>' +
+      '</div><div class="stepper">' +
+        '<button class="mini" data-act="pan" data-id="' + p.ingredient_id + '" data-d="-100" aria-label="Quitar 100">−</button>' +
+        '<button class="mini" data-act="pan" data-id="' + p.ingredient_id + '" data-d="100" aria-label="Añadir 100">+</button>' +
+        '<button class="x" data-act="pan-del" data-id="' + p.ingredient_id + '" aria-label="Quitar de la despensa">✕</button>' +
+      '</div></div>';
+  }).join('') : '<p class="empty">Vacía. Añade lo que sueles tener en casa y la app propondrá recetas con eso.</p>';
+
+  const cook = cookableNow(0.5).slice(0, 5);
+  const cookRows = cook.length ? cook.map(c =>
+    '<button class="cook" data-act="recipe" data-id="' + c.recipe.id + '">' +
+      '<div class="bar2"><i style="width:' + Math.round(c.coverage * 100) + '%"></i></div>' +
+      '<div class="nm">' + esc(c.recipe.name) + '</div>' +
+      '<div class="sub">' + Math.round(c.coverage * 100) + ' % en casa' +
+        (c.missing.length ? ' · faltan: ' + esc(c.missing.join(', ')) : ' · completa') + '</div>' +
+    '</button>').join('') : '<p class="empty">Añade alimentos a la despensa para ver qué puedes cocinar.</p>';
+
+  let shopRows;
+  if (!list) shopRows = '<p class="empty">Genera un menú semanal y aquí tendrás la lista.</p>';
+  else if (!list.count) shopRows = '<p class="empty">Ya tienes en casa todo lo del menú de esta semana.</p>';
+  else shopRows = list.groups.map(g =>
+    '<div class="shop-group"><div class="shop-cat">' + esc(g.cat) + '</div>' +
+      g.items.map(i => {
+        const on = checked.indexOf(i.id) >= 0;
+        return '<button class="shop" data-act="check" data-id="' + i.id + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
+          '<span class="box">' + (on ? '✓' : '') + '</span>' +
+          '<span class="nm">' + esc(i.nombre) + '</span>' +
+          '<span class="qt">' + i.buy + ' ' + i.unit + '</span>' +
+        '</button>';
+      }).join('') + '</div>').join('');
+
+  return '<div><div class="section-head"><h2>Lo que tengo en casa</h2>' +
+      '<span class="rest">' + items.length + '</span></div>' +
+      '<button class="btn wide" style="margin:9px 0" data-act="pan-add">Añadir a la despensa</button>' +
+      '<div class="card">' + pantryRows + '</div></div>' +
+    '<div><div class="section-head"><h2>Puedo cocinar ahora</h2></div>' +
+      '<div class="card" style="margin-top:9px">' + cookRows + '</div></div>' +
+    '<div id="shop"><div class="section-head"><h2>Lista de la compra</h2>' +
+      (list && list.count ? '<span class="rest">' + list.count + ' cosas</span>' : '') + '</div>' +
+      '<div class="card" style="margin-top:9px">' + shopRows + '</div></div>';
+}
+
+/* ============================================================
+   HOJAS MODALES
+   ============================================================ */
+function openSheet(title, bodyHtml, onMount) {
+  closeSheet();
+  const scrim = document.createElement('div');
+  scrim.className = 'scrim';
+  scrim.id = 'scrim';
+  scrim.innerHTML =
+    '<div class="sheet" role="dialog" aria-modal="true" aria-label="' + esc(title) + '">' +
+      '<div class="sheet-head"><h3>' + esc(title) + '</h3>' +
+        '<button class="icon-btn" data-close aria-label="Cerrar">✕</button></div>' +
+      '<div class="sheet-body">' + bodyHtml + '</div>' +
+    '</div>';
+  document.getElementById('sheets').appendChild(scrim);
+  requestAnimationFrame(() => scrim.classList.add('on'));
+  scrim.addEventListener('click', ev => {
+    if (ev.target === scrim || ev.target.closest('[data-close]')) closeSheet();
+  });
+  if (onMount) onMount(scrim);
+  return scrim;
+}
+function closeSheet() {
+  const s = document.getElementById('scrim');
+  if (!s) return;
+  s.classList.remove('on');
+  setTimeout(() => s.remove(), 220);
+}
+
+/* ---- Registrar una receta en el día ---- */
+function logRecipe(recipe, factor, mealKey) {
+  const scaled = (factor && factor !== 1) ? scaleRecipe(recipe, factor) : recipe;
+  const stamp = Date.now();
+  (scaled.ingredients || []).forEach((ing, i) => {
+    const f = foodById(ing.ingredient_id);
+    if (!f) return;
+    const m = macrosOf(f, ing.amount_g);
+    addEntry(curDate, {
+      id: 'e' + stamp + '_' + i, meal: mealKey, nombre: f.nombre,
+      qty: ing.amount_g, unit: f.unit || 'g',
+      kcal: Math.round(m.kcal), prot: round1(m.prot), carbs: round1(m.carbs),
+      fat: round1(m.fat), sat: round1(m.sat), fiber: round1(m.fiber),
+      food_id: f.id, recipe_id: recipe.id,
+    });
+  });
+  bumpUsage(recipe.id);
+  consumeFromPantry(scaled);
+  closeSheet();
+  suggestMeal = null;
+  render();
+  toast(recipe.name + ' registrado');
+}
+
+/* ---- Ficha de receta ---- */
+function sheetRecipe(id) {
+  const r = recipeById(id);
+  if (!r) return;
+  const m = r.macros;
+  const warn = powderWarning(r);
+  const ings = (r.ingredients || []).map(i => {
+    const f = foodById(i.ingredient_id);
+    if (!f) return '<div class="detail-ing"><span class="nm faint">ingrediente desconocido</span></div>';
+    const im = macrosOf(f, i.amount_g);
+    return '<div class="detail-ing"><span class="nm">' + esc(f.nombre) + '</span>' +
+      '<span class="g">' + i.amount_g + ' ' + (f.unit || 'g') + '</span>' +
+      '<span class="m">' + Math.round(im.kcal) + ' kcal · P' + fmt1(im.prot) + '</span></div>';
+  }).join('');
+
+  const body =
+    '<div class="preview"><b>' + m.kcal + ' kcal</b>' +
+      '<span>P ' + fmt1(m.prot) + ' g</span><span>C ' + fmt1(m.carbs) + ' g</span>' +
+      '<span>G ' + fmt1(m.fat) + ' g</span></div>' +
+    '<p class="hint" style="margin:0">Saturadas ' + fmt1(m.sat) + ' g · fibra ' + fmt1(m.fiber) +
+      ' g · ' + (recipeDensity(r) * 100).toFixed(1) + ' g de proteína por 100 kcal</p>' +
+    (warn ? '<div class="note warn"><i class="bar"></i><div><b>Ojo con la proteína en polvo</b><span>' + esc(warn) + '</span></div></div>' : '') +
+    '<div><span class="eyebrow">Ingredientes</span><div style="margin-top:6px">' +
+      (ings || '<p class="empty">Sin ingredientes.</p>') + '</div></div>' +
+    (r.notes ? '<div class="notes-box">' + esc(r.notes) + '</div>' : '') +
+    '<button class="btn primary wide" data-r-log>Registrar en ' + mealName(r.meal_type).toLowerCase() + '</button>' +
+    '<div style="display:flex;gap:8px">' +
+      '<button class="btn grow" data-r-edit>Editar</button>' +
+      '<button class="btn grow" data-r-fix>' + (r.is_fixed ? 'Hacer flexible' : 'Marcar fija') + '</button>' +
+    '</div>' +
+    '<button class="btn danger wide" data-r-del>Eliminar receta</button>';
+
+  openSheet(r.name, body, scrim => {
+    scrim.querySelector('[data-r-log]').onclick = () =>
+      logRecipe(r, fitFactor(r, shareForMeal(curDate, r.meal_type)), r.meal_type);
+    scrim.querySelector('[data-r-edit]').onclick = () => { closeSheet(); setTimeout(() => sheetEditor(r.id), 240); };
+    scrim.querySelector('[data-r-fix]').onclick = () => {
+      saveRecipe(Object.assign({}, r, { is_fixed: !r.is_fixed }));
+      closeSheet(); render();
+      toast(r.is_fixed ? 'Ahora es flexible' : 'Ahora es fija');
+    };
+    scrim.querySelector('[data-r-del]').onclick = () => {
+      deleteRecipe(r.id); closeSheet(); render(); toast('Receta eliminada');
+    };
+  });
+}
+
+/* ---- Editor de recetas ---- */
+function sheetEditor(id) {
+  const existing = id ? recipeById(id) : null;
+  draft = existing
+    ? JSON.parse(JSON.stringify(Object.assign({}, existing, { macros: undefined })))
+    : { id: 'r' + Date.now().toString(36), name: '', meal_type: 'almuerzo', ingredients: [], is_fixed: false, tags: [], notes: '' };
+  draft.isNew = !existing;
+  openEditorSheet();
+}
+
+/* Abre el editor con el borrador que ya hay en curso: al volver del
+   selector de ingredientes no se puede reiniciar. */
+function openEditorSheet() {
+  openSheet(draft && draft.isNew ? 'Nueva receta' : 'Editar receta',
+    '<div id="ed"></div>', () => paintEditor());
+}
+
+function paintEditor() {
+  const box = document.getElementById('ed');
+  if (!box || !draft) return;
+  const m = recipeMacros(draft);
+  const warn = powderWarning(draft);
+
+  box.innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:12px">' +
+    '<div class="field"><label for="ed-name">Nombre</label>' +
+      '<input class="input" id="ed-name" value="' + esc(draft.name) + '" placeholder="Bowl de skyr con frutos rojos"></div>' +
+    '<div class="field"><label>Comida</label><div class="chips">' +
+      MEALS.map(t => '<button class="chip" data-mt="' + t.key + '" aria-pressed="' +
+        (draft.meal_type === t.key ? 'true' : 'false') + '">' + t.name + '</button>').join('') +
+      '</div></div>' +
+    '<div class="field"><label>Ingredientes en gramos o mililitros</label><div>' +
+      ((draft.ingredients || []).map((i, idx) => {
+        const f = foodById(i.ingredient_id);
+        return '<div class="ing-edit"><span class="nm">' + esc(f ? f.nombre : '—') + '</span>' +
+          '<input type="number" inputmode="numeric" min="1" max="5000" value="' + i.amount_g + '" data-q="' + idx + '">' +
+          '<span class="u">' + (f ? (f.unit || 'g') : 'g') + '</span>' +
+          '<button class="x" data-rm="' + idx + '" aria-label="Quitar">✕</button></div>';
+      }).join('') || '<p class="empty">Añade el primer ingrediente.</p>') +
+      '</div><button class="btn wide" style="margin-top:8px" data-add-ing>Añadir ingrediente</button></div>' +
+    '<div class="preview" id="ed-prev"><b>' + m.kcal + ' kcal</b><span>P ' + fmt1(m.prot) +
+      '</span><span>C ' + fmt1(m.carbs) + '</span><span>G ' + fmt1(m.fat) +
+      '</span><span>sat ' + fmt1(m.sat) + '</span></div>' +
+    (warn ? '<div class="note warn"><i class="bar"></i><div><b>Proteína en polvo</b><span>' + esc(warn) + '</span></div></div>' : '') +
+    '<div class="field"><label for="ed-tags">Etiquetas separadas por comas</label>' +
+      '<input class="input" id="ed-tags" value="' + esc((draft.tags || []).join(', ')) + '" placeholder="dulce, rapido, habitual"></div>' +
+    '<label class="checkline"><input type="checkbox" id="ed-fixed"' + (draft.is_fixed ? ' checked' : '') + '>' +
+      '<span>Comida fija: el planificador no la mueve</span></label>' +
+    '<div class="field"><label for="ed-notes">Notas</label>' +
+      '<textarea class="ta" id="ed-notes" placeholder="Opcional">' + esc(draft.notes || '') + '</textarea></div>' +
+    '<button class="btn primary wide" data-save>Guardar receta</button>' +
+    '</div>';
+
+  box.querySelectorAll('[data-mt]').forEach(b => b.onclick = () => {
+    pullEditor(); draft.meal_type = b.dataset.mt; paintEditor();
+  });
+  box.querySelectorAll('[data-q]').forEach(inp => inp.oninput = () => {
+    draft.ingredients[+inp.dataset.q].amount_g = Math.max(1, parseInt(inp.value, 10) || 0);
+    const mm = recipeMacros(draft);
+    const p = document.getElementById('ed-prev');
+    if (p) p.innerHTML = '<b>' + mm.kcal + ' kcal</b><span>P ' + fmt1(mm.prot) + '</span><span>C ' +
+      fmt1(mm.carbs) + '</span><span>G ' + fmt1(mm.fat) + '</span><span>sat ' + fmt1(mm.sat) + '</span>';
+  });
+  box.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => {
+    pullEditor(); draft.ingredients.splice(+b.dataset.rm, 1); paintEditor();
+  });
+  box.querySelector('[data-add-ing]').onclick = () => {
+    pullEditor();
+    sheetPicker('Añadir ingrediente', food => {
+      draft.ingredients.push({ ingredient_id: food.id, amount_g: 100 });
+      openEditorSheet();
+    });
+  };
+  box.querySelector('[data-save]').onclick = () => {
+    pullEditor();
+    if (!draft.name.trim()) { toast('Ponle nombre a la receta'); return; }
+    if (!draft.ingredients.length) { toast('Añade al menos un ingrediente'); return; }
+    saveRecipe(draft);
+    closeSheet();
+    tab = 'recetas'; render();
+    toast('Receta guardada');
+  };
+}
+function pullEditor() {
+  if (!draft) return;
+  const n = document.getElementById('ed-name');
+  const t = document.getElementById('ed-tags');
+  const f = document.getElementById('ed-fixed');
+  const o = document.getElementById('ed-notes');
+  if (n) draft.name = n.value;
+  if (t) draft.tags = t.value.split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
+  if (f) draft.is_fixed = f.checked;
+  if (o) draft.notes = o.value;
+}
+
+/* ---- Selector de alimentos: ordenado por proteína/caloría ---- */
+function sheetPicker(title, onPick) {
+  const body =
+    '<div class="field"><input class="input" id="pk-q" placeholder="Buscar alimento" autocomplete="off"></div>' +
+    '<div id="pk-list"></div>';
+  openSheet(title, body, scrim => {
+    const q = scrim.querySelector('#pk-q');
+    const list = scrim.querySelector('#pk-list');
+    const paint = term => {
+      const n = norm(term);
+      let items = allFoods();
+      if (n.length >= 2) items = items.filter(f => norm(f.nombre).indexOf(n) >= 0);
+      items = items.slice().sort((a, b) => density(b) - density(a)).slice(0, n.length >= 2 ? 40 : 25);
+      if (!items.length) { list.innerHTML = '<p class="empty">Sin resultados.</p>'; return; }
+      list.innerHTML = (n.length >= 2 ? '' : '<span class="eyebrow">Mejor proteína por caloría</span>') +
+        items.map(f =>
+          '<button class="pick" data-f="' + f.id + '"><div class="info">' +
+            '<span class="nm">' + esc(f.nombre) + '</span>' +
+            '<span class="sub">' + f.kcal100 + ' kcal · P' + f.prot100 + ' C' + f.carbs100 +
+              ' G' + f.fat100 + ' · sat ' + f.sat100 + ' / 100 ' + (f.unit || 'g') + '</span>' +
+          '</div><span class="dens">' + (density(f) * 100).toFixed(1) + '</span></button>').join('');
+      list.querySelectorAll('[data-f]').forEach(b => b.onclick = () => {
+        const food = foodById(b.dataset.f);
+        closeSheet();
+        if (food) setTimeout(() => onPick(food), 60);
+      });
+    };
+    paint('');
+    q.addEventListener('input', () => paint(q.value.trim()));
+    setTimeout(() => q.focus(), 220);
+  });
+}
+
+/* ---- Cantidad de un alimento suelto ---- */
+function sheetPortion(food, mealKey) {
+  const body =
+    '<div class="field"><label for="pt-q">Cantidad en ' + (food.unit || 'gramos') + '</label>' +
+      '<input class="input numeric" id="pt-q" type="number" inputmode="numeric" value="100" min="1" max="5000"></div>' +
+    '<div class="preview" id="pt-prev"></div>' +
+    '<button class="btn primary wide" data-ok>Añadir a ' + mealName(mealKey).toLowerCase() + '</button>';
+  openSheet(food.nombre, body, scrim => {
+    const inp = scrim.querySelector('#pt-q');
+    const prev = scrim.querySelector('#pt-prev');
+    const paint = () => {
+      const m = macrosOf(food, parseFloat(inp.value) || 0);
+      prev.innerHTML = '<b>' + Math.round(m.kcal) + ' kcal</b><span>P ' + fmt1(m.prot) +
+        '</span><span>C ' + fmt1(m.carbs) + '</span><span>G ' + fmt1(m.fat) +
+        '</span><span>sat ' + fmt1(m.sat) + '</span>';
+    };
+    paint();
+    inp.addEventListener('input', paint);
+    scrim.querySelector('[data-ok]').onclick = () => {
+      const g = parseFloat(inp.value) || 100;
+      const m = macrosOf(food, g);
+      addEntry(curDate, {
+        id: 'e' + Date.now(), meal: mealKey, nombre: food.nombre,
+        qty: g, unit: food.unit || 'g',
+        kcal: Math.round(m.kcal), prot: round1(m.prot), carbs: round1(m.carbs),
+        fat: round1(m.fat), sat: round1(m.sat), fiber: round1(m.fiber),
+        food_id: food.id,
+      });
+      closeSheet(); render(); toast(food.nombre + ' añadido');
+    };
+    setTimeout(() => { inp.focus(); inp.select(); }, 220);
+  });
+}
+
+/* ---- Cambiar una comida del menú ---- */
+function sheetSwap(date, mealKey) {
+  const ws = menuWeek || weekStartOf(today());
+  const menu = getMenu(ws);
+  if (!menu) return;
+  const day = menu.days.find(d => d.date === date);
+  if (!day) return;
+  const gap = slotGap(day, mealKey);
+
+  const options = recipesFor(mealKey)
+    .filter(r => postWorkoutOk(r, date))
+    .map(r => {
+      const factor = fitFactor(r, gap);
+      const adj = scaleRecipe(r, factor);
+      const s = scoreRecipe(adj, gap, { fatLeft: gap.fat });
+      return { r: r, factor: factor, macros: adj.macros, raw: s.raw };
+    })
+    .sort((a, b) => b.raw - a.raw);
+  const best = options.length ? Math.max(options[0].raw, 1) : 1;
+
+  const body =
+    '<p class="hint" style="margin:0">Al día le quedan <span class="num">' + Math.round(gap.kcal) +
+      '</span> kcal y <span class="num">' + Math.round(gap.prot) + '</span> g de proteína con las demás comidas puestas.</p>' +
+    '<div>' + options.map(o =>
+      '<button class="pick" data-s="' + o.r.id + '"><div class="info">' +
+        '<span class="nm">' + esc(o.r.name) + (o.factor !== 1 ? ' <span class="faint">×' + o.factor + '</span>' : '') + '</span>' +
+        '<span class="sub">' + o.macros.kcal + ' kcal · P' + fmt1(o.macros.prot) +
+          ' C' + fmt1(o.macros.carbs) + ' G' + fmt1(o.macros.fat) + '</span>' +
+      '</div><span class="dens">' + Math.max(1, Math.round((o.raw / best) * 100)) + '</span></button>').join('') + '</div>';
+
+  openSheet(mealName(mealKey) + ' · ' + dayName(date) + ' ' + shortDate(date), body, scrim => {
+    scrim.querySelectorAll('[data-s]').forEach(b => b.onclick = () => {
+      const r = recipeById(b.dataset.s);
+      const slot = day.meal_slots.find(s => s.meal_type === mealKey);
+      const factor = r ? fitFactor(r, gap) : 1;
+      if (slot) { slot.recipe_id = b.dataset.s; slot.factor = factor; }
+      else day.meal_slots.push({ meal_type: mealKey, recipe_id: b.dataset.s, factor: factor, is_locked: false });
+      setMenu(menu);
+      closeSheet(); render(); toast('Comida cambiada');
+    });
+  });
+}
+
+/* ---- Ajustes: objetivos, tema, copia de seguridad ---- */
+function sheetSettings() {
+  const t = targets();
+  const fromMacros = kcalFromMacros(t);
+  const off = fromMacros - t.kcal;
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+  const body =
+    '<div><span class="eyebrow">Objetivos diarios</span>' +
+    '<p class="hint" style="margin:6px 0 10px">Fijos: no cambian según el día. La proteína es un piso; ' +
+      'carbos y grasa son la variable de ajuste.</p>' +
+    '<div class="grid2">' +
+      '<div class="field"><label for="tg-kcal">Calorías</label><input class="input numeric" id="tg-kcal" type="number" inputmode="numeric" value="' + t.kcal + '"></div>' +
+      '<div class="field"><label for="tg-prot">Proteína · piso</label><input class="input numeric" id="tg-prot" type="number" inputmode="numeric" value="' + t.protein + '"></div>' +
+      '<div class="field"><label for="tg-carbs">Carbohidratos</label><input class="input numeric" id="tg-carbs" type="number" inputmode="numeric" value="' + t.carbs + '"></div>' +
+      '<div class="field"><label for="tg-fat">Grasa</label><input class="input numeric" id="tg-fat" type="number" inputmode="numeric" value="' + t.fat + '"></div>' +
+    '</div>' +
+    (Math.abs(off) > 30 ? '<div class="note warn" style="margin-top:10px"><i class="bar"></i><div>' +
+      '<b>Los macros no cuadran con las kcal</b><span>Suman ' + fromMacros + ' kcal, ' + Math.abs(off) +
+      ' ' + (off > 0 ? 'por encima' : 'por debajo') + ' del objetivo. Recalcula para cuadrarlos sin tocar la proteína.</span></div></div>' : '') +
+    '<p class="hint">Saturadas máximo <span class="num">' + satLimit(t) + '</span> g, el 20 % del objetivo de grasa. ' +
+      'Aviso por debajo de ' + RULES.kcalMin + ' kcal.</p>' +
+    '<div style="display:flex;flex-direction:column;gap:7px">' +
+      '<button class="btn primary wide" data-tg-save>Guardar objetivos</button>' +
+      '<button class="btn wide" data-tg-bal>Recalcular carbos y grasa</button>' +
+      (targetsAreCustom() ? '<button class="btn wide" data-tg-reset>Volver a los originales</button>' : '') +
+    '</div></div>' +
+
+    '<div><span class="eyebrow">Aspecto</span>' +
+      '<label class="checkline" style="margin-top:8px"><input type="checkbox" id="dark-toggle"' +
+      (isDark ? ' checked' : '') + '><span>Forzar modo oscuro</span></label>' +
+      '<p class="hint" style="margin:4px 0 0">Sin marcar sigue el tema de tu móvil.</p></div>' +
+
+    '<div><span class="eyebrow">Copia de seguridad</span>' +
+      '<p class="hint" style="margin:6px 0 8px">Los datos viven solo en este navegador. Copia el texto y guárdalo ' +
+        'donde quieras; para restaurar, pégalo aquí y toca Restaurar.</p>' +
+      '<textarea class="ta" id="bk" rows="4" placeholder="Pega aquí una copia para restaurar"></textarea>' +
+      '<div style="display:flex;gap:8px;margin-top:8px">' +
+        '<button class="btn grow" data-bk-out>Copiar mis datos</button>' +
+        '<button class="btn grow" data-bk-in>Restaurar</button>' +
+      '</div></div>' +
+
+    '<div><span class="eyebrow">Alimentos propios</span>' +
+      '<button class="btn wide" style="margin-top:8px" data-newfood>Crear un alimento</button></div>';
+
+  openSheet('Ajustes', body, scrim => {
+    const num = id => parseInt(scrim.querySelector('#' + id).value, 10);
+    scrim.querySelector('[data-tg-save]').onclick = () => {
+      const k = num('tg-kcal'), p = num('tg-prot'), c = num('tg-carbs'), f = num('tg-fat');
+      if (!k || !p || !c || !f) { toast('Rellena los cuatro valores'); return; }
+      saveTargets({ kcal: k, protein: p, carbs: c, fat: f });
+      closeSheet(); render(); toast('Objetivos actualizados');
+    };
+    scrim.querySelector('[data-tg-bal]').onclick = () => {
+      const next = rebalance(num('tg-kcal') || t.kcal, num('tg-prot') || t.protein);
+      saveTargets(next);
+      closeSheet(); render();
+      toast('Ahora ' + next.carbs + ' g de carbos y ' + next.fat + ' g de grasa');
+    };
+    const reset = scrim.querySelector('[data-tg-reset]');
+    if (reset) reset.onclick = () => { DB.del('targets'); closeSheet(); render(); toast('Objetivos originales'); };
+
+    scrim.querySelector('#dark-toggle').onchange = ev => {
+      if (ev.target.checked) { document.documentElement.setAttribute('data-theme', 'dark'); DB.set('theme', 'dark'); }
+      else { document.documentElement.removeAttribute('data-theme'); DB.del('theme'); }
+    };
+
+    scrim.querySelector('[data-bk-out]').onclick = () => {
+      const dump = {};
+      DB.keys().forEach(k => { dump[k] = DB.get(k, null); });
+      const text = JSON.stringify({ app: 'nutricion-sol', at: new Date().toISOString(), data: dump });
+      const ta = scrim.querySelector('#bk');
+      ta.value = text; ta.focus(); ta.select();
+      let copied = false;
+      try { copied = document.execCommand('copy'); } catch (e) {}
+      toast(copied ? 'Datos copiados al portapapeles' : 'Datos listos: cópialos del cuadro');
+    };
+    scrim.querySelector('[data-bk-in]').onclick = () => {
+      const raw = scrim.querySelector('#bk').value.trim();
+      if (!raw) { toast('Pega primero una copia'); return; }
+      try {
+        const parsed = JSON.parse(raw);
+        const data = parsed.data || parsed;
+        let n = 0;
+        Object.keys(data).forEach(k => { if (DB.set(k, data[k])) n++; });
+        invalidateFoods();
+        closeSheet(); render();
+        toast('Restaurados ' + n + ' registros');
+      } catch (e) { toast('Esa copia no se entiende: revisa el texto'); }
+    };
+
+    scrim.querySelector('[data-newfood]').onclick = () => { closeSheet(); setTimeout(sheetNewFood, 240); };
+  });
+}
+
+/* ---- Crear un alimento propio ---- */
+function sheetNewFood() {
+  const body =
+    '<p class="hint" style="margin:0">Valores por 100 g o 100 ml, como vienen en la etiqueta.</p>' +
+    '<div class="field"><label for="nf-n">Nombre</label><input class="input" id="nf-n" placeholder="Carrot cake proteico"></div>' +
+    '<div class="grid2">' +
+      '<div class="field"><label for="nf-k">Calorías</label><input class="input numeric" id="nf-k" type="number" inputmode="numeric"></div>' +
+      '<div class="field"><label for="nf-p">Proteína g</label><input class="input numeric" id="nf-p" type="number" inputmode="numeric"></div>' +
+      '<div class="field"><label for="nf-c">Carbos g</label><input class="input numeric" id="nf-c" type="number" inputmode="numeric"></div>' +
+      '<div class="field"><label for="nf-f">Grasa g</label><input class="input numeric" id="nf-f" type="number" inputmode="numeric"></div>' +
+      '<div class="field"><label for="nf-s">Saturadas g</label><input class="input numeric" id="nf-s" type="number" inputmode="numeric"></div>' +
+      '<div class="field"><label for="nf-b">Fibra g</label><input class="input numeric" id="nf-b" type="number" inputmode="numeric"></div>' +
+    '</div>' +
+    '<button class="btn primary wide" data-nf-save>Guardar alimento</button>';
+  openSheet('Nuevo alimento', body, scrim => {
+    scrim.querySelector('[data-nf-save]').onclick = () => {
+      const v = id => parseFloat(scrim.querySelector('#' + id).value);
+      const name = scrim.querySelector('#nf-n').value.trim();
+      const kcal = v('nf-k');
+      if (!name || isNaN(kcal)) { toast('Hacen falta el nombre y las calorías'); return; }
+      const food = {
+        id: 'c' + Date.now().toString(36), cat: 'Míos', nombre: name, unit: 'g',
+        kcal100: kcal,
+        prot100: isNaN(v('nf-p')) ? 0 : v('nf-p'),
+        carbs100: isNaN(v('nf-c')) ? 0 : v('nf-c'),
+        fat100: isNaN(v('nf-f')) ? 0 : v('nf-f'),
+        sat100: isNaN(v('nf-s')) ? 0 : v('nf-s'),
+        fiber100: isNaN(v('nf-b')) ? 0 : v('nf-b'),
+      };
+      const own = DB.get('foods', []); own.push(food); DB.set('foods', own);
+      invalidateFoods();
+      closeSheet(); toast(name + ' guardado');
+    };
+  });
+}
+
+/* ============================================================
+   EVENTOS
+   ============================================================ */
+document.getElementById('tabs').addEventListener('click', ev => {
+  const b = ev.target.closest('.tab');
+  if (!b) return;
+  tab = b.dataset.tab;
+  suggestMeal = null;
+  render();
+});
+document.getElementById('gear').addEventListener('click', sheetSettings);
+
+document.getElementById('view').addEventListener('click', ev => {
+  const el = ev.target.closest('[data-act], #trained-toggle');
+  if (!el) return;
+
+  if (el.id === 'trained-toggle') {
+    const now = !trainedOn(curDate);
+    setTrained(curDate, now);
+    render();
+    toast(now ? 'Entreno marcado: ya puedes usar la Evolate' : 'Entreno desmarcado');
+    return;
+  }
+
+  const act = el.dataset.act;
+  const d = el.dataset;
+
+  if (act === 'day') {
+    const next = shiftDate(curDate, parseInt(d.d, 10));
+    if (next <= today()) { curDate = next; suggestMeal = null; render(); }
+    return;
+  }
+  if (act === 'suggest') { tab = 'hoy'; suggestMeal = d.meal; render(); return; }
+  if (act === 'recipe') { sheetRecipe(d.id); return; }
+  if (act === 'log-sug') {
+    const r = recipeById(d.id);
+    if (r) logRecipe(r, parseFloat(d.f) || 1, d.meal);
+    return;
+  }
+  if (act === 'log-ing') {
+    const food = foodById(d.id);
+    if (!food) return;
+    const grams = parseInt(d.g, 10) || 100;
+    const m = macrosOf(food, grams);
+    const meal = suggestMeal || pendingMeals(curDate)[0] || 'cena';
+    addEntry(curDate, {
+      id: 'e' + Date.now(), meal: meal, nombre: food.nombre,
+      qty: grams, unit: food.unit || 'g',
+      kcal: Math.round(m.kcal), prot: round1(m.prot), carbs: round1(m.carbs),
+      fat: round1(m.fat), sat: round1(m.sat), fiber: round1(m.fiber),
+      food_id: food.id,
+    });
+    render();
+    toast(grams + ' ' + (food.unit || 'g') + ' de ' + food.nombre);
+    return;
+  }
+  if (act === 'add-food') {
+    sheetPicker('Añadir a ' + mealName(d.meal).toLowerCase(), food => sheetPortion(food, d.meal));
+    return;
+  }
+  if (act === 'del-entry') { removeEntry(curDate, d.id); render(); return; }
+  if (act === 'rfilter') { recipeFilter = d.f; render(); return; }
+  if (act === 'new-recipe') { sheetEditor(null); return; }
+  if (act === 'week') {
+    const base = menuWeek || weekStartOf(today());
+    menuWeek = shiftDate(base, parseInt(d.d, 10));
+    render();
+    return;
+  }
+  if (act === 'gen-menu') {
+    const ws = menuWeek || weekStartOf(today());
+    generateMenu(ws);
+    render();
+    toast('Menú de 7 días listo');
+    return;
+  }
+  if (act === 'swap') { sheetSwap(d.date, d.meal); return; }
+  if (act === 'lock') {
+    const ws = menuWeek || weekStartOf(today());
+    const menu = getMenu(ws);
+    if (!menu) return;
+    const day = menu.days.find(x => x.date === d.date);
+    const slot = day && day.meal_slots.find(s => s.meal_type === d.meal);
+    if (slot) { slot.is_locked = !slot.is_locked; setMenu(menu); render(); }
+    return;
+  }
+  if (act === 'go-shop') {
+    tab = 'compra';
+    render();
+    const s = document.getElementById('shop');
+    if (s) s.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  if (act === 'pan-add') {
+    sheetPicker('Añadir a la despensa', food => {
+      savePantry({ ingredient_id: food.id, estimated_quantity: 500, last_purchased: today() });
+      render();
+      toast(food.nombre + ' en la despensa');
+    });
+    return;
+  }
+  if (act === 'pan') {
+    savePantry({ ingredient_id: d.id, estimated_quantity: Math.max(0, pantryQty(d.id) + parseInt(d.d, 10)) });
+    render();
+    return;
+  }
+  if (act === 'pan-del') { removePantry(d.id); render(); return; }
+  if (act === 'check') {
+    const ws = menuWeek || weekStartOf(today());
+    const list = DB.get('shop_' + ws, []);
+    const i = list.indexOf(d.id);
+    if (i >= 0) list.splice(i, 1); else list.push(d.id);
+    DB.set('shop_' + ws, list);
+    render();
+    return;
+  }
+});
+
+document.addEventListener('keydown', ev => {
+  if (ev.key === 'Escape') closeSheet();
+});
+
+/* ============================================================
+   ARRANQUE
+   ============================================================ */
+if (DB.get('theme', null) === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+render();
+</script>
+
+</body>
+</html>
