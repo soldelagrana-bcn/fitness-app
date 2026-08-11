@@ -527,6 +527,41 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
   pointer-events: none; max-width: 88vw; text-align: center;
 }
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---- Micronutrientes del día ---- */
+.micros {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px;
+  margin-top: 12px; padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+}
+.micro-top { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; }
+.micro .mk { font-size: 11px; color: var(--ink-soft); font-weight: 560; }
+.micro .mv { margin-left: auto; font-size: 11px; }
+.micro .mv small { color: var(--ink-faint); }
+.micro-strip {
+  display: flex; flex-wrap: wrap; gap: 4px 14px;
+  margin-top: 8px; font-family: var(--mono); font-variant-numeric: tabular-nums;
+  font-size: 11px; color: var(--ink-faint);
+}
+.micro-strip b { color: var(--ink-soft); font-weight: 620; }
+
+/* ---- Separador "o elige una de estas" ---- */
+.or-line {
+  display: flex; align-items: center; gap: 10px;
+  margin: 14px 0 10px;
+  font-size: 10px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--ink-faint);
+}
+.or-line::before, .or-line::after {
+  content: ""; flex: 1; height: 1px; background: var(--line);
+}
+
+/* ---- Pie de cada comida ---- */
+.meal-foot {
+  display: flex; gap: 6px; padding: 9px 12px;
+  border-top: 1px solid var(--line-soft);
+}
+.meal-foot .btn { padding: 8px 10px; font-size: 12.5px; }
 </style>
 
 <div class="app">
@@ -577,6 +612,10 @@ const RULES = {
   satShareTolerance: 1.5,
 };
 
+// Referencias diarias de micros para mujer adulta. Se muestran como
+// contexto, no como reglas de salud: la app no diagnostica nada.
+const MICRO_TARGETS = { fiber: 25, fe: 18, ca: 1000, vd: 15 };
+
 const MEALS = [
   { key: 'desayuno', name: 'Desayuno', short: 'Des', weight: 0.25 },
   { key: 'almuerzo', name: 'Almuerzo', short: 'Alm', weight: 0.35 },
@@ -591,184 +630,245 @@ const POWDER_RECIPES = 'b211'; // Garden of Life — solo recetas
 /* ---- Catálogo de alimentos (valores por 100 g / 100 ml) ---- */
 const FOODS = [
   // ── LÁCTEOS ──────────────────────────────────────────────
-  { id:'b001', cat:'Lácteos', nombre:'Yogur natural Hacendado',           kcal100:61,  prot100:3.8,  carbs100:4.7,  fat100:3.3, sat100:2.1, fiber100:0.0 },
-  { id:'b002', cat:'Lácteos', nombre:'Yogur griego natural Hacendado',    kcal100:100, prot100:5.7,  carbs100:4.0,  fat100:7.0, sat100:4.6, fiber100:0.0 },
-  { id:'b003', cat:'Lácteos', nombre:'Yogur griego 0% Hacendado',         kcal100:57,  prot100:9.5,  carbs100:6.0,  fat100:0.3, sat100:0.2, fiber100:0.0 },
-  { id:'b004', cat:'Lácteos', nombre:'Skyr natural Hacendado',            kcal100:63,  prot100:10.5, carbs100:4.3,  fat100:0.4, sat100:0.3, fiber100:0.0 },
-  { id:'b005', cat:'Lácteos', nombre:'Yogur proteico Hacendado',          kcal100:87,  prot100:12.0, carbs100:6.6,  fat100:1.0, sat100:0.6, fiber100:0.0 },
-  { id:'b006', cat:'Lácteos', nombre:'Yogur natural Ametller Origen',     kcal100:56,  prot100:4.0,  carbs100:4.5,  fat100:2.1, sat100:1.4, fiber100:0.0 },
-  { id:'b007', cat:'Lácteos', nombre:'Kéfir natural Hacendado',           kcal100:60,  prot100:3.3,  carbs100:4.5,  fat100:3.2, sat100:2.0, fiber100:0.0 },
-  { id:'b008', cat:'Lácteos', nombre:'Queso fresco Hacendado',            kcal100:72,  prot100:8.5,  carbs100:1.8,  fat100:3.5, sat100:2.3, fiber100:0.0 },
-  { id:'b009', cat:'Lácteos', nombre:'Queso cottage Carrefour',           kcal100:98,  prot100:11.0, carbs100:3.4,  fat100:4.3, sat100:2.7, fiber100:0.0 },
-  { id:'b010', cat:'Lácteos', nombre:'Requesón Hacendado',                kcal100:78,  prot100:7.1,  carbs100:4.1,  fat100:3.5, sat100:2.2, fiber100:0.0 },
-  { id:'b011', cat:'Lácteos', nombre:'Leche entera Hacendado',            kcal100:65,  prot100:3.2,  carbs100:4.7,  fat100:3.6, sat100:2.3, fiber100:0.0 },
-  { id:'b012', cat:'Lácteos', nombre:'Leche semidesnatada Hacendado',     kcal100:46,  prot100:3.3,  carbs100:4.8,  fat100:1.6, sat100:1.0, fiber100:0.0 },
-  { id:'b013', cat:'Lácteos', nombre:'Leche desnatada Hacendado',         kcal100:35,  prot100:3.4,  carbs100:4.9,  fat100:0.1, sat100:0.1, fiber100:0.0 },
-  { id:'b014', cat:'Lácteos', nombre:'Leche entera Ametller Origen',      kcal100:67,  prot100:3.3,  carbs100:4.8,  fat100:3.7, sat100:2.4, fiber100:0.0 },
-  { id:'b015', cat:'Lácteos', nombre:'Bebida de avena Hacendado',         kcal100:46,  prot100:1.1,  carbs100:7.7,  fat100:1.5, sat100:0.2, fiber100:0.8 },
-  { id:'b016', cat:'Lácteos', nombre:'Bebida de almendras Hacendado',     kcal100:24,  prot100:0.7,  carbs100:2.7,  fat100:1.2, sat100:0.1, fiber100:0.4 },
-  { id:'b017', cat:'Lácteos', nombre:'Bebida de soja Hacendado',          kcal100:35,  prot100:3.3,  carbs100:2.6,  fat100:1.9, sat100:0.3, fiber100:0.5 },
+  { id:'b001', cat:'Lácteos', nombre:'Yogur natural Hacendado',           kcal100:61,  prot100:3.8,  carbs100:4.7,  fat100:3.3, sat100:2.1, fiber100:0.0, fe100:0.05, ca100:120, vd100:0.1 },
+  { id:'b002', cat:'Lácteos', nombre:'Yogur griego natural Hacendado',    kcal100:100, prot100:5.7,  carbs100:4.0,  fat100:7.0, sat100:4.6, fiber100:0.0, fe100:0.04, ca100:100, vd100:0.1 },
+  { id:'b003', cat:'Lácteos', nombre:'Yogur griego 0% Hacendado',         kcal100:57,  prot100:9.5,  carbs100:6.0,  fat100:0.3, sat100:0.2, fiber100:0.0, fe100:0.07, ca100:110, vd100:0 },
+  { id:'b004', cat:'Lácteos', nombre:'Skyr natural Hacendado',            kcal100:63,  prot100:10.5, carbs100:4.3,  fat100:0.4, sat100:0.3, fiber100:0.0, fe100:0.05, ca100:150, vd100:0 },
+  { id:'b005', cat:'Lácteos', nombre:'Yogur proteico Hacendado',          kcal100:87,  prot100:12.0, carbs100:6.6,  fat100:1.0, sat100:0.6, fiber100:0.0, fe100:0.05, ca100:140, vd100:0 },
+  { id:'b006', cat:'Lácteos', nombre:'Yogur natural Ametller Origen',     kcal100:56,  prot100:4.0,  carbs100:4.5,  fat100:2.1, sat100:1.4, fiber100:0.0, fe100:0.05, ca100:120, vd100:0.1 },
+  { id:'b007', cat:'Lácteos', nombre:'Kéfir natural Hacendado',           kcal100:60,  prot100:3.3,  carbs100:4.5,  fat100:3.2, sat100:2.0, fiber100:0.0, fe100:0.05, ca100:120, vd100:0.1 },
+  { id:'b008', cat:'Lácteos', nombre:'Queso fresco Hacendado',            kcal100:72,  prot100:8.5,  carbs100:1.8,  fat100:3.5, sat100:2.3, fiber100:0.0, fe100:0.1, ca100:150, vd100:0.1 },
+  { id:'b009', cat:'Lácteos', nombre:'Queso cottage Carrefour',           kcal100:98,  prot100:11.0, carbs100:3.4,  fat100:4.3, sat100:2.7, fiber100:0.0, fe100:0.07, ca100:83, vd100:0 },
+  { id:'b010', cat:'Lácteos', nombre:'Requesón Hacendado',                kcal100:78,  prot100:7.1,  carbs100:4.1,  fat100:3.5, sat100:2.2, fiber100:0.0, fe100:0.1, ca100:100, vd100:0 },
+  { id:'b011', cat:'Lácteos', nombre:'Leche entera Hacendado',            kcal100:65,  prot100:3.2,  carbs100:4.7,  fat100:3.6, sat100:2.3, fiber100:0.0, fe100:0.05, ca100:120, vd100:0.05 },
+  { id:'b012', cat:'Lácteos', nombre:'Leche semidesnatada Hacendado',     kcal100:46,  prot100:3.3,  carbs100:4.8,  fat100:1.6, sat100:1.0, fiber100:0.0, fe100:0.05, ca100:120, vd100:0.03 },
+  { id:'b013', cat:'Lácteos', nombre:'Leche desnatada Hacendado',         kcal100:35,  prot100:3.4,  carbs100:4.9,  fat100:0.1, sat100:0.1, fiber100:0.0, fe100:0.05, ca100:122, vd100:0 },
+  { id:'b014', cat:'Lácteos', nombre:'Leche entera Ametller Origen',      kcal100:67,  prot100:3.3,  carbs100:4.8,  fat100:3.7, sat100:2.4, fiber100:0.0, fe100:0.05, ca100:120, vd100:0.05 },
+  { id:'b015', cat:'Lácteos', nombre:'Bebida de avena Hacendado',         kcal100:46,  prot100:1.1,  carbs100:7.7,  fat100:1.5, sat100:0.2, fiber100:0.8, fe100:0.2, ca100:120, vd100:1.5 },
+  { id:'b016', cat:'Lácteos', nombre:'Bebida de almendras Hacendado',     kcal100:24,  prot100:0.7,  carbs100:2.7,  fat100:1.2, sat100:0.1, fiber100:0.4, fe100:0.2, ca100:120, vd100:1.5 },
+  { id:'b017', cat:'Lácteos', nombre:'Bebida de soja Hacendado',          kcal100:35,  prot100:3.3,  carbs100:2.6,  fat100:1.9, sat100:0.3, fiber100:0.5, fe100:0.4, ca100:120, vd100:1.5 },
   // ── PROTEÍNAS ANIMALES ────────────────────────────────────
-  { id:'b020', cat:'Proteínas', nombre:'Pechuga de pollo (fresca)',           kcal100:110, prot100:23.6, carbs100:0.0,  fat100:1.7, sat100:0.5, fiber100:0.0 },
-  { id:'b021', cat:'Proteínas', nombre:'Pechuga de pollo La Sirena (cong.)',  kcal100:100, prot100:22.0, carbs100:0.5,  fat100:1.0, sat100:0.3, fiber100:0.0 },
-  { id:'b022', cat:'Proteínas', nombre:'Contramuslo de pollo',               kcal100:163, prot100:20.0, carbs100:0.0,  fat100:9.0, sat100:2.6, fiber100:0.0 },
-  { id:'b023', cat:'Proteínas', nombre:'Huevo entero (M)',                    kcal100:147, prot100:12.6, carbs100:0.7,  fat100:10.6, sat100:3.1, fiber100:0.0, peso_ud_g:60 },
-  { id:'b024', cat:'Proteínas', nombre:'Clara de huevo pasteurizada',         kcal100:52,  prot100:10.9, carbs100:0.7,  fat100:0.2, sat100:0.0, fiber100:0.0 },
-  { id:'b025', cat:'Proteínas', nombre:'Atún al natural (lata)',              kcal100:103, prot100:23.0, carbs100:0.0,  fat100:0.9, sat100:0.3, fiber100:0.0 },
-  { id:'b026', cat:'Proteínas', nombre:'Atún en aceite (lata)',               kcal100:200, prot100:27.0, carbs100:0.0,  fat100:11.0, sat100:1.8, fiber100:0.0 },
-  { id:'b027', cat:'Proteínas', nombre:'Salmón fresco',                       kcal100:206, prot100:20.0, carbs100:0.0,  fat100:13.0, sat100:3.1, fiber100:0.0, tags:['pescado_azul'] },
-  { id:'b028', cat:'Proteínas', nombre:'Merluza fresca',                      kcal100:72,  prot100:16.0, carbs100:0.0,  fat100:0.8, sat100:0.2, fiber100:0.0 },
-  { id:'b029', cat:'Proteínas', nombre:'Merluza La Sirena (congelada)',       kcal100:70,  prot100:16.0, carbs100:0.0,  fat100:0.9, sat100:0.2, fiber100:0.0 },
-  { id:'b030', cat:'Proteínas', nombre:'Rape La Sirena (congelado)',          kcal100:75,  prot100:17.0, carbs100:0.0,  fat100:0.5, sat100:0.1, fiber100:0.0 },
-  { id:'b031', cat:'Proteínas', nombre:'Gambas peladas La Sirena (cong.)',    kcal100:85,  prot100:18.0, carbs100:0.5,  fat100:1.0, sat100:0.3, fiber100:0.0 },
-  { id:'b032', cat:'Proteínas', nombre:'Gambas frescas',                      kcal100:85,  prot100:18.0, carbs100:0.5,  fat100:1.0, sat100:0.3, fiber100:0.0 },
-  { id:'b033', cat:'Proteínas', nombre:'Sardinas en aceite (lata)',           kcal100:200, prot100:19.0, carbs100:0.0,  fat100:13.0, sat100:2.7, fiber100:0.0, tags:['pescado_azul'] },
-  { id:'b034', cat:'Proteínas', nombre:'Caballa en aceite (lata)',            kcal100:215, prot100:18.0, carbs100:0.0,  fat100:16.0, sat100:3.5, fiber100:0.0, tags:['pescado_azul'] },
-  { id:'b035', cat:'Proteínas', nombre:'Lomo de cerdo (fresco)',              kcal100:143, prot100:21.0, carbs100:0.0,  fat100:7.0, sat100:2.5, fiber100:0.0 },
-  { id:'b036', cat:'Proteínas', nombre:'Carne picada de ternera 5%',          kcal100:120, prot100:20.0, carbs100:0.0,  fat100:5.0, sat100:2.2, fiber100:0.0 },
-  { id:'b037', cat:'Proteínas', nombre:'Carne picada mixta Hacendado',        kcal100:200, prot100:17.0, carbs100:0.0,  fat100:15.0, sat100:6.0, fiber100:0.0 },
-  { id:'b038', cat:'Proteínas', nombre:'Pavo en lonchas Hacendado',           kcal100:84,  prot100:17.4, carbs100:0.3,  fat100:1.5, sat100:0.5, fiber100:0.0 },
-  { id:'b039', cat:'Proteínas', nombre:'Jamón cocido extra Hacendado',        kcal100:100, prot100:16.0, carbs100:1.5,  fat100:3.5, sat100:1.2, fiber100:0.0 },
-  { id:'b040', cat:'Proteínas', nombre:'Jamón serrano',                       kcal100:240, prot100:27.5, carbs100:0.2,  fat100:14.0, sat100:5.0, fiber100:0.0 },
-  { id:'b041', cat:'Proteínas', nombre:'Tofu natural Hacendado',              kcal100:82,  prot100:8.0,  carbs100:1.9,  fat100:4.8, sat100:0.7, fiber100:0.9 },
-  { id:'b042', cat:'Proteínas', nombre:'Tempeh',                              kcal100:192, prot100:19.0, carbs100:9.0,  fat100:11.0, sat100:2.2, fiber100:6.0 },
+  { id:'b020', cat:'Proteínas', nombre:'Pechuga de pollo (fresca)',           kcal100:110, prot100:23.6, carbs100:0.0,  fat100:1.7, sat100:0.5, fiber100:0.0, fe100:0.7, ca100:5, vd100:0.1 },
+  { id:'b021', cat:'Proteínas', nombre:'Pechuga de pollo La Sirena (cong.)',  kcal100:100, prot100:22.0, carbs100:0.5,  fat100:1.0, sat100:0.3, fiber100:0.0, fe100:0.7, ca100:5, vd100:0.1 },
+  { id:'b022', cat:'Proteínas', nombre:'Contramuslo de pollo',               kcal100:163, prot100:20.0, carbs100:0.0,  fat100:9.0, sat100:2.6, fiber100:0.0, fe100:1.0, ca100:8, vd100:0.1 },
+  { id:'b023', cat:'Proteínas', nombre:'Huevo entero (M)',                    kcal100:147, prot100:12.6, carbs100:0.7,  fat100:10.6, sat100:3.1, fiber100:0.0, fe100:1.8, ca100:50, vd100:2.0, peso_ud_g:60 },
+  { id:'b024', cat:'Proteínas', nombre:'Clara de huevo pasteurizada',         kcal100:52,  prot100:10.9, carbs100:0.7,  fat100:0.2, sat100:0.0, fiber100:0.0, fe100:0.1, ca100:7, vd100:0 },
+  { id:'b025', cat:'Proteínas', nombre:'Atún al natural (lata)',              kcal100:103, prot100:23.0, carbs100:0.0,  fat100:0.9, sat100:0.3, fiber100:0.0, fe100:1.0, ca100:10, vd100:2.0 },
+  { id:'b026', cat:'Proteínas', nombre:'Atún en aceite (lata)',               kcal100:200, prot100:27.0, carbs100:0.0,  fat100:11.0, sat100:1.8, fiber100:0.0, fe100:1.1, ca100:11, vd100:2.5 },
+  { id:'b027', cat:'Proteínas', nombre:'Salmón fresco',                       kcal100:206, prot100:20.0, carbs100:0.0,  fat100:13.0, sat100:3.1, fiber100:0.0, fe100:0.3, ca100:12, vd100:11.0, tags:['pescado_azul'] },
+  { id:'b028', cat:'Proteínas', nombre:'Merluza fresca',                      kcal100:72,  prot100:16.0, carbs100:0.0,  fat100:0.8, sat100:0.2, fiber100:0.0, fe100:0.4, ca100:15, vd100:1.0 },
+  { id:'b029', cat:'Proteínas', nombre:'Merluza La Sirena (congelada)',       kcal100:70,  prot100:16.0, carbs100:0.0,  fat100:0.9, sat100:0.2, fiber100:0.0, fe100:0.4, ca100:15, vd100:1.0 },
+  { id:'b030', cat:'Proteínas', nombre:'Rape La Sirena (congelado)',          kcal100:75,  prot100:17.0, carbs100:0.0,  fat100:0.5, sat100:0.1, fiber100:0.0, fe100:0.3, ca100:12, vd100:0.8 },
+  { id:'b031', cat:'Proteínas', nombre:'Gambas peladas La Sirena (cong.)',    kcal100:85,  prot100:18.0, carbs100:0.5,  fat100:1.0, sat100:0.3, fiber100:0.0, fe100:1.0, ca100:60, vd100:0.1 },
+  { id:'b032', cat:'Proteínas', nombre:'Gambas frescas',                      kcal100:85,  prot100:18.0, carbs100:0.5,  fat100:1.0, sat100:0.3, fiber100:0.0, fe100:1.0, ca100:60, vd100:0.1 },
+  { id:'b033', cat:'Proteínas', nombre:'Sardinas en aceite (lata)',           kcal100:200, prot100:19.0, carbs100:0.0,  fat100:13.0, sat100:2.7, fiber100:0.0, fe100:2.9, ca100:330, vd100:7.0, tags:['pescado_azul'] },
+  { id:'b034', cat:'Proteínas', nombre:'Caballa en aceite (lata)',            kcal100:215, prot100:18.0, carbs100:0.0,  fat100:16.0, sat100:3.5, fiber100:0.0, fe100:1.3, ca100:60, vd100:13.0, tags:['pescado_azul'] },
+  { id:'b035', cat:'Proteínas', nombre:'Lomo de cerdo (fresco)',              kcal100:143, prot100:21.0, carbs100:0.0,  fat100:7.0, sat100:2.5, fiber100:0.0, fe100:0.9, ca100:8, vd100:0.6 },
+  { id:'b036', cat:'Proteínas', nombre:'Carne picada de ternera 5%',          kcal100:120, prot100:20.0, carbs100:0.0,  fat100:5.0, sat100:2.2, fiber100:0.0, fe100:2.3, ca100:10, vd100:0.2 },
+  { id:'b037', cat:'Proteínas', nombre:'Carne picada mixta Hacendado',        kcal100:200, prot100:17.0, carbs100:0.0,  fat100:15.0, sat100:6.0, fiber100:0.0, fe100:1.8, ca100:12, vd100:0.3 },
+  { id:'b038', cat:'Proteínas', nombre:'Pavo en lonchas Hacendado',           kcal100:84,  prot100:17.4, carbs100:0.3,  fat100:1.5, sat100:0.5, fiber100:0.0, fe100:0.6, ca100:8, vd100:0.2 },
+  { id:'b039', cat:'Proteínas', nombre:'Jamón cocido extra Hacendado',        kcal100:100, prot100:16.0, carbs100:1.5,  fat100:3.5, sat100:1.2, fiber100:0.0, fe100:0.8, ca100:10, vd100:0.4 },
+  { id:'b040', cat:'Proteínas', nombre:'Jamón serrano',                       kcal100:240, prot100:27.5, carbs100:0.2,  fat100:14.0, sat100:5.0, fiber100:0.0, fe100:2.0, ca100:12, vd100:0.5 },
+  { id:'b041', cat:'Proteínas', nombre:'Tofu natural Hacendado',              kcal100:82,  prot100:8.0,  carbs100:1.9,  fat100:4.8, sat100:0.7, fiber100:0.9, fe100:1.6, ca100:200, vd100:0 },
+  { id:'b042', cat:'Proteínas', nombre:'Tempeh',                              kcal100:192, prot100:19.0, carbs100:9.0,  fat100:11.0, sat100:2.2, fiber100:6.0, fe100:2.7, ca100:111, vd100:0 },
   // ── CARBOHIDRATOS ─────────────────────────────────────────
-  { id:'b050', cat:'Carbohidratos', nombre:'Arroz blanco cocido',             kcal100:130, prot100:2.7,  carbs100:28.0, fat100:0.3, sat100:0.1, fiber100:0.4 },
-  { id:'b051', cat:'Carbohidratos', nombre:'Arroz integral cocido',           kcal100:122, prot100:2.7,  carbs100:25.0, fat100:1.0, sat100:0.2, fiber100:1.8 },
-  { id:'b052', cat:'Carbohidratos', nombre:'Arroz basmati cocido',            kcal100:130, prot100:2.7,  carbs100:28.0, fat100:0.3, sat100:0.1, fiber100:0.6 },
-  { id:'b053', cat:'Carbohidratos', nombre:'Pasta blanca cocida',             kcal100:158, prot100:5.8,  carbs100:31.0, fat100:0.9, sat100:0.2, fiber100:1.8 },
-  { id:'b054', cat:'Carbohidratos', nombre:'Pasta integral cocida',           kcal100:150, prot100:6.0,  carbs100:29.0, fat100:1.4, sat100:0.3, fiber100:4.5 },
-  { id:'b055', cat:'Carbohidratos', nombre:'Copos de avena Hacendado',        kcal100:365, prot100:13.0, carbs100:58.0, fat100:7.0, sat100:1.3, fiber100:10.0 },
-  { id:'b056', cat:'Carbohidratos', nombre:'Pan de molde blanco Hacendado',   kcal100:267, prot100:8.0,  carbs100:50.0, fat100:3.5, sat100:0.7, fiber100:2.5,  peso_ud_g:25 },
-  { id:'b057', cat:'Carbohidratos', nombre:'Pan de molde integral Hacendado', kcal100:241, prot100:9.0,  carbs100:44.0, fat100:3.5, sat100:0.7, fiber100:6.0,  peso_ud_g:25 },
-  { id:'b058', cat:'Carbohidratos', nombre:'Tortitas de arroz Hacendado',     kcal100:385, prot100:7.0,  carbs100:81.0, fat100:2.9, sat100:0.6, fiber100:2.0,  peso_ud_g:10 },
-  { id:'b059', cat:'Carbohidratos', nombre:'Patata cocida',                   kcal100:77,  prot100:2.0,  carbs100:17.0, fat100:0.1, sat100:0.0, fiber100:1.8 },
-  { id:'b060', cat:'Carbohidratos', nombre:'Patata al horno',                 kcal100:93,  prot100:2.5,  carbs100:21.0, fat100:0.1, sat100:0.0, fiber100:2.2 },
-  { id:'b061', cat:'Carbohidratos', nombre:'Boniato cocido',                  kcal100:86,  prot100:1.6,  carbs100:20.0, fat100:0.1, sat100:0.0, fiber100:3.0 },
-  { id:'b062', cat:'Carbohidratos', nombre:'Quinoa cocida',                   kcal100:120, prot100:4.4,  carbs100:21.0, fat100:1.9, sat100:0.2, fiber100:2.8 },
-  { id:'b063', cat:'Carbohidratos', nombre:'Pan de centeno Carrefour',        kcal100:259, prot100:8.5,  carbs100:48.0, fat100:3.3, sat100:0.6, fiber100:6.5 },
-  { id:'b064', cat:'Carbohidratos', nombre:'Muesli Hacendado',                kcal100:372, prot100:10.0, carbs100:60.0, fat100:9.0, sat100:1.5, fiber100:7.5 },
-  { id:'b065', cat:'Carbohidratos', nombre:'Maíz cocido',                     kcal100:96,  prot100:3.4,  carbs100:21.0, fat100:1.5, sat100:0.2, fiber100:2.7 },
+  { id:'b050', cat:'Carbohidratos', nombre:'Arroz blanco cocido',             kcal100:130, prot100:2.7,  carbs100:28.0, fat100:0.3, sat100:0.1, fiber100:0.4, fe100:0.2, ca100:10, vd100:0 },
+  { id:'b051', cat:'Carbohidratos', nombre:'Arroz integral cocido',           kcal100:122, prot100:2.7,  carbs100:25.0, fat100:1.0, sat100:0.2, fiber100:1.8, fe100:0.5, ca100:10, vd100:0 },
+  { id:'b052', cat:'Carbohidratos', nombre:'Arroz basmati cocido',            kcal100:130, prot100:2.7,  carbs100:28.0, fat100:0.3, sat100:0.1, fiber100:0.6, fe100:0.2, ca100:10, vd100:0 },
+  { id:'b053', cat:'Carbohidratos', nombre:'Pasta blanca cocida',             kcal100:158, prot100:5.8,  carbs100:31.0, fat100:0.9, sat100:0.2, fiber100:1.8, fe100:0.5, ca100:7, vd100:0 },
+  { id:'b054', cat:'Carbohidratos', nombre:'Pasta integral cocida',           kcal100:150, prot100:6.0,  carbs100:29.0, fat100:1.4, sat100:0.3, fiber100:4.5, fe100:1.1, ca100:15, vd100:0 },
+  { id:'b055', cat:'Carbohidratos', nombre:'Copos de avena Hacendado',        kcal100:365, prot100:13.0, carbs100:58.0, fat100:7.0, sat100:1.3, fiber100:10.0, fe100:4.7, ca100:54, vd100:0 },
+  { id:'b056', cat:'Carbohidratos', nombre:'Pan de molde blanco Hacendado',   kcal100:267, prot100:8.0,  carbs100:50.0, fat100:3.5, sat100:0.7, fiber100:2.5, fe100:1.5, ca100:100, vd100:0, peso_ud_g:25 },
+  { id:'b057', cat:'Carbohidratos', nombre:'Pan de molde integral Hacendado', kcal100:241, prot100:9.0,  carbs100:44.0, fat100:3.5, sat100:0.7, fiber100:6.0, fe100:2.5, ca100:60, vd100:0, peso_ud_g:25 },
+  { id:'b058', cat:'Carbohidratos', nombre:'Tortitas de arroz Hacendado',     kcal100:385, prot100:7.0,  carbs100:81.0, fat100:2.9, sat100:0.6, fiber100:2.0, fe100:0.5, ca100:10, vd100:0, peso_ud_g:10 },
+  { id:'b059', cat:'Carbohidratos', nombre:'Patata cocida',                   kcal100:77,  prot100:2.0,  carbs100:17.0, fat100:0.1, sat100:0.0, fiber100:1.8, fe100:0.3, ca100:8, vd100:0 },
+  { id:'b060', cat:'Carbohidratos', nombre:'Patata al horno',                 kcal100:93,  prot100:2.5,  carbs100:21.0, fat100:0.1, sat100:0.0, fiber100:2.2, fe100:0.4, ca100:10, vd100:0 },
+  { id:'b061', cat:'Carbohidratos', nombre:'Boniato cocido',                  kcal100:86,  prot100:1.6,  carbs100:20.0, fat100:0.1, sat100:0.0, fiber100:3.0, fe100:0.6, ca100:30, vd100:0 },
+  { id:'b062', cat:'Carbohidratos', nombre:'Quinoa cocida',                   kcal100:120, prot100:4.4,  carbs100:21.0, fat100:1.9, sat100:0.2, fiber100:2.8, fe100:1.5, ca100:17, vd100:0 },
+  { id:'b063', cat:'Carbohidratos', nombre:'Pan de centeno Carrefour',        kcal100:259, prot100:8.5,  carbs100:48.0, fat100:3.3, sat100:0.6, fiber100:6.5, fe100:2.5, ca100:50, vd100:0 },
+  { id:'b064', cat:'Carbohidratos', nombre:'Muesli Hacendado',                kcal100:372, prot100:10.0, carbs100:60.0, fat100:9.0, sat100:1.5, fiber100:7.5, fe100:3.5, ca100:70, vd100:0 },
+  { id:'b065', cat:'Carbohidratos', nombre:'Maíz cocido',                     kcal100:96,  prot100:3.4,  carbs100:21.0, fat100:1.5, sat100:0.2, fiber100:2.7, fe100:0.5, ca100:5, vd100:0 },
   // ── FRUTAS ────────────────────────────────────────────────
-  { id:'b070', cat:'Frutas', nombre:'Plátano / Banana',  kcal100:89,  prot100:1.1,  carbs100:23.0, fat100:0.3, sat100:0.1, fiber100:2.6,  peso_ud_g:120 },
-  { id:'b071', cat:'Frutas', nombre:'Manzana',           kcal100:52,  prot100:0.3,  carbs100:14.0, fat100:0.2, sat100:0.0, fiber100:2.4,  peso_ud_g:160 },
-  { id:'b072', cat:'Frutas', nombre:'Naranja',           kcal100:47,  prot100:0.9,  carbs100:12.0, fat100:0.1, sat100:0.0, fiber100:2.4,  peso_ud_g:150 },
-  { id:'b073', cat:'Frutas', nombre:'Fresas',            kcal100:32,  prot100:0.7,  carbs100:8.0,  fat100:0.3, sat100:0.0, fiber100:2.0 },
-  { id:'b074', cat:'Frutas', nombre:'Arándanos',         kcal100:57,  prot100:0.7,  carbs100:14.0, fat100:0.3, sat100:0.0, fiber100:2.4 },
-  { id:'b075', cat:'Frutas', nombre:'Kiwi',              kcal100:61,  prot100:1.1,  carbs100:15.0, fat100:0.5, sat100:0.0, fiber100:3.0,  peso_ud_g:75  },
-  { id:'b076', cat:'Frutas', nombre:'Pera',              kcal100:57,  prot100:0.4,  carbs100:15.0, fat100:0.1, sat100:0.0, fiber100:3.1,  peso_ud_g:160 },
-  { id:'b077', cat:'Frutas', nombre:'Uvas',              kcal100:69,  prot100:0.7,  carbs100:18.0, fat100:0.2, sat100:0.1, fiber100:0.9 },
-  { id:'b078', cat:'Frutas', nombre:'Piña',              kcal100:50,  prot100:0.5,  carbs100:13.0, fat100:0.1, sat100:0.0, fiber100:1.4 },
-  { id:'b079', cat:'Frutas', nombre:'Mango',             kcal100:65,  prot100:0.5,  carbs100:17.0, fat100:0.3, sat100:0.1, fiber100:1.6 },
-  { id:'b080', cat:'Frutas', nombre:'Melón',             kcal100:34,  prot100:0.8,  carbs100:8.0,  fat100:0.2, sat100:0.1, fiber100:0.9 },
-  { id:'b081', cat:'Frutas', nombre:'Sandía',            kcal100:30,  prot100:0.6,  carbs100:8.0,  fat100:0.2, sat100:0.0, fiber100:0.4 },
-  { id:'b082', cat:'Frutas', nombre:'Melocotón',         kcal100:39,  prot100:0.9,  carbs100:10.0, fat100:0.3, sat100:0.0, fiber100:1.5,  peso_ud_g:150 },
-  { id:'b083', cat:'Frutas', nombre:'Mandarina',         kcal100:53,  prot100:0.8,  carbs100:13.0, fat100:0.3, sat100:0.0, fiber100:1.8,  peso_ud_g:80  },
-  { id:'b084', cat:'Frutas', nombre:'Cerezas',           kcal100:63,  prot100:1.1,  carbs100:16.0, fat100:0.2, sat100:0.0, fiber100:2.1 },
-  { id:'b085', cat:'Frutas', nombre:'Granada',           kcal100:83,  prot100:1.7,  carbs100:19.0, fat100:1.2, sat100:0.1, fiber100:4.0 },
-  { id:'b086', cat:'Frutas', nombre:'Dátiles secos',     kcal100:277, prot100:1.8,  carbs100:75.0, fat100:0.2, sat100:0.0, fiber100:8.0 },
-  { id:'b087', cat:'Frutas', nombre:'Ciruela',           kcal100:46,  prot100:0.7,  carbs100:11.0, fat100:0.3, sat100:0.0, fiber100:1.4,  peso_ud_g:60  },
-  { id:'b088', cat:'Frutas', nombre:'Higo',              kcal100:74,  prot100:0.8,  carbs100:19.0, fat100:0.3, sat100:0.1, fiber100:2.9,  peso_ud_g:50  },
-  { id:'b089', cat:'Frutas', nombre:'Papaya',            kcal100:43,  prot100:0.5,  carbs100:11.0, fat100:0.3, sat100:0.1, fiber100:1.7 },
+  { id:'b070', cat:'Frutas', nombre:'Plátano / Banana',  kcal100:89,  prot100:1.1,  carbs100:23.0, fat100:0.3, sat100:0.1, fiber100:2.6, fe100:0.3, ca100:5, vd100:0, peso_ud_g:120 },
+  { id:'b071', cat:'Frutas', nombre:'Manzana',           kcal100:52,  prot100:0.3,  carbs100:14.0, fat100:0.2, sat100:0.0, fiber100:2.4, fe100:0.1, ca100:6, vd100:0, peso_ud_g:160 },
+  { id:'b072', cat:'Frutas', nombre:'Naranja',           kcal100:47,  prot100:0.9,  carbs100:12.0, fat100:0.1, sat100:0.0, fiber100:2.4, fe100:0.1, ca100:40, vd100:0, peso_ud_g:150 },
+  { id:'b073', cat:'Frutas', nombre:'Fresas',            kcal100:32,  prot100:0.7,  carbs100:8.0,  fat100:0.3, sat100:0.0, fiber100:2.0, fe100:0.4, ca100:16, vd100:0 },
+  { id:'b074', cat:'Frutas', nombre:'Arándanos',         kcal100:57,  prot100:0.7,  carbs100:14.0, fat100:0.3, sat100:0.0, fiber100:2.4, fe100:0.3, ca100:6, vd100:0 },
+  { id:'b075', cat:'Frutas', nombre:'Kiwi',              kcal100:61,  prot100:1.1,  carbs100:15.0, fat100:0.5, sat100:0.0, fiber100:3.0, fe100:0.3, ca100:34, vd100:0, peso_ud_g:75  },
+  { id:'b076', cat:'Frutas', nombre:'Pera',              kcal100:57,  prot100:0.4,  carbs100:15.0, fat100:0.1, sat100:0.0, fiber100:3.1, fe100:0.2, ca100:9, vd100:0, peso_ud_g:160 },
+  { id:'b077', cat:'Frutas', nombre:'Uvas',              kcal100:69,  prot100:0.7,  carbs100:18.0, fat100:0.2, sat100:0.1, fiber100:0.9, fe100:0.4, ca100:10, vd100:0 },
+  { id:'b078', cat:'Frutas', nombre:'Piña',              kcal100:50,  prot100:0.5,  carbs100:13.0, fat100:0.1, sat100:0.0, fiber100:1.4, fe100:0.3, ca100:13, vd100:0 },
+  { id:'b079', cat:'Frutas', nombre:'Mango',             kcal100:65,  prot100:0.5,  carbs100:17.0, fat100:0.3, sat100:0.1, fiber100:1.6, fe100:0.2, ca100:11, vd100:0 },
+  { id:'b080', cat:'Frutas', nombre:'Melón',             kcal100:34,  prot100:0.8,  carbs100:8.0,  fat100:0.2, sat100:0.1, fiber100:0.9, fe100:0.2, ca100:9, vd100:0 },
+  { id:'b081', cat:'Frutas', nombre:'Sandía',            kcal100:30,  prot100:0.6,  carbs100:8.0,  fat100:0.2, sat100:0.0, fiber100:0.4, fe100:0.2, ca100:7, vd100:0 },
+  { id:'b082', cat:'Frutas', nombre:'Melocotón',         kcal100:39,  prot100:0.9,  carbs100:10.0, fat100:0.3, sat100:0.0, fiber100:1.5, fe100:0.3, ca100:6, vd100:0, peso_ud_g:150 },
+  { id:'b083', cat:'Frutas', nombre:'Mandarina',         kcal100:53,  prot100:0.8,  carbs100:13.0, fat100:0.3, sat100:0.0, fiber100:1.8, fe100:0.2, ca100:37, vd100:0, peso_ud_g:80  },
+  { id:'b084', cat:'Frutas', nombre:'Cerezas',           kcal100:63,  prot100:1.1,  carbs100:16.0, fat100:0.2, sat100:0.0, fiber100:2.1, fe100:0.4, ca100:13, vd100:0 },
+  { id:'b085', cat:'Frutas', nombre:'Granada',           kcal100:83,  prot100:1.7,  carbs100:19.0, fat100:1.2, sat100:0.1, fiber100:4.0, fe100:0.3, ca100:10, vd100:0 },
+  { id:'b086', cat:'Frutas', nombre:'Dátiles secos',     kcal100:277, prot100:1.8,  carbs100:75.0, fat100:0.2, sat100:0.0, fiber100:8.0, fe100:1.0, ca100:39, vd100:0 },
+  { id:'b087', cat:'Frutas', nombre:'Ciruela',           kcal100:46,  prot100:0.7,  carbs100:11.0, fat100:0.3, sat100:0.0, fiber100:1.4, fe100:0.2, ca100:6, vd100:0, peso_ud_g:60  },
+  { id:'b088', cat:'Frutas', nombre:'Higo',              kcal100:74,  prot100:0.8,  carbs100:19.0, fat100:0.3, sat100:0.1, fiber100:2.9, fe100:0.4, ca100:35, vd100:0, peso_ud_g:50  },
+  { id:'b089', cat:'Frutas', nombre:'Papaya',            kcal100:43,  prot100:0.5,  carbs100:11.0, fat100:0.3, sat100:0.1, fiber100:1.7, fe100:0.3, ca100:20, vd100:0 },
   // ── VERDURAS ──────────────────────────────────────────────
-  { id:'b090', cat:'Verduras', nombre:'Espinacas',          kcal100:23,  prot100:2.9,  carbs100:3.6,  fat100:0.4, sat100:0.1, fiber100:2.2 },
-  { id:'b091', cat:'Verduras', nombre:'Brócoli',            kcal100:34,  prot100:2.8,  carbs100:7.0,  fat100:0.4, sat100:0.1, fiber100:2.6 },
-  { id:'b092', cat:'Verduras', nombre:'Zanahoria',          kcal100:41,  prot100:0.9,  carbs100:10.0, fat100:0.2, sat100:0.0, fiber100:2.8 },
-  { id:'b093', cat:'Verduras', nombre:'Pepino',             kcal100:16,  prot100:0.7,  carbs100:4.0,  fat100:0.1, sat100:0.0, fiber100:0.5 },
-  { id:'b094', cat:'Verduras', nombre:'Tomate',             kcal100:18,  prot100:0.9,  carbs100:4.0,  fat100:0.2, sat100:0.0, fiber100:1.2 },
-  { id:'b095', cat:'Verduras', nombre:'Lechuga',            kcal100:15,  prot100:1.4,  carbs100:2.9,  fat100:0.2, sat100:0.0, fiber100:1.3 },
-  { id:'b096', cat:'Verduras', nombre:'Cebolla',            kcal100:40,  prot100:1.1,  carbs100:9.0,  fat100:0.1, sat100:0.0, fiber100:1.7 },
-  { id:'b097', cat:'Verduras', nombre:'Pimiento rojo',      kcal100:31,  prot100:1.0,  carbs100:7.0,  fat100:0.3, sat100:0.1, fiber100:2.1 },
-  { id:'b098', cat:'Verduras', nombre:'Pimiento verde',     kcal100:20,  prot100:0.9,  carbs100:4.6,  fat100:0.2, sat100:0.1, fiber100:1.7 },
-  { id:'b099', cat:'Verduras', nombre:'Calabacín',          kcal100:17,  prot100:1.2,  carbs100:3.1,  fat100:0.3, sat100:0.1, fiber100:1.1 },
-  { id:'b100', cat:'Verduras', nombre:'Berenjena',          kcal100:24,  prot100:1.0,  carbs100:5.7,  fat100:0.2, sat100:0.0, fiber100:3.0 },
-  { id:'b101', cat:'Verduras', nombre:'Aguacate',           kcal100:160, prot100:2.0,  carbs100:9.0,  fat100:15.0, sat100:2.1, fiber100:6.7, tags:['grasa_insaturada'] },
-  { id:'b102', cat:'Verduras', nombre:'Champiñones',        kcal100:22,  prot100:3.1,  carbs100:3.3,  fat100:0.3, sat100:0.1, fiber100:1.0 },
-  { id:'b103', cat:'Verduras', nombre:'Judías verdes',      kcal100:31,  prot100:1.8,  carbs100:7.0,  fat100:0.2, sat100:0.0, fiber100:3.4 },
-  { id:'b104', cat:'Verduras', nombre:'Coliflor',           kcal100:25,  prot100:1.9,  carbs100:5.0,  fat100:0.3, sat100:0.1, fiber100:2.0 },
-  { id:'b105', cat:'Verduras', nombre:'Rúcula',             kcal100:25,  prot100:2.6,  carbs100:3.7,  fat100:0.7, sat100:0.1, fiber100:1.6 },
-  { id:'b106', cat:'Verduras', nombre:'Edamame',            kcal100:121, prot100:11.0, carbs100:9.0,  fat100:5.0, sat100:0.6, fiber100:5.2 },
-  { id:'b107', cat:'Verduras', nombre:'Remolacha cocida',   kcal100:43,  prot100:1.6,  carbs100:10.0, fat100:0.2, sat100:0.0, fiber100:2.0 },
-  { id:'b108', cat:'Verduras', nombre:'Ajo',                kcal100:149, prot100:6.4,  carbs100:33.0, fat100:0.5, sat100:0.1, fiber100:2.1 },
+  { id:'b090', cat:'Verduras', nombre:'Espinacas',          kcal100:23,  prot100:2.9,  carbs100:3.6,  fat100:0.4, sat100:0.1, fiber100:2.2, fe100:2.7, ca100:99, vd100:0 },
+  { id:'b091', cat:'Verduras', nombre:'Brócoli',            kcal100:34,  prot100:2.8,  carbs100:7.0,  fat100:0.4, sat100:0.1, fiber100:2.6, fe100:0.7, ca100:47, vd100:0 },
+  { id:'b092', cat:'Verduras', nombre:'Zanahoria',          kcal100:41,  prot100:0.9,  carbs100:10.0, fat100:0.2, sat100:0.0, fiber100:2.8, fe100:0.3, ca100:33, vd100:0 },
+  { id:'b093', cat:'Verduras', nombre:'Pepino',             kcal100:16,  prot100:0.7,  carbs100:4.0,  fat100:0.1, sat100:0.0, fiber100:0.5, fe100:0.3, ca100:16, vd100:0 },
+  { id:'b094', cat:'Verduras', nombre:'Tomate',             kcal100:18,  prot100:0.9,  carbs100:4.0,  fat100:0.2, sat100:0.0, fiber100:1.2, fe100:0.3, ca100:10, vd100:0 },
+  { id:'b095', cat:'Verduras', nombre:'Lechuga',            kcal100:15,  prot100:1.4,  carbs100:2.9,  fat100:0.2, sat100:0.0, fiber100:1.3, fe100:0.9, ca100:36, vd100:0 },
+  { id:'b096', cat:'Verduras', nombre:'Cebolla',            kcal100:40,  prot100:1.1,  carbs100:9.0,  fat100:0.1, sat100:0.0, fiber100:1.7, fe100:0.2, ca100:23, vd100:0 },
+  { id:'b097', cat:'Verduras', nombre:'Pimiento rojo',      kcal100:31,  prot100:1.0,  carbs100:7.0,  fat100:0.3, sat100:0.1, fiber100:2.1, fe100:0.4, ca100:7, vd100:0 },
+  { id:'b098', cat:'Verduras', nombre:'Pimiento verde',     kcal100:20,  prot100:0.9,  carbs100:4.6,  fat100:0.2, sat100:0.1, fiber100:1.7, fe100:0.3, ca100:10, vd100:0 },
+  { id:'b099', cat:'Verduras', nombre:'Calabacín',          kcal100:17,  prot100:1.2,  carbs100:3.1,  fat100:0.3, sat100:0.1, fiber100:1.1, fe100:0.4, ca100:16, vd100:0 },
+  { id:'b100', cat:'Verduras', nombre:'Berenjena',          kcal100:24,  prot100:1.0,  carbs100:5.7,  fat100:0.2, sat100:0.0, fiber100:3.0, fe100:0.2, ca100:9, vd100:0 },
+  { id:'b101', cat:'Verduras', nombre:'Aguacate',           kcal100:160, prot100:2.0,  carbs100:9.0,  fat100:15.0, sat100:2.1, fiber100:6.7, fe100:0.6, ca100:12, vd100:0, tags:['grasa_insaturada'] },
+  { id:'b102', cat:'Verduras', nombre:'Champiñones',        kcal100:22,  prot100:3.1,  carbs100:3.3,  fat100:0.3, sat100:0.1, fiber100:1.0, fe100:0.5, ca100:3, vd100:0.2 },
+  { id:'b103', cat:'Verduras', nombre:'Judías verdes',      kcal100:31,  prot100:1.8,  carbs100:7.0,  fat100:0.2, sat100:0.0, fiber100:3.4, fe100:1.0, ca100:37, vd100:0 },
+  { id:'b104', cat:'Verduras', nombre:'Coliflor',           kcal100:25,  prot100:1.9,  carbs100:5.0,  fat100:0.3, sat100:0.1, fiber100:2.0, fe100:0.4, ca100:22, vd100:0 },
+  { id:'b105', cat:'Verduras', nombre:'Rúcula',             kcal100:25,  prot100:2.6,  carbs100:3.7,  fat100:0.7, sat100:0.1, fiber100:1.6, fe100:1.5, ca100:160, vd100:0 },
+  { id:'b106', cat:'Verduras', nombre:'Edamame',            kcal100:121, prot100:11.0, carbs100:9.0,  fat100:5.0, sat100:0.6, fiber100:5.2, fe100:2.3, ca100:63, vd100:0 },
+  { id:'b107', cat:'Verduras', nombre:'Remolacha cocida',   kcal100:43,  prot100:1.6,  carbs100:10.0, fat100:0.2, sat100:0.0, fiber100:2.0, fe100:0.8, ca100:16, vd100:0 },
+  { id:'b108', cat:'Verduras', nombre:'Ajo',                kcal100:149, prot100:6.4,  carbs100:33.0, fat100:0.5, sat100:0.1, fiber100:2.1, fe100:1.7, ca100:181, vd100:0 },
   // ── LEGUMBRES ─────────────────────────────────────────────
-  { id:'b110', cat:'Legumbres', nombre:'Garbanzos cocidos',      kcal100:164, prot100:9.0,  carbs100:27.0, fat100:2.6, sat100:0.3, fiber100:7.6 },
-  { id:'b111', cat:'Legumbres', nombre:'Lentejas cocidas',       kcal100:116, prot100:9.0,  carbs100:20.0, fat100:0.4, sat100:0.1, fiber100:7.9 },
-  { id:'b112', cat:'Legumbres', nombre:'Alubias blancas cocidas',kcal100:127, prot100:8.7,  carbs100:22.0, fat100:0.5, sat100:0.1, fiber100:6.0 },
-  { id:'b113', cat:'Legumbres', nombre:'Alubias negras cocidas', kcal100:132, prot100:8.9,  carbs100:24.0, fat100:0.5, sat100:0.1, fiber100:8.7 },
-  { id:'b114', cat:'Legumbres', nombre:'Hummus Hacendado',       kcal100:170, prot100:7.0,  carbs100:11.0, fat100:11.0, sat100:1.5, fiber100:5.0 },
+  { id:'b110', cat:'Legumbres', nombre:'Garbanzos cocidos',      kcal100:164, prot100:9.0,  carbs100:27.0, fat100:2.6, sat100:0.3, fiber100:7.6, fe100:2.9, ca100:49, vd100:0 },
+  { id:'b111', cat:'Legumbres', nombre:'Lentejas cocidas',       kcal100:116, prot100:9.0,  carbs100:20.0, fat100:0.4, sat100:0.1, fiber100:7.9, fe100:3.3, ca100:19, vd100:0 },
+  { id:'b112', cat:'Legumbres', nombre:'Alubias blancas cocidas',kcal100:127, prot100:8.7,  carbs100:22.0, fat100:0.5, sat100:0.1, fiber100:6.0, fe100:2.5, ca100:60, vd100:0 },
+  { id:'b113', cat:'Legumbres', nombre:'Alubias negras cocidas', kcal100:132, prot100:8.9,  carbs100:24.0, fat100:0.5, sat100:0.1, fiber100:8.7, fe100:2.1, ca100:27, vd100:0 },
+  { id:'b114', cat:'Legumbres', nombre:'Hummus Hacendado',       kcal100:170, prot100:7.0,  carbs100:11.0, fat100:11.0, sat100:1.5, fiber100:5.0, fe100:2.4, ca100:38, vd100:0 },
   // ── GRASAS Y FRUTOS SECOS ─────────────────────────────────
-  { id:'b120', cat:'Grasas', nombre:'Aceite de oliva virgen extra',  kcal100:884, prot100:0.0,  carbs100:0.0,  fat100:100.0, sat100:14.0, fiber100:0.0, tags:['grasa_insaturada'] },
-  { id:'b121', cat:'Grasas', nombre:'Mantequilla',                    kcal100:717, prot100:0.9,  carbs100:0.1,  fat100:81.0, sat100:51.0, fiber100:0.0 },
-  { id:'b122', cat:'Grasas', nombre:'Almendras',                      kcal100:579, prot100:21.0, carbs100:22.0, fat100:50.0, sat100:3.8, fiber100:12.5, tags:['grasa_insaturada'] },
-  { id:'b123', cat:'Grasas', nombre:'Nueces',                         kcal100:654, prot100:15.0, carbs100:14.0, fat100:65.0, sat100:6.1, fiber100:6.7, tags:['grasa_insaturada'] },
-  { id:'b124', cat:'Grasas', nombre:'Anacardos',                      kcal100:553, prot100:18.0, carbs100:33.0, fat100:44.0, sat100:7.8, fiber100:3.3 },
-  { id:'b125', cat:'Grasas', nombre:'Cacahuetes',                     kcal100:567, prot100:26.0, carbs100:16.0, fat100:49.0, sat100:6.8, fiber100:8.5 },
-  { id:'b126', cat:'Grasas', nombre:'Crema de cacahuete Hacendado',   kcal100:588, prot100:25.0, carbs100:20.0, fat100:50.0, sat100:8.0, fiber100:6.0 },
-  { id:'b127', cat:'Grasas', nombre:'Semillas de chía',               kcal100:486, prot100:17.0, carbs100:42.0, fat100:31.0, sat100:3.3, fiber100:34.4, tags:['grasa_insaturada'] },
-  { id:'b128', cat:'Grasas', nombre:'Semillas de lino',               kcal100:534, prot100:18.0, carbs100:29.0, fat100:42.0, sat100:3.7, fiber100:27.3, tags:['grasa_insaturada'] },
-  { id:'b129', cat:'Grasas', nombre:'Chocolate negro 85% Hacendado',  kcal100:600, prot100:9.0,  carbs100:14.0, fat100:52.0, sat100:31.0, fiber100:12.0 },
+  { id:'b120', cat:'Grasas', nombre:'Aceite de oliva virgen extra',  kcal100:884, prot100:0.0,  carbs100:0.0,  fat100:100.0, sat100:14.0, fiber100:0.0, fe100:0.6, ca100:1, vd100:0, tags:['grasa_insaturada'] },
+  { id:'b121', cat:'Grasas', nombre:'Mantequilla',                    kcal100:717, prot100:0.9,  carbs100:0.1,  fat100:81.0, sat100:51.0, fiber100:0.0, fe100:0.02, ca100:24, vd100:0.6 },
+  { id:'b122', cat:'Grasas', nombre:'Almendras',                      kcal100:579, prot100:21.0, carbs100:22.0, fat100:50.0, sat100:3.8, fiber100:12.5, fe100:3.7, ca100:269, vd100:0, tags:['grasa_insaturada'] },
+  { id:'b123', cat:'Grasas', nombre:'Nueces',                         kcal100:654, prot100:15.0, carbs100:14.0, fat100:65.0, sat100:6.1, fiber100:6.7, fe100:2.9, ca100:98, vd100:0, tags:['grasa_insaturada'] },
+  { id:'b124', cat:'Grasas', nombre:'Anacardos',                      kcal100:553, prot100:18.0, carbs100:33.0, fat100:44.0, sat100:7.8, fiber100:3.3, fe100:6.7, ca100:37, vd100:0 },
+  { id:'b125', cat:'Grasas', nombre:'Cacahuetes',                     kcal100:567, prot100:26.0, carbs100:16.0, fat100:49.0, sat100:6.8, fiber100:8.5, fe100:4.6, ca100:92, vd100:0 },
+  { id:'b126', cat:'Grasas', nombre:'Crema de cacahuete Hacendado',   kcal100:588, prot100:25.0, carbs100:20.0, fat100:50.0, sat100:8.0, fiber100:6.0, fe100:1.9, ca100:49, vd100:0 },
+  { id:'b127', cat:'Grasas', nombre:'Semillas de chía',               kcal100:486, prot100:17.0, carbs100:42.0, fat100:31.0, sat100:3.3, fiber100:34.4, fe100:7.7, ca100:631, vd100:0, tags:['grasa_insaturada'] },
+  { id:'b128', cat:'Grasas', nombre:'Semillas de lino',               kcal100:534, prot100:18.0, carbs100:29.0, fat100:42.0, sat100:3.7, fiber100:27.3, fe100:5.7, ca100:255, vd100:0, tags:['grasa_insaturada'] },
+  { id:'b129', cat:'Grasas', nombre:'Chocolate negro 85% Hacendado',  kcal100:600, prot100:9.0,  carbs100:14.0, fat100:52.0, sat100:31.0, fiber100:12.0, fe100:11.9, ca100:73, vd100:0 },
   // ── PROTEÍNA Y SUPLEMENTOS ────────────────────────────────
-  { id:'b130', cat:'Suplementos', nombre:'Proteína de suero Hacendado',  kcal100:380, prot100:72.0, carbs100:10.0, fat100:7.0, sat100:3.5, fiber100:0.5 },
-  { id:'b131', cat:'Suplementos', nombre:'Bebida proteica Hacendado',    kcal100:60,  prot100:9.0,  carbs100:4.0,  fat100:1.2, sat100:0.8, fiber100:0.5 },
+  { id:'b130', cat:'Suplementos', nombre:'Proteína de suero Hacendado',  kcal100:380, prot100:72.0, carbs100:10.0, fat100:7.0, sat100:3.5, fiber100:0.5, fe100:0.5, ca100:400, vd100:0 },
+  { id:'b131', cat:'Suplementos', nombre:'Bebida proteica Hacendado',    kcal100:60,  prot100:9.0,  carbs100:4.0,  fat100:1.2, sat100:0.8, fiber100:0.5, fe100:0.2, ca100:150, vd100:0.5 },
   // ── PREPARADOS Y OTROS ────────────────────────────────────
-  { id:'b140', cat:'Otros', nombre:'Croquetas La Sirena (cong.)',         kcal100:214, prot100:7.5,  carbs100:21.0, fat100:12.0, sat100:3.5, fiber100:1.5, peso_ud_g:20 },
-  { id:'b141', cat:'Otros', nombre:'Salsa de soja',                       kcal100:53,  prot100:8.0,  carbs100:7.0,  fat100:0.1, sat100:0.0, fiber100:0.8 },
-  { id:'b142', cat:'Otros', nombre:'Ketchup Hacendado',                   kcal100:104, prot100:1.6,  carbs100:26.0, fat100:0.1, sat100:0.0, fiber100:1.0 },
-  { id:'b143', cat:'Otros', nombre:'Mayonesa Hacendado',                  kcal100:690, prot100:1.2,  carbs100:1.2,  fat100:77.0, sat100:6.5, fiber100:0.0 },
-  { id:'b144', cat:'Otros', nombre:'Queso parmesano rallado',             kcal100:431, prot100:38.0, carbs100:0.0,  fat100:30.0, sat100:19.0, fiber100:0.0 },
-  { id:'b145', cat:'Otros', nombre:'Mozzarella fresca',                   kcal100:253, prot100:18.0, carbs100:2.6,  fat100:19.0, sat100:12.0, fiber100:0.0 },
+  { id:'b140', cat:'Otros', nombre:'Croquetas La Sirena (cong.)',         kcal100:214, prot100:7.5,  carbs100:21.0, fat100:12.0, sat100:3.5, fiber100:1.5, fe100:0.8, ca100:60, vd100:0, peso_ud_g:20 },
+  { id:'b141', cat:'Otros', nombre:'Salsa de soja',                       kcal100:53,  prot100:8.0,  carbs100:7.0,  fat100:0.1, sat100:0.0, fiber100:0.8, fe100:1.9, ca100:20, vd100:0 },
+  { id:'b142', cat:'Otros', nombre:'Ketchup Hacendado',                   kcal100:104, prot100:1.6,  carbs100:26.0, fat100:0.1, sat100:0.0, fiber100:1.0, fe100:0.4, ca100:15, vd100:0 },
+  { id:'b143', cat:'Otros', nombre:'Mayonesa Hacendado',                  kcal100:690, prot100:1.2,  carbs100:1.2,  fat100:77.0, sat100:6.5, fiber100:0.0, fe100:0.2, ca100:8, vd100:0 },
+  { id:'b144', cat:'Otros', nombre:'Queso parmesano rallado',             kcal100:431, prot100:38.0, carbs100:0.0,  fat100:30.0, sat100:19.0, fiber100:0.0, fe100:0.8, ca100:1180, vd100:0.5 },
+  { id:'b145', cat:'Otros', nombre:'Mozzarella fresca',                   kcal100:253, prot100:18.0, carbs100:2.6,  fat100:19.0, sat100:12.0, fiber100:0.0, fe100:0.2, ca100:500, vd100:0.4 },
   // ── BÁSICOS ADICIONALES ───────────────────────────────────
-  { id:'b150', cat:'Lácteos', nombre:'Queso manchego curado',             kcal100:392, prot100:27.0, carbs100:0.5,  fat100:32.0, sat100:21.0, fiber100:0.0 },
-  { id:'b151', cat:'Lácteos', nombre:'Queso mozzarella rallado Hacendado',kcal100:318, prot100:24.0, carbs100:2.4,  fat100:24.0, sat100:15.0, fiber100:0.0 },
-  { id:'b152', cat:'Lácteos', nombre:'Nata para cocinar Hacendado',       kcal100:194, prot100:2.5,  carbs100:3.5,  fat100:19.0, sat100:12.5, fiber100:0.0 },
-  { id:'b153', cat:'Lácteos', nombre:'Batido de chocolate Hacendado',     kcal100:71,  prot100:3.4,  carbs100:11.0, fat100:1.5, sat100:1.0, fiber100:0.5 },
-  { id:'b160', cat:'Proteínas', nombre:'Pechuga de pavo (fresca)',        kcal100:104, prot100:22.0, carbs100:0.0,  fat100:1.7, sat100:0.5, fiber100:0.0 },
-  { id:'b161', cat:'Proteínas', nombre:'Bacalao fresco',                  kcal100:82,  prot100:18.0, carbs100:0.0,  fat100:0.7, sat100:0.1, fiber100:0.0 },
-  { id:'b162', cat:'Proteínas', nombre:'Boquerones frescos',              kcal100:131, prot100:20.0, carbs100:0.0,  fat100:5.0, sat100:1.3, fiber100:0.0, tags:['pescado_azul'] },
-  { id:'b163', cat:'Proteínas', nombre:'Mejillones al natural (lata)',    kcal100:84,  prot100:12.0, carbs100:3.5,  fat100:2.5, sat100:0.5, fiber100:0.0 },
-  { id:'b164', cat:'Proteínas', nombre:'Calamares',                       kcal100:92,  prot100:16.0, carbs100:3.0,  fat100:1.5, sat100:0.4, fiber100:0.0 },
-  { id:'b170', cat:'Carbohidratos', nombre:'Avena instantánea Quaker',   kcal100:356, prot100:12.5, carbs100:60.0, fat100:7.0, sat100:1.3, fiber100:10.0 },
-  { id:'b171', cat:'Carbohidratos', nombre:'Pan baguette',                kcal100:262, prot100:9.0,  carbs100:51.0, fat100:2.0, sat100:0.4, fiber100:2.7,  peso_ud_g:30 },
-  { id:'b172', cat:'Carbohidratos', nombre:'Tostada de pan (rebanada)',   kcal100:313, prot100:9.0,  carbs100:61.0, fat100:3.5, sat100:0.7, fiber100:3.5,  peso_ud_g:25 },
-  { id:'b173', cat:'Carbohidratos', nombre:'Macarrones (secos)',          kcal100:350, prot100:12.0, carbs100:70.0, fat100:1.5, sat100:0.3, fiber100:3.0 },
-  { id:'b174', cat:'Carbohidratos', nombre:'Espagueti (secos)',           kcal100:352, prot100:12.0, carbs100:70.0, fat100:1.5, sat100:0.3, fiber100:3.0 },
-  { id:'b175', cat:'Carbohidratos', nombre:'Arroz redondo (seco)',        kcal100:356, prot100:7.0,  carbs100:79.0, fat100:0.6, sat100:0.2, fiber100:1.0 },
-  { id:'b176', cat:'Carbohidratos', nombre:'Legumbres (garbanzo cocido)', kcal100:164, prot100:9.0,  carbs100:27.0, fat100:2.6, sat100:0.3, fiber100:7.6 },
-  { id:'b180', cat:'Verduras', nombre:'Maíz dulce (lata)',               kcal100:86,  prot100:3.2,  carbs100:19.0, fat100:1.2, sat100:0.2, fiber100:2.4 },
-  { id:'b181', cat:'Verduras', nombre:'Espárragos',                       kcal100:20,  prot100:2.2,  carbs100:3.9,  fat100:0.1, sat100:0.0, fiber100:2.1 },
-  { id:'b182', cat:'Verduras', nombre:'Coles de Bruselas',                kcal100:43,  prot100:3.4,  carbs100:9.0,  fat100:0.3, sat100:0.1, fiber100:3.8 },
-  { id:'b183', cat:'Verduras', nombre:'Alcachofas',                       kcal100:47,  prot100:3.3,  carbs100:10.5, fat100:0.2, sat100:0.0, fiber100:5.4 },
-  { id:'b184', cat:'Verduras', nombre:'Puerro',                           kcal100:31,  prot100:1.5,  carbs100:7.0,  fat100:0.3, sat100:0.0, fiber100:1.8 },
-  { id:'b185', cat:'Verduras', nombre:'Apio',                             kcal100:16,  prot100:0.7,  carbs100:3.0,  fat100:0.2, sat100:0.0, fiber100:1.6 },
-  { id:'b186', cat:'Verduras', nombre:'Col lombarda',                     kcal100:29,  prot100:1.4,  carbs100:6.0,  fat100:0.2, sat100:0.0, fiber100:2.1 },
-  { id:'b187', cat:'Verduras', nombre:'Nabo',                             kcal100:28,  prot100:0.9,  carbs100:6.0,  fat100:0.1, sat100:0.0, fiber100:1.8 },
-  { id:'b190', cat:'Grasas', nombre:'Aceite de coco',                    kcal100:862, prot100:0.0,  carbs100:0.0,  fat100:100.0, sat100:87.0, fiber100:0.0 },
-  { id:'b191', cat:'Grasas', nombre:'Tahini (pasta de sésamo)',          kcal100:595, prot100:17.0, carbs100:21.0, fat100:54.0, sat100:7.6, fiber100:9.3, tags:['grasa_insaturada'] },
-  { id:'b192', cat:'Grasas', nombre:'Pistachos',                         kcal100:562, prot100:20.0, carbs100:28.0, fat100:45.0, sat100:5.6, fiber100:10.3, tags:['grasa_insaturada'] },
-  { id:'b193', cat:'Grasas', nombre:'Avellanas',                         kcal100:628, prot100:15.0, carbs100:17.0, fat100:61.0, sat100:4.5, fiber100:9.7, tags:['grasa_insaturada'] },
-  { id:'b200', cat:'Otros', nombre:'Miel',                               kcal100:304, prot100:0.3,  carbs100:82.0, fat100:0.0, sat100:0.0, fiber100:0.2 },
-  { id:'b201', cat:'Otros', nombre:'Mermelada Hacendado',                kcal100:265, prot100:0.4,  carbs100:65.0, fat100:0.1, sat100:0.0, fiber100:1.0 },
-  { id:'b202', cat:'Otros', nombre:'Cacao en polvo Hacendado',           kcal100:375, prot100:21.0, carbs100:36.0, fat100:12.0, sat100:7.0, fiber100:30.0 },
-  { id:'b203', cat:'Otros', nombre:'Café solo (sin azúcar)',             kcal100:2,   prot100:0.1,  carbs100:0.0,  fat100:0.0, sat100:0.0, fiber100:0.0 },
-  { id:'b204', cat:'Otros', nombre:'Leche de coco (lata)',               kcal100:185, prot100:1.7,  carbs100:2.7,  fat100:18.0, sat100:16.0, fiber100:1.0 },
-  { id:'b205', cat:'Otros', nombre:'Tomate triturado (lata)',            kcal100:32,  prot100:1.5,  carbs100:6.0,  fat100:0.2, sat100:0.0, fiber100:1.4 },
-  { id:'b206', cat:'Otros', nombre:'Caldo de pollo (brick)',             kcal100:10,  prot100:1.0,  carbs100:1.0,  fat100:0.2, sat100:0.1, fiber100:0.0 },
+  { id:'b150', cat:'Lácteos', nombre:'Queso manchego curado',             kcal100:392, prot100:27.0, carbs100:0.5,  fat100:32.0, sat100:21.0, fiber100:0.0, fe100:0.6, ca100:850, vd100:0.5 },
+  { id:'b151', cat:'Lácteos', nombre:'Queso mozzarella rallado Hacendado',kcal100:318, prot100:24.0, carbs100:2.4,  fat100:24.0, sat100:15.0, fiber100:0.0, fe100:0.2, ca100:700, vd100:0.4 },
+  { id:'b152', cat:'Lácteos', nombre:'Nata para cocinar Hacendado',       kcal100:194, prot100:2.5,  carbs100:3.5,  fat100:19.0, sat100:12.5, fiber100:0.0, fe100:0.05, ca100:90, vd100:0.3 },
+  { id:'b153', cat:'Lácteos', nombre:'Batido de chocolate Hacendado',     kcal100:71,  prot100:3.4,  carbs100:11.0, fat100:1.5, sat100:1.0, fiber100:0.5, fe100:0.3, ca100:120, vd100:0.3 },
+  { id:'b160', cat:'Proteínas', nombre:'Pechuga de pavo (fresca)',        kcal100:104, prot100:22.0, carbs100:0.0,  fat100:1.7, sat100:0.5, fiber100:0.0, fe100:0.7, ca100:10, vd100:0.2 },
+  { id:'b161', cat:'Proteínas', nombre:'Bacalao fresco',                  kcal100:82,  prot100:18.0, carbs100:0.0,  fat100:0.7, sat100:0.1, fiber100:0.0, fe100:0.3, ca100:16, vd100:1.0 },
+  { id:'b162', cat:'Proteínas', nombre:'Boquerones frescos',              kcal100:131, prot100:20.0, carbs100:0.0,  fat100:5.0, sat100:1.3, fiber100:0.0, fe100:1.5, ca100:60, vd100:8.0, tags:['pescado_azul'] },
+  { id:'b163', cat:'Proteínas', nombre:'Mejillones al natural (lata)',    kcal100:84,  prot100:12.0, carbs100:3.5,  fat100:2.5, sat100:0.5, fiber100:0.0, fe100:4.5, ca100:40, vd100:3.0 },
+  { id:'b164', cat:'Proteínas', nombre:'Calamares',                       kcal100:92,  prot100:16.0, carbs100:3.0,  fat100:1.5, sat100:0.4, fiber100:0.0, fe100:0.7, ca100:32, vd100:0.3 },
+  { id:'b170', cat:'Carbohidratos', nombre:'Avena instantánea Quaker',   kcal100:356, prot100:12.5, carbs100:60.0, fat100:7.0, sat100:1.3, fiber100:10.0, fe100:4.5, ca100:52, vd100:0 },
+  { id:'b171', cat:'Carbohidratos', nombre:'Pan baguette',                kcal100:262, prot100:9.0,  carbs100:51.0, fat100:2.0, sat100:0.4, fiber100:2.7, fe100:1.5, ca100:40, vd100:0, peso_ud_g:30 },
+  { id:'b172', cat:'Carbohidratos', nombre:'Tostada de pan (rebanada)',   kcal100:313, prot100:9.0,  carbs100:61.0, fat100:3.5, sat100:0.7, fiber100:3.5, fe100:2.0, ca100:60, vd100:0, peso_ud_g:25 },
+  { id:'b173', cat:'Carbohidratos', nombre:'Macarrones (secos)',          kcal100:350, prot100:12.0, carbs100:70.0, fat100:1.5, sat100:0.3, fiber100:3.0, fe100:1.3, ca100:20, vd100:0 },
+  { id:'b174', cat:'Carbohidratos', nombre:'Espagueti (secos)',           kcal100:352, prot100:12.0, carbs100:70.0, fat100:1.5, sat100:0.3, fiber100:3.0, fe100:1.3, ca100:20, vd100:0 },
+  { id:'b175', cat:'Carbohidratos', nombre:'Arroz redondo (seco)',        kcal100:356, prot100:7.0,  carbs100:79.0, fat100:0.6, sat100:0.2, fiber100:1.0, fe100:0.8, ca100:10, vd100:0 },
+  { id:'b176', cat:'Carbohidratos', nombre:'Legumbres (garbanzo cocido)', kcal100:164, prot100:9.0,  carbs100:27.0, fat100:2.6, sat100:0.3, fiber100:7.6, fe100:2.9, ca100:49, vd100:0 },
+  { id:'b180', cat:'Verduras', nombre:'Maíz dulce (lata)',               kcal100:86,  prot100:3.2,  carbs100:19.0, fat100:1.2, sat100:0.2, fiber100:2.4, fe100:0.4, ca100:4, vd100:0 },
+  { id:'b181', cat:'Verduras', nombre:'Espárragos',                       kcal100:20,  prot100:2.2,  carbs100:3.9,  fat100:0.1, sat100:0.0, fiber100:2.1, fe100:2.1, ca100:24, vd100:0 },
+  { id:'b182', cat:'Verduras', nombre:'Coles de Bruselas',                kcal100:43,  prot100:3.4,  carbs100:9.0,  fat100:0.3, sat100:0.1, fiber100:3.8, fe100:1.4, ca100:42, vd100:0 },
+  { id:'b183', cat:'Verduras', nombre:'Alcachofas',                       kcal100:47,  prot100:3.3,  carbs100:10.5, fat100:0.2, sat100:0.0, fiber100:5.4, fe100:1.3, ca100:44, vd100:0 },
+  { id:'b184', cat:'Verduras', nombre:'Puerro',                           kcal100:31,  prot100:1.5,  carbs100:7.0,  fat100:0.3, sat100:0.0, fiber100:1.8, fe100:1.1, ca100:59, vd100:0 },
+  { id:'b185', cat:'Verduras', nombre:'Apio',                             kcal100:16,  prot100:0.7,  carbs100:3.0,  fat100:0.2, sat100:0.0, fiber100:1.6, fe100:0.2, ca100:40, vd100:0 },
+  { id:'b186', cat:'Verduras', nombre:'Col lombarda',                     kcal100:29,  prot100:1.4,  carbs100:6.0,  fat100:0.2, sat100:0.0, fiber100:2.1, fe100:0.8, ca100:45, vd100:0 },
+  { id:'b187', cat:'Verduras', nombre:'Nabo',                             kcal100:28,  prot100:0.9,  carbs100:6.0,  fat100:0.1, sat100:0.0, fiber100:1.8, fe100:0.3, ca100:30, vd100:0 },
+  { id:'b190', cat:'Grasas', nombre:'Aceite de coco',                    kcal100:862, prot100:0.0,  carbs100:0.0,  fat100:100.0, sat100:87.0, fiber100:0.0, fe100:0.05, ca100:1, vd100:0 },
+  { id:'b191', cat:'Grasas', nombre:'Tahini (pasta de sésamo)',          kcal100:595, prot100:17.0, carbs100:21.0, fat100:54.0, sat100:7.6, fiber100:9.3, fe100:8.9, ca100:426, vd100:0, tags:['grasa_insaturada'] },
+  { id:'b192', cat:'Grasas', nombre:'Pistachos',                         kcal100:562, prot100:20.0, carbs100:28.0, fat100:45.0, sat100:5.6, fiber100:10.3, fe100:3.9, ca100:105, vd100:0, tags:['grasa_insaturada'] },
+  { id:'b193', cat:'Grasas', nombre:'Avellanas',                         kcal100:628, prot100:15.0, carbs100:17.0, fat100:61.0, sat100:4.5, fiber100:9.7, fe100:4.7, ca100:114, vd100:0, tags:['grasa_insaturada'] },
+  { id:'b200', cat:'Otros', nombre:'Miel',                               kcal100:304, prot100:0.3,  carbs100:82.0, fat100:0.0, sat100:0.0, fiber100:0.2, fe100:0.4, ca100:6, vd100:0 },
+  { id:'b201', cat:'Otros', nombre:'Mermelada Hacendado',                kcal100:265, prot100:0.4,  carbs100:65.0, fat100:0.1, sat100:0.0, fiber100:1.0, fe100:0.2, ca100:10, vd100:0 },
+  { id:'b202', cat:'Otros', nombre:'Cacao en polvo Hacendado',           kcal100:375, prot100:21.0, carbs100:36.0, fat100:12.0, sat100:7.0, fiber100:30.0, fe100:13.9, ca100:128, vd100:0 },
+  { id:'b203', cat:'Otros', nombre:'Café solo (sin azúcar)',             kcal100:2,   prot100:0.1,  carbs100:0.0,  fat100:0.0, sat100:0.0, fiber100:0.0, fe100:0.01, ca100:2, vd100:0 },
+  { id:'b204', cat:'Otros', nombre:'Leche de coco (lata)',               kcal100:185, prot100:1.7,  carbs100:2.7,  fat100:18.0, sat100:16.0, fiber100:1.0, fe100:1.6, ca100:16, vd100:0 },
+  { id:'b205', cat:'Otros', nombre:'Tomate triturado (lata)',            kcal100:32,  prot100:1.5,  carbs100:6.0,  fat100:0.2, sat100:0.0, fiber100:1.4, fe100:0.9, ca100:14, vd100:0 },
+  { id:'b206', cat:'Otros', nombre:'Caldo de pollo (brick)',             kcal100:10,  prot100:1.0,  carbs100:1.0,  fat100:0.2, sat100:0.1, fiber100:0.0, fe100:0.1, ca100:5, vd100:0 },
   // ── SUPLEMENTOS DE SOL (uso diferenciado) ────────────────
   // Evolate whey: SOLO post-entreno. Garden of Life: SOLO recetas.
-  { id:'b210', cat:'Suplementos', nombre:'Proteína Evolate whey isolate',      kcal100:380, prot100:86.0, carbs100:3.0,  fat100:2.0, sat100:1.0, fiber100:0.0, tags:['post_entreno','whey'] },
-  { id:'b211', cat:'Suplementos', nombre:'Proteína Garden of Life plant-based', kcal100:375, prot100:70.0, carbs100:12.0, fat100:5.0, sat100:1.0, fiber100:8.0, tags:['solo_recetas','plant'] },
+  { id:'b210', cat:'Suplementos', nombre:'Proteína Evolate whey isolate',      kcal100:380, prot100:86.0, carbs100:3.0,  fat100:2.0, sat100:1.0, fiber100:0.0, fe100:0.5, ca100:400, vd100:0, tags:['post_entreno','whey'] },
+  { id:'b211', cat:'Suplementos', nombre:'Proteína Garden of Life plant-based', kcal100:375, prot100:70.0, carbs100:12.0, fat100:5.0, sat100:1.0, fiber100:8.0, fe100:8.0, ca100:120, vd100:0, tags:['solo_recetas','plant'] },
   // ── ALTA DENSIDAD PROTEICA ───────────────────────────────
-  { id:'b212', cat:'Lácteos', nombre:'Quark 0% Hacendado',            kcal100:60,  prot100:12.0, carbs100:4.0,  fat100:0.2, sat100:0.1, fiber100:0.0 },
-  { id:'b213', cat:'Lácteos', nombre:'Queso batido 0% Hacendado',     kcal100:47,  prot100:8.0,  carbs100:4.0,  fat100:0.2, sat100:0.1, fiber100:0.0 },
-  { id:'b214', cat:'Lácteos', nombre:'Skyr proteico sabores Hacendado', kcal100:65, prot100:11.0, carbs100:5.0, fat100:0.2, sat100:0.1, fiber100:0.0 },
-  { id:'b215', cat:'Proteínas', nombre:'Clara de huevo en polvo',      kcal100:370, prot100:80.0, carbs100:7.0,  fat100:0.5, sat100:0.2, fiber100:0.0 },
-  { id:'b216', cat:'Proteínas', nombre:'Bonito del norte al natural',  kcal100:108, prot100:24.0, carbs100:0.0,  fat100:1.2, sat100:0.3, fiber100:0.0 },
-  { id:'b217', cat:'Proteínas', nombre:'Trucha fresca',                kcal100:119, prot100:20.5, carbs100:0.0,  fat100:3.5, sat100:0.8, fiber100:0.0, tags:['pescado_azul'] },
-  { id:'b218', cat:'Proteínas', nombre:'Salmón ahumado',               kcal100:180, prot100:23.0, carbs100:0.5,  fat100:9.0, sat100:1.9, fiber100:0.0, tags:['pescado_azul'] },
-  { id:'b219', cat:'Otros', nombre:'Gelatina proteica sin azúcar',     kcal100:12,  prot100:2.5,  carbs100:0.4,  fat100:0.0, sat100:0.0, fiber100:0.0 },
+  { id:'b212', cat:'Lácteos', nombre:'Quark 0% Hacendado',            kcal100:60,  prot100:12.0, carbs100:4.0,  fat100:0.2, sat100:0.1, fiber100:0.0, fe100:0.1, ca100:120, vd100:0 },
+  { id:'b213', cat:'Lácteos', nombre:'Queso batido 0% Hacendado',     kcal100:47,  prot100:8.0,  carbs100:4.0,  fat100:0.2, sat100:0.1, fiber100:0.0, fe100:0.1, ca100:120, vd100:0 },
+  { id:'b214', cat:'Lácteos', nombre:'Skyr proteico sabores Hacendado', kcal100:65, prot100:11.0, carbs100:5.0, fat100:0.2, sat100:0.1, fiber100:0.0, fe100:0.05, ca100:140, vd100:0 },
+  { id:'b215', cat:'Proteínas', nombre:'Clara de huevo en polvo',      kcal100:370, prot100:80.0, carbs100:7.0,  fat100:0.5, sat100:0.2, fiber100:0.0, fe100:0.2, ca100:60, vd100:0 },
+  { id:'b216', cat:'Proteínas', nombre:'Bonito del norte al natural',  kcal100:108, prot100:24.0, carbs100:0.0,  fat100:1.2, sat100:0.3, fiber100:0.0, fe100:1.0, ca100:12, vd100:2.0 },
+  { id:'b217', cat:'Proteínas', nombre:'Trucha fresca',                kcal100:119, prot100:20.5, carbs100:0.0,  fat100:3.5, sat100:0.8, fiber100:0.0, fe100:0.3, ca100:43, vd100:13.6, tags:['pescado_azul'] },
+  { id:'b218', cat:'Proteínas', nombre:'Salmón ahumado',               kcal100:180, prot100:23.0, carbs100:0.5,  fat100:9.0, sat100:1.9, fiber100:0.0, fe100:0.8, ca100:11, vd100:8.0, tags:['pescado_azul'] },
+  { id:'b219', cat:'Otros', nombre:'Gelatina proteica sin azúcar',     kcal100:12,  prot100:2.5,  carbs100:0.4,  fat100:0.0, sat100:0.0, fiber100:0.0, fe100:0, ca100:0, vd100:0 },
   // ── PANES DE MASA MADRE ──────────────────────────────────
-  { id:'b220', cat:'Carbohidratos', nombre:'Pan de masa madre',            kcal100:260, prot100:9.5,  carbs100:50.0, fat100:1.5, sat100:0.3, fiber100:3.5 },
-  { id:'b221', cat:'Carbohidratos', nombre:'Pan de masa madre integral',   kcal100:247, prot100:10.0, carbs100:44.0, fat100:1.8, sat100:0.4, fiber100:6.5 },
+  { id:'b220', cat:'Carbohidratos', nombre:'Pan de masa madre',            kcal100:260, prot100:9.5,  carbs100:50.0, fat100:1.5, sat100:0.3, fiber100:3.5, fe100:2.0, ca100:30, vd100:0 },
+  { id:'b221', cat:'Carbohidratos', nombre:'Pan de masa madre integral',   kcal100:247, prot100:10.0, carbs100:44.0, fat100:1.8, sat100:0.4, fiber100:6.5, fe100:2.6, ca100:40, vd100:0 },
+
+  // ══ MERCADONA · Hacendado ════════════════════════════════
+  { id:'m01', cat:'Proteínas', nombre:'Pavo braseado lonchas Hacendado',    tienda:'Mercadona', kcal100:92,  prot100:16.5, carbs100:1.5, fat100:2.0, sat100:0.6, fiber100:0.3, fe100:0.6, ca100:9,  vd100:0.2 },
+  { id:'m02', cat:'Proteínas', nombre:'Lomo embuchado Hacendado',           tienda:'Mercadona', kcal100:180, prot100:33.0, carbs100:1.0, fat100:5.0, sat100:1.8, fiber100:0,   fe100:1.8, ca100:12, vd100:0.4 },
+  { id:'m03', cat:'Proteínas', nombre:'Palitos de cangrejo (surimi) Hacendado', tienda:'Mercadona', kcal100:95, prot100:8.0, carbs100:14.0, fat100:0.5, sat100:0.1, fiber100:0.4, fe100:0.3, ca100:20, vd100:0.2 },
+  { id:'m04', cat:'Proteínas', nombre:'Anchoas en aceite Hacendado',        tienda:'Mercadona', kcal100:210, prot100:26.0, carbs100:0,   fat100:12.0, sat100:2.6, fiber100:0,  fe100:3.3, ca100:230, vd100:5.0, tags:['pescado_azul'] },
+  { id:'m05', cat:'Proteínas', nombre:'Sardinillas en aceite Hacendado',    tienda:'Mercadona', kcal100:195, prot100:21.0, carbs100:0,   fat100:12.0, sat100:2.5, fiber100:0,  fe100:2.5, ca100:300, vd100:6.5, tags:['pescado_azul'] },
+  { id:'m06', cat:'Proteínas', nombre:'Bacalao desalado Hacendado',         tienda:'Mercadona', kcal100:82,  prot100:18.0, carbs100:0,   fat100:0.7, sat100:0.1, fiber100:0,   fe100:0.3, ca100:16, vd100:1.0 },
+  { id:'m07', cat:'Proteínas', nombre:'Pollo asado (pechuga) Hacendado',    tienda:'Mercadona', kcal100:165, prot100:25.0, carbs100:1.0, fat100:7.0, sat100:2.0, fiber100:0,   fe100:0.8, ca100:10, vd100:0.2 },
+  { id:'m08', cat:'Proteínas', nombre:'Gulas Hacendado',                    tienda:'Mercadona', kcal100:110, prot100:12.0, carbs100:8.0, fat100:3.0, sat100:0.5, fiber100:0.2, fe100:0.4, ca100:35, vd100:0.3 },
+  { id:'m09', cat:'Lácteos', nombre:'Queso havarti light Hacendado',        tienda:'Mercadona', kcal100:270, prot100:26.0, carbs100:1.0, fat100:18.0, sat100:12.0, fiber100:0, fe100:0.3, ca100:750, vd100:0.4 },
+  { id:'m10', cat:'Lácteos', nombre:'Yogur skyr proteico sabores Hacendado', tienda:'Mercadona', kcal100:60, prot100:10.0, carbs100:4.5, fat100:0.2, sat100:0.1, fiber100:0,   fe100:0.05, ca100:140, vd100:0 },
+  { id:'m11', cat:'Lácteos', nombre:'Bebida de coco Hacendado',             tienda:'Mercadona', kcal100:20,  prot100:0.2,  carbs100:2.5, fat100:0.9, sat100:0.8, fiber100:0.2, fe100:0.1, ca100:120, vd100:1.5 },
+  { id:'m12', cat:'Carbohidratos', nombre:'Pan de cristal Hacendado',       tienda:'Mercadona', kcal100:270, prot100:8.5, carbs100:52.0, fat100:2.5, sat100:0.5, fiber100:2.8, fe100:1.6, ca100:35, vd100:0 },
+  { id:'m13', cat:'Carbohidratos', nombre:'Tortillas de trigo (wrap) Hacendado', tienda:'Mercadona', kcal100:300, prot100:8.0, carbs100:49.0, fat100:7.5, sat100:3.0, fiber100:3.0, fe100:2.0, ca100:80, vd100:0, peso_ud_g:50 },
+  { id:'m14', cat:'Carbohidratos', nombre:'Copos de maíz sin azúcar Hacendado', tienda:'Mercadona', kcal100:372, prot100:7.5, carbs100:82.0, fat100:0.9, sat100:0.2, fiber100:3.0, fe100:7.9, ca100:12, vd100:2.1 },
+  { id:'m15', cat:'Otros', nombre:'Tomate frito Hacendado',                 tienda:'Mercadona', kcal100:75,  prot100:1.4,  carbs100:9.0, fat100:3.5, sat100:0.5, fiber100:1.5, fe100:0.8, ca100:16, vd100:0 },
+  { id:'m16', cat:'Otros', nombre:'Gazpacho Hacendado',                     tienda:'Mercadona', kcal100:38,  prot100:0.8,  carbs100:3.0, fat100:2.4, sat100:0.4, fiber100:1.0, fe100:0.3, ca100:12, vd100:0 },
+  { id:'m17', cat:'Otros', nombre:'Aceitunas verdes sin hueso Hacendado',   tienda:'Mercadona', kcal100:145, prot100:1.0,  carbs100:1.0, fat100:15.0, sat100:2.0, fiber100:3.3, fe100:0.5, ca100:52, vd100:0, tags:['grasa_insaturada'] },
+  { id:'m18', cat:'Otros', nombre:'Pepinillos en vinagre Hacendado',        tienda:'Mercadona', kcal100:15,  prot100:0.6,  carbs100:1.5, fat100:0.2, sat100:0,   fiber100:1.2, fe100:0.4, ca100:25, vd100:0 },
+  { id:'m19', cat:'Otros', nombre:'Barrita proteica Hacendado',             tienda:'Mercadona', kcal100:350, prot100:32.0, carbs100:28.0, fat100:11.0, sat100:6.0, fiber100:6.0, fe100:2.0, ca100:220, vd100:0, peso_ud_g:35 },
+  { id:'m20', cat:'Otros', nombre:'Helado proteico Hacendado',              tienda:'Mercadona', kcal100:105, prot100:9.0,  carbs100:12.0, fat100:1.5, sat100:1.0, fiber100:3.5, fe100:0.3, ca100:180, vd100:0 },
+  { id:'m21', cat:'Verduras', nombre:'Espinacas congeladas Hacendado',      tienda:'Mercadona', kcal100:25,  prot100:2.8,  carbs100:1.0, fat100:0.4, sat100:0.1, fiber100:2.5, fe100:2.4, ca100:130, vd100:0 },
+  { id:'m22', cat:'Verduras', nombre:'Menestra de verduras congelada Hacendado', tienda:'Mercadona', kcal100:42, prot100:2.8, carbs100:5.0, fat100:0.4, sat100:0.1, fiber100:3.0, fe100:1.0, ca100:38, vd100:0 },
+  { id:'m23', cat:'Verduras', nombre:'Guisantes congelados Hacendado',      tienda:'Mercadona', kcal100:78,  prot100:5.4,  carbs100:9.0, fat100:0.5, sat100:0.1, fiber100:5.0, fe100:1.5, ca100:25, vd100:0 },
+  { id:'m24', cat:'Verduras', nombre:'Brócoli congelado Hacendado',         tienda:'Mercadona', kcal100:32,  prot100:3.0,  carbs100:2.5, fat100:0.4, sat100:0.1, fiber100:2.8, fe100:0.7, ca100:45, vd100:0 },
+  { id:'m25', cat:'Proteínas', nombre:'Salmón congelado Hacendado',         tienda:'Mercadona', kcal100:198, prot100:20.0, carbs100:0,   fat100:13.0, sat100:2.9, fiber100:0,  fe100:0.3, ca100:12, vd100:10.0, tags:['pescado_azul'] },
+
+  // ══ AMETLLER ORIGEN ══════════════════════════════════════
+  { id:'a01', cat:'Carbohidratos', nombre:'Pa de pagès Ametller Origen',    tienda:'Ametller', kcal100:255, prot100:8.0, carbs100:50.0, fat100:1.2, sat100:0.3, fiber100:3.2, fe100:1.8, ca100:28, vd100:0 },
+  { id:'a02', cat:'Carbohidratos', nombre:'Pan de espelta Ametller Origen', tienda:'Ametller', kcal100:248, prot100:9.5, carbs100:45.0, fat100:1.8, sat100:0.4, fiber100:6.0, fe100:2.4, ca100:35, vd100:0 },
+  { id:'a03', cat:'Proteínas', nombre:'Pollastre de corral Ametller Origen', tienda:'Ametller', kcal100:112, prot100:23.0, carbs100:0, fat100:2.2, sat100:0.6, fiber100:0,   fe100:0.8, ca100:6,  vd100:0.2 },
+  { id:'a04', cat:'Otros', nombre:'Truita de patata Ametller Origen',       tienda:'Ametller', kcal100:180, prot100:6.5,  carbs100:14.0, fat100:11.0, sat100:2.2, fiber100:1.3, fe100:1.0, ca100:30, vd100:0.8 },
+  { id:'a05', cat:'Otros', nombre:'Hummus fresco Ametller Origen',          tienda:'Ametller', kcal100:185, prot100:7.5,  carbs100:12.0, fat100:11.5, sat100:1.6, fiber100:5.2, fe100:2.4, ca100:40, vd100:0 },
+  { id:'a06', cat:'Frutas', nombre:'Zumo de naranja natural Ametller Origen', tienda:'Ametller', kcal100:45, prot100:0.7, carbs100:9.5, fat100:0.2, sat100:0,   fiber100:0.3, fe100:0.1, ca100:11, vd100:0 },
+  { id:'a07', cat:'Verduras', nombre:'Ensalada preparada Ametller Origen',  tienda:'Ametller', kcal100:22,  prot100:1.4,  carbs100:2.2, fat100:0.3, sat100:0.1, fiber100:1.8, fe100:0.8, ca100:45, vd100:0 },
+  { id:'a08', cat:'Lácteos', nombre:'Iogurt de cabra Ametller Origen',      tienda:'Ametller', kcal100:70,  prot100:3.6,  carbs100:4.4, fat100:4.0, sat100:2.7, fiber100:0,   fe100:0.1, ca100:130, vd100:0.1 },
+
+  // ══ CARREFOUR ════════════════════════════════════════════
+  { id:'c01', cat:'Carbohidratos', nombre:'Pan crujiente de centeno Carrefour', tienda:'Carrefour', kcal100:335, prot100:10.0, carbs100:63.0, fat100:1.7, sat100:0.3, fiber100:16.0, fe100:3.4, ca100:40, vd100:0, peso_ud_g:10 },
+  { id:'c02', cat:'Proteínas', nombre:'Pechuga de pollo Carrefour',         tienda:'Carrefour', kcal100:108, prot100:23.0, carbs100:0,   fat100:1.6, sat100:0.5, fiber100:0,   fe100:0.7, ca100:5,  vd100:0.1 },
+  { id:'c03', cat:'Proteínas', nombre:'Salmón fresco Carrefour',            tienda:'Carrefour', kcal100:203, prot100:20.0, carbs100:0,   fat100:13.0, sat100:3.0, fiber100:0,  fe100:0.3, ca100:12, vd100:11.0, tags:['pescado_azul'] },
+  { id:'c04', cat:'Lácteos', nombre:'Queso fresco batido 0% Carrefour',     tienda:'Carrefour', kcal100:48,  prot100:8.2,  carbs100:4.0, fat100:0.2, sat100:0.1, fiber100:0,   fe100:0.1, ca100:120, vd100:0 },
+  { id:'c05', cat:'Legumbres', nombre:'Garbanzos cocidos Carrefour Bio',    tienda:'Carrefour', kcal100:160, prot100:8.8,  carbs100:26.0, fat100:2.5, sat100:0.3, fiber100:7.4, fe100:2.8, ca100:48, vd100:0 },
+  { id:'c06', cat:'Legumbres', nombre:'Lentejas cocidas Carrefour',         tienda:'Carrefour', kcal100:114, prot100:8.8,  carbs100:19.5, fat100:0.4, sat100:0.1, fiber100:7.8, fe100:3.2, ca100:19, vd100:0 },
+  { id:'c07', cat:'Grasas', nombre:'Crema de almendras Carrefour Bio',      tienda:'Carrefour', kcal100:625, prot100:21.0, carbs100:8.0, fat100:55.0, sat100:4.2, fiber100:10.0, fe100:3.7, ca100:265, vd100:0, tags:['grasa_insaturada'] },
+  { id:'c08', cat:'Otros', nombre:'Chocolate negro 90% Carrefour',          tienda:'Carrefour', kcal100:592, prot100:10.0, carbs100:14.0, fat100:55.0, sat100:33.0, fiber100:14.0, fe100:12.5, ca100:80, vd100:0 },
+
+  // ══ JESPAC · Alteza, Selex y Fresc de Mercat ═════════════
+  { id:'j01', cat:'Carbohidratos', nombre:'Arroz redondo Alteza',           tienda:'Jespac', kcal100:354, prot100:7.0,  carbs100:78.0, fat100:0.7, sat100:0.2, fiber100:1.0, fe100:0.8, ca100:10, vd100:0 },
+  { id:'j02', cat:'Carbohidratos', nombre:'Macarrones Alteza',              tienda:'Jespac', kcal100:352, prot100:12.0, carbs100:70.0, fat100:1.5, sat100:0.3, fiber100:3.0, fe100:1.3, ca100:20, vd100:0 },
+  { id:'j03', cat:'Lácteos', nombre:'Leche semidesnatada Alteza',           tienda:'Jespac', kcal100:46,  prot100:3.2,  carbs100:4.8, fat100:1.6, sat100:1.0, fiber100:0,   fe100:0.05, ca100:120, vd100:0.03 },
+  { id:'j04', cat:'Proteínas', nombre:'Atún claro al natural Alteza',       tienda:'Jespac', kcal100:105, prot100:23.5, carbs100:0,   fat100:1.0, sat100:0.3, fiber100:0,   fe100:1.0, ca100:11, vd100:2.0 },
+  { id:'j05', cat:'Otros', nombre:'Tomate triturado Alteza',                tienda:'Jespac', kcal100:30,  prot100:1.4,  carbs100:5.5, fat100:0.2, sat100:0,   fiber100:1.4, fe100:0.9, ca100:14, vd100:0 },
+  { id:'j06', cat:'Grasas', nombre:'Aceite de oliva virgen extra Alteza',   tienda:'Jespac', kcal100:884, prot100:0,    carbs100:0,   fat100:100.0, sat100:14.0, fiber100:0, fe100:0.6, ca100:1, vd100:0, tags:['grasa_insaturada'] },
+  { id:'j07', cat:'Legumbres', nombre:'Alubias blancas cocidas Selex',      tienda:'Jespac', kcal100:125, prot100:8.5,  carbs100:21.5, fat100:0.5, sat100:0.1, fiber100:6.2, fe100:2.5, ca100:60, vd100:0 },
+  { id:'j08', cat:'Legumbres', nombre:'Garbanzos cocidos Selex',            tienda:'Jespac', kcal100:162, prot100:9.0,  carbs100:26.5, fat100:2.6, sat100:0.3, fiber100:7.5, fe100:2.9, ca100:49, vd100:0 },
+  { id:'j09', cat:'Proteínas', nombre:'Pechuga de pollo Fresc de Mercat',   tienda:'Jespac', kcal100:110, prot100:23.5, carbs100:0,   fat100:1.7, sat100:0.5, fiber100:0,   fe100:0.7, ca100:5,  vd100:0.1 },
+  { id:'j10', cat:'Proteínas', nombre:'Merluza fresca Fresc de Mercat',     tienda:'Jespac', kcal100:72,  prot100:16.0, carbs100:0,   fat100:0.8, sat100:0.2, fiber100:0,   fe100:0.4, ca100:15, vd100:1.0 },
+  { id:'j11', cat:'Proteínas', nombre:'Ternera magra Fresc de Mercat',      tienda:'Jespac', kcal100:125, prot100:21.5, carbs100:0,   fat100:4.2, sat100:1.8, fiber100:0,   fe100:2.4, ca100:10, vd100:0.2 },
+  { id:'j12', cat:'Verduras', nombre:'Verdura de temporada Fresc de Mercat', tienda:'Jespac', kcal100:30,  prot100:2.0,  carbs100:4.0, fat100:0.3, sat100:0.1, fiber100:2.4, fe100:0.9, ca100:45, vd100:0 },
 ];
 
 /* ---- Recetas de partida ---- */
@@ -1177,13 +1277,51 @@ function macrosOf(food, grams) {
     kcal: (food.kcal100 || 0) * f, prot: (food.prot100 || 0) * f,
     carbs: (food.carbs100 || 0) * f, fat: (food.fat100 || 0) * f,
     sat: (food.sat100 || 0) * f, fiber: (food.fiber100 || 0) * f,
+    fe: (food.fe100 || 0) * f, ca: (food.ca100 || 0) * f, vd: (food.vd100 || 0) * f,
   };
 }
 function foodHasTag(f, tag) { return !!(f && f.tags && f.tags.indexOf(tag) >= 0); }
 
+/* Relevancia al BUSCAR. Aquí manda que coincida con lo escrito, no la
+   densidad proteica: quien escribe "huevo" quiere el huevo, no la clara
+   en polvo. La densidad solo desempata. */
+function searchScore(food, term) {
+  const name = norm(food.nombre);
+  const pos = name.indexOf(term);
+  if (pos < 0) return -1;
+  let score = 0;
+  if (name === term) score = 100;
+  else if (pos === 0) score = 80;
+  else if (name[pos - 1] === ' ' || name[pos - 1] === '(') score = 60;
+  else score = 30;
+  // Un nombre corto suele ser el alimento base; los largos son variantes
+  score -= Math.min(18, name.length / 6);
+  if (/polvo|desecad|deshidrat/.test(name)) score -= 12;
+  return score + density(food) * 8;
+}
+function searchFoods(term, limit) {
+  const t = norm(term);
+  if (t.length < 2) return [];
+  return allFoods()
+    .map(f => ({ f: f, s: searchScore(f, t) }))
+    .filter(x => x.s >= 0)
+    .sort((a, b) => b.s - a.s)
+    .slice(0, limit || 25)
+    .map(x => x.f);
+}
+
+/* Cantidad inicial razonable: una unidad si la tiene, poca cantidad si
+   es muy calórico (aceites, polvos), y 100 g en el resto. */
+function defaultGrams(food) {
+  if (food.peso_ud_g) return food.peso_ud_g;
+  if (food.kcal100 >= 500) return 15;
+  if (food.kcal100 >= 300) return 40;
+  return 100;
+}
+
 /* ---- Recetas ---- */
 function recipeMacros(r) {
-  const t = { kcal: 0, prot: 0, carbs: 0, fat: 0, sat: 0, fiber: 0 };
+  const t = { kcal: 0, prot: 0, carbs: 0, fat: 0, sat: 0, fiber: 0, fe: 0, ca: 0, vd: 0 };
   (r.ingredients || []).forEach(i => {
     const f = foodById(i.ingredient_id);
     if (!f) return;
@@ -1192,6 +1330,7 @@ function recipeMacros(r) {
   });
   for (const k in t) t[k] = round1(t[k]);
   t.kcal = Math.round(t.kcal);
+  t.ca = Math.round(t.ca);
   return t;
 }
 function allRecipes() {
@@ -1256,7 +1395,8 @@ function dayTotals(fecha) {
     kcal: a.kcal + (e.kcal || 0), prot: a.prot + (e.prot || 0),
     carbs: a.carbs + (e.carbs || 0), fat: a.fat + (e.fat || 0),
     sat: a.sat + (e.sat || 0), fiber: a.fiber + (e.fiber || 0),
-  }), { kcal: 0, prot: 0, carbs: 0, fat: 0, sat: 0, fiber: 0 });
+    fe: a.fe + (e.fe || 0), ca: a.ca + (e.ca || 0), vd: a.vd + (e.vd || 0),
+  }), { kcal: 0, prot: 0, carbs: 0, fat: 0, sat: 0, fiber: 0, fe: 0, ca: 0, vd: 0 });
 }
 function remaining(fecha) {
   const t = targets(), d = dayTotals(fecha);
@@ -1511,7 +1651,7 @@ function slotRecipe(slot) {
   return (slot.factor && slot.factor !== 1) ? scaleRecipe(r, slot.factor) : r;
 }
 function menuDayTotals(day) {
-  const t = { kcal: 0, prot: 0, carbs: 0, fat: 0, sat: 0, fiber: 0 };
+  const t = { kcal: 0, prot: 0, carbs: 0, fat: 0, sat: 0, fiber: 0, fe: 0, ca: 0, vd: 0 };
   (day.meal_slots || []).forEach(s => {
     const r = slotRecipe(s);
     if (!r) return;
@@ -1766,6 +1906,7 @@ function viewHoy() {
           '<span class="v num">' + fmt1(tot.sat) + ' <small>/ ' + lim + ' g</small></span>' +
         '</div>' +
       '</div>' +
+      microLedger(tot) +
       (isToday ?
         '<div class="trained"><span>¿Entrenaste hoy?</span>' +
         '<button class="switch" id="trained-toggle" aria-pressed="' + (trainedOn(curDate) ? 'true' : 'false') +
@@ -1788,6 +1929,25 @@ function viewHoy() {
     '</div>';
 
   return dateNav + readout + notes + closeDayCard() + mealsSection();
+}
+
+/* Micronutrientes del día. Contexto informativo, no una regla:
+   la fibra importa por el colesterol, y hierro, calcio y vitamina D
+   son los que la usuaria quiere vigilar. */
+function microLedger(tot) {
+  const cell = (label, val, target, unit, dec) => {
+    const pct = Math.min(100, (val / target) * 100);
+    const shown = dec ? fmt1(val) : Math.round(val);
+    return '<div class="micro"><div class="micro-top"><span class="mk">' + label + '</span>' +
+      '<span class="mv num">' + shown + '<small> / ' + target + ' ' + unit + '</small></span></div>' +
+      '<div class="rail"><i class="' + (pct >= 100 ? 'good' : '') + '" style="width:' + pct.toFixed(1) + '%"></i></div></div>';
+  };
+  return '<div class="micros">' +
+    cell('Fibra', tot.fiber, MICRO_TARGETS.fiber, 'g', true) +
+    cell('Hierro', tot.fe, MICRO_TARGETS.fe, 'mg', true) +
+    cell('Calcio', tot.ca, MICRO_TARGETS.ca, 'mg', false) +
+    cell('Vit. D', tot.vd, MICRO_TARGETS.vd, 'µg', true) +
+  '</div>';
 }
 
 /* ---- Tarjeta central: qué comer para cerrar el día ---- */
@@ -1842,12 +2002,15 @@ function closeDayCard() {
 
   return '<div class="card">' +
     '<span class="eyebrow">¿Qué como para cerrar el día?</span>' +
+    '<div style="margin-top:9px">' + chips + '</div>' +
     '<p class="hint">Para ' + mealName(key).toLowerCase() + ' te tocan ' +
       '<span class="num">' + Math.max(0, Math.round(res.gap.kcal)) + '</span> kcal y ' +
       '<span class="num">' + Math.max(0, Math.round(res.gap.prot)) + '</span> g de proteína' +
       (res.gap.isLast ? ', y es la última comida del día' : '') + '.</p>' +
-    chips +
-    '<div class="sugs" style="margin-top:11px">' + list + '</div>' +
+    '<button class="btn primary wide" data-act="add-food" data-meal="' + key + '">' +
+      'Montar mi ' + mealName(key).toLowerCase() + ' con mis ingredientes</button>' +
+    '<div class="or-line"><span>o elige una de estas</span></div>' +
+    '<div class="sugs">' + list + '</div>' +
     ingBlock +
   '</div>';
 }
@@ -1869,10 +2032,12 @@ function mealsSection() {
       '<div class="meal-head">' +
         '<span class="meal-name">' + m.name + '</span>' +
         '<span class="meal-kcal">' + (kcal ? Math.round(kcal) + ' kcal · P' + Math.round(prot) : '—') + '</span>' +
-        '<button class="mini accent" data-act="suggest" data-meal="' + m.key + '" aria-label="Sugerencias para ' + m.name + '">✦</button>' +
-        '<button class="mini" data-act="add-food" data-meal="' + m.key + '" aria-label="Añadir alimento a ' + m.name + '">+</button>' +
       '</div>' +
       (rows ? '<div class="entries">' + rows + '</div>' : '') +
+      '<div class="meal-foot">' +
+        '<button class="btn grow" data-act="add-food" data-meal="' + m.key + '">Poner mis ingredientes</button>' +
+        '<button class="btn" data-act="suggest" data-meal="' + m.key + '" aria-label="Ver sugerencias para ' + m.name + '">✦</button>' +
+      '</div>' +
     '</div>';
   }).join('');
   return '<div><div class="section-head"><h2>Lo que has comido</h2></div>' +
@@ -2083,6 +2248,7 @@ function logRecipe(recipe, factor, mealKey) {
       qty: ing.amount_g, unit: f.unit || 'g',
       kcal: Math.round(m.kcal), prot: round1(m.prot), carbs: round1(m.carbs),
       fat: round1(m.fat), sat: round1(m.sat), fiber: round1(m.fiber),
+      fe: round1(m.fe), ca: Math.round(m.ca), vd: round1(m.vd),
       food_id: f.id, recipe_id: recipe.id,
     });
   });
@@ -2210,7 +2376,7 @@ function paintEditor() {
   box.querySelector('[data-add-ing]').onclick = () => {
     pullEditor();
     sheetPicker('Añadir ingrediente', food => {
-      draft.ingredients.push({ ingredient_id: food.id, amount_g: 100 });
+      draft.ingredients.push({ ingredient_id: food.id, amount_g: defaultGrams(food) });
       openEditorSheet();
     });
   };
@@ -2246,16 +2412,17 @@ function sheetPicker(title, onPick) {
     const list = scrim.querySelector('#pk-list');
     const paint = term => {
       const n = norm(term);
-      let items = allFoods();
-      if (n.length >= 2) items = items.filter(f => norm(f.nombre).indexOf(n) >= 0);
-      items = items.slice().sort((a, b) => density(b) - density(a)).slice(0, n.length >= 2 ? 40 : 25);
+      const items = n.length >= 2
+        ? searchFoods(term, 40)
+        : allFoods().slice().sort((a, b) => density(b) - density(a)).slice(0, 25);
       if (!items.length) { list.innerHTML = '<p class="empty">Sin resultados.</p>'; return; }
       list.innerHTML = (n.length >= 2 ? '' : '<span class="eyebrow">Mejor proteína por caloría</span>') +
         items.map(f =>
           '<button class="pick" data-f="' + f.id + '"><div class="info">' +
             '<span class="nm">' + esc(f.nombre) + '</span>' +
             '<span class="sub">' + f.kcal100 + ' kcal · P' + f.prot100 + ' C' + f.carbs100 +
-              ' G' + f.fat100 + ' · sat ' + f.sat100 + ' / 100 ' + (f.unit || 'g') + '</span>' +
+              ' G' + f.fat100 + ' / 100 ' + (f.unit || 'g') +
+              (f.tienda ? ' · ' + esc(f.tienda) : '') + '</span>' +
           '</div><span class="dens">' + (density(f) * 100).toFixed(1) + '</span></button>').join('');
       list.querySelectorAll('[data-f]').forEach(b => b.onclick = () => {
         const food = foodById(b.dataset.f);
@@ -2269,38 +2436,162 @@ function sheetPicker(title, onPick) {
   });
 }
 
-/* ---- Cantidad de un alimento suelto ---- */
-function sheetPortion(food, mealKey) {
+/* ============================================================
+   CONSTRUCTOR DE COMIDAS
+   Buscar, añadir varios alimentos y ver macros y micros del
+   conjunto sin salir de la hoja. Es la vía principal para
+   registrar: lo habitual es que la comida no sea la habitual.
+   ============================================================ */
+let builder = null;
+
+function sheetBuilder(mealKey) {
+  builder = { meal: mealKey, items: [] };
   const body =
-    '<div class="field"><label for="pt-q">Cantidad en ' + (food.unit || 'gramos') + '</label>' +
-      '<input class="input numeric" id="pt-q" type="number" inputmode="numeric" value="100" min="1" max="5000"></div>' +
-    '<div class="preview" id="pt-prev"></div>' +
-    '<button class="btn primary wide" data-ok>Añadir a ' + mealName(mealKey).toLowerCase() + '</button>';
-  openSheet(food.nombre, body, scrim => {
-    const inp = scrim.querySelector('#pt-q');
-    const prev = scrim.querySelector('#pt-prev');
-    const paint = () => {
-      const m = macrosOf(food, parseFloat(inp.value) || 0);
-      prev.innerHTML = '<b>' + Math.round(m.kcal) + ' kcal</b><span>P ' + fmt1(m.prot) +
-        '</span><span>C ' + fmt1(m.carbs) + '</span><span>G ' + fmt1(m.fat) +
-        '</span><span>sat ' + fmt1(m.sat) + '</span>';
-    };
-    paint();
-    inp.addEventListener('input', paint);
-    scrim.querySelector('[data-ok]').onclick = () => {
-      const g = parseFloat(inp.value) || 100;
-      const m = macrosOf(food, g);
-      addEntry(curDate, {
-        id: 'e' + Date.now(), meal: mealKey, nombre: food.nombre,
-        qty: g, unit: food.unit || 'g',
-        kcal: Math.round(m.kcal), prot: round1(m.prot), carbs: round1(m.carbs),
-        fat: round1(m.fat), sat: round1(m.sat), fiber: round1(m.fiber),
-        food_id: food.id,
-      });
-      closeSheet(); render(); toast(food.nombre + ' añadido');
-    };
-    setTimeout(() => { inp.focus(); inp.select(); }, 220);
+    '<div class="field">' +
+      '<input class="input" id="bd-q" placeholder="Buscar alimento y tocar para añadir" autocomplete="off">' +
+    '</div>' +
+    '<div id="bd-results"></div>' +
+    '<div id="bd-items"></div>' +
+    '<div id="bd-tot"></div>' +
+    '<div class="field"><label for="bd-name">Guardarla también como receta (opcional)</label>' +
+      '<input class="input" id="bd-name" placeholder="Nombre de la receta"></div>' +
+    '<button class="btn primary wide" id="bd-save">Añadir a ' + mealName(mealKey).toLowerCase() + '</button>';
+
+  openSheet('Montar ' + mealName(mealKey).toLowerCase(), body, scrim => {
+    const q = scrim.querySelector('#bd-q');
+    q.addEventListener('input', () => builderResults(q.value.trim()));
+    scrim.querySelector('#bd-save').onclick = builderCommit;
+    builderResults('');
+    builderItems();
+    setTimeout(() => q.focus(), 220);
   });
+}
+
+/* Resultados de búsqueda; se ordenan por proteína por caloría. */
+function builderResults(term) {
+  const box = document.getElementById('bd-results');
+  if (!box) return;
+  const n = norm(term);
+  if (n.length < 2) {
+    box.innerHTML = '<p class="hint" style="margin:0">Escribe al menos dos letras. ' +
+      'Tienes ' + allFoods().length + ' alimentos, incluidos los de Mercadona, Ametller, Carrefour y Jespac.</p>';
+    return;
+  }
+  const items = searchFoods(term, 25);
+  if (!items.length) {
+    box.innerHTML = '<p class="empty">Sin resultados. Puedes crearlo en Ajustes → Alimentos propios.</p>';
+    return;
+  }
+  box.innerHTML = items.map(f =>
+    '<button class="pick" data-add="' + f.id + '"><div class="info">' +
+      '<span class="nm">' + esc(f.nombre) + '</span>' +
+      '<span class="sub">' + f.kcal100 + ' kcal · P' + f.prot100 + ' C' + f.carbs100 + ' G' + f.fat100 +
+        ' / 100 ' + (f.unit || 'g') + (f.tienda ? ' · ' + esc(f.tienda) : '') + '</span>' +
+    '</div><span class="dens">+</span></button>').join('');
+  box.querySelectorAll('[data-add]').forEach(b => b.onclick = () => {
+    const food = foodById(b.dataset.add);
+    builder.items.push({ id: b.dataset.add, grams: defaultGrams(food) });
+    const q = document.getElementById('bd-q');
+    if (q) { q.value = ''; q.focus(); }
+    builderResults('');
+    builderItems();
+  });
+}
+
+function builderTotals() {
+  const t = { kcal: 0, prot: 0, carbs: 0, fat: 0, sat: 0, fiber: 0, fe: 0, ca: 0, vd: 0 };
+  builder.items.forEach(it => {
+    const f = foodById(it.id);
+    if (!f) return;
+    const m = macrosOf(f, it.grams);
+    for (const k in t) t[k] += m[k];
+  });
+  return t;
+}
+
+/* Lista de lo añadido y totales. Los gramos se editan sin
+   repintar la lista entera, para no perder el foco al teclear. */
+function builderItems() {
+  const box = document.getElementById('bd-items');
+  if (!box || !builder) return;
+  if (!builder.items.length) {
+    box.innerHTML = '';
+    builderTotalsBox();
+    return;
+  }
+  box.innerHTML = '<span class="eyebrow">Tu comida</span>' +
+    builder.items.map((it, idx) => {
+      const f = foodById(it.id);
+      return '<div class="ing-edit"><span class="nm">' + esc(f ? f.nombre : '—') + '</span>' +
+        '<input type="number" inputmode="numeric" min="1" max="5000" value="' + it.grams + '" data-g="' + idx + '">' +
+        '<span class="u">' + (f ? (f.unit || 'g') : 'g') + '</span>' +
+        '<button class="x" data-del="' + idx + '" aria-label="Quitar">✕</button></div>';
+    }).join('');
+  box.querySelectorAll('[data-g]').forEach(inp => inp.oninput = () => {
+    builder.items[+inp.dataset.g].grams = Math.max(1, parseInt(inp.value, 10) || 0);
+    builderTotalsBox();
+  });
+  box.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+    builder.items.splice(+b.dataset.del, 1);
+    builderItems();
+  });
+  builderTotalsBox();
+}
+
+function builderTotalsBox() {
+  const box = document.getElementById('bd-tot');
+  if (!box || !builder) return;
+  if (!builder.items.length) { box.innerHTML = ''; return; }
+  const t = builderTotals();
+  const gap = shareForMeal(curDate, builder.meal);
+  const dif = Math.round(t.kcal - gap.kcal);
+  box.innerHTML =
+    '<div class="preview"><b>' + Math.round(t.kcal) + ' kcal</b>' +
+      '<span>P ' + fmt1(t.prot) + ' g</span><span>C ' + fmt1(t.carbs) + ' g</span>' +
+      '<span>G ' + fmt1(t.fat) + ' g</span><span>sat ' + fmt1(t.sat) + ' g</span></div>' +
+    '<div class="micro-strip">' +
+      '<span>fibra <b>' + fmt1(t.fiber) + ' g</b></span>' +
+      '<span>hierro <b>' + fmt1(t.fe) + ' mg</b></span>' +
+      '<span>calcio <b>' + Math.round(t.ca) + ' mg</b></span>' +
+      '<span>vit D <b>' + fmt1(t.vd) + ' µg</b></span>' +
+    '</div>' +
+    '<p class="hint" style="margin:8px 0 0">Para ' + mealName(builder.meal).toLowerCase() +
+      ' te tocaban ' + Math.max(0, Math.round(gap.kcal)) + ' kcal: ' +
+      (Math.abs(dif) <= 40 ? 'encaja bien' : (dif > 0 ? dif + ' kcal por encima' : Math.abs(dif) + ' kcal por debajo')) + '.</p>';
+}
+
+/* Registra lo montado y, si le has puesto nombre, lo guarda como receta. */
+function builderCommit() {
+  if (!builder || !builder.items.length) { toast('Añade algún alimento primero'); return; }
+  const stamp = Date.now();
+  builder.items.forEach((it, i) => {
+    const f = foodById(it.id);
+    if (!f) return;
+    const m = macrosOf(f, it.grams);
+    addEntry(curDate, {
+      id: 'b' + stamp + '_' + i, meal: builder.meal, nombre: f.nombre,
+      qty: it.grams, unit: f.unit || 'g',
+      kcal: Math.round(m.kcal), prot: round1(m.prot), carbs: round1(m.carbs),
+      fat: round1(m.fat), sat: round1(m.sat), fiber: round1(m.fiber),
+      fe: round1(m.fe), ca: Math.round(m.ca), vd: round1(m.vd),
+      food_id: f.id,
+    });
+  });
+
+  const nameEl = document.getElementById('bd-name');
+  const name = nameEl ? nameEl.value.trim() : '';
+  if (name) {
+    saveRecipe({
+      id: 'r' + stamp.toString(36), name: name, meal_type: builder.meal,
+      ingredients: builder.items.map(it => ({ ingredient_id: it.id, amount_g: it.grams })),
+      is_fixed: false, tags: [], notes: '',
+    });
+  }
+  const n = builder.items.length;
+  builder = null;
+  closeSheet();
+  render();
+  toast(name ? name + ' registrada y guardada' : n + (n === 1 ? ' alimento añadido' : ' alimentos añadidos'));
 }
 
 /* ---- Cambiar una comida del menú ---- */
@@ -2527,16 +2818,14 @@ document.getElementById('view').addEventListener('click', ev => {
       qty: grams, unit: food.unit || 'g',
       kcal: Math.round(m.kcal), prot: round1(m.prot), carbs: round1(m.carbs),
       fat: round1(m.fat), sat: round1(m.sat), fiber: round1(m.fiber),
+      fe: round1(m.fe), ca: Math.round(m.ca), vd: round1(m.vd),
       food_id: food.id,
     });
     render();
     toast(grams + ' ' + (food.unit || 'g') + ' de ' + food.nombre);
     return;
   }
-  if (act === 'add-food') {
-    sheetPicker('Añadir a ' + mealName(d.meal).toLowerCase(), food => sheetPortion(food, d.meal));
-    return;
-  }
+  if (act === 'add-food') { sheetBuilder(d.meal); return; }
   if (act === 'del-entry') { removeEntry(curDate, d.id); render(); return; }
   if (act === 'rfilter') { recipeFilter = d.f; render(); return; }
   if (act === 'new-recipe') { sheetEditor(null); return; }
