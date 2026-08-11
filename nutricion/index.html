@@ -662,6 +662,10 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
   padding-top: 7px; font-size: 11.5px;
 }
+
+.pin.add { background: var(--warn-wash); color: var(--warn); }
+.warn-tag { background: var(--warn-wash); color: var(--warn); }
+.need-add { margin-top: 8px; font-size: 11.5px; color: var(--warn); }
 </style>
 
 <div class="app">
@@ -2198,29 +2202,67 @@ function templatesFor(meal, maxTiempo) {
    admite. Así lo que sale es una receta, no una suma que cuadra.
    ============================================================ */
 
-/* Combinaciones de asignación ingrediente→papel, acotadas para no
-   explotar: con 4 papeles y 3 candidatos cada uno ya son 81. */
-function roleAssignments(tpl, selectedIds, limite, fijos) {
+/**
+ * Coloca TODOS los ingredientes elegidos en los papeles del formato.
+ * Un papel puede llevar dos cosas (dos frutas en un bowl, huevo y clara
+ * en un revuelto), porque elegir un ingrediente significa quererlo en el
+ * plato, no darle permiso al cálculo para descartarlo.
+ */
+/* Qué poner en un papel obligatorio que no cubre la selección. Se mira
+   primero entre los favoritos de esa comida y lo que hay en casa: es más
+   probable que lo tenga a mano. */
+function fillerFor(role, meal, excluirIds) {
+  const favs = favorites(meal);
+  const cand = allFoods()
+    .filter(f => excluirIds.indexOf(f.id) < 0)
+    .filter(f => hasRole(f, role.key))
+    .filter(f => !role.filtro || role.filtro.test(norm(f.nombre)));
+  if (!cand.length) return null;
+  cand.sort((a, b) =>
+    (favs.indexOf(b.id) >= 0 ? 2 : 0) - (favs.indexOf(a.id) >= 0 ? 2 : 0) ||
+    (pantryQty(b.id) > 0 ? 1 : 0) - (pantryQty(a.id) > 0 ? 1 : 0) ||
+    density(b) - density(a));
+  return cand[0];
+}
+
+function assignAll(tpl, selectedIds, meal, conRelleno) {
   const foods = selectedIds.map(foodById).filter(Boolean);
-  let combos = [[]];
-  tpl.roles.forEach(role => {
-    const cand = foods.filter(f => hasRole(f, role.key))
-      .filter(f => !role.filtro || role.filtro.test(norm(f.nombre)));
-    const next = [];
-    combos.forEach(c => {
-      const usados = c.map(x => x.food.id);
-      const libres = cand.filter(f => usados.indexOf(f.id) < 0);
-      if (!role.req) next.push(c);                       // se puede dejar vacío
-      libres.forEach(f => next.push(c.concat([{ role: role, food: f }])));
-    });
-    combos = next.slice(0, limite || 200);
+  const ocupado = {};
+  const asig = [], sobran = [];
+
+  foods.forEach(f => {
+    const posibles = tpl.roles.filter(r =>
+      hasRole(f, r.key) &&
+      (!r.filtro || r.filtro.test(norm(f.nombre))) &&
+      (ocupado[r.key] || 0) < 2);
+    if (!posibles.length) { sobran.push(f); return; }
+    // Primero los papeles aún vacíos, y entre ellos el más específico
+    posibles.sort((a, b) =>
+      (ocupado[a.key] || 0) - (ocupado[b.key] || 0) ||
+      (b.req ? 1 : 0) - (a.req ? 1 : 0));
+    const r = posibles[0];
+    ocupado[r.key] = (ocupado[r.key] || 0) + 1;
+    asig.push({ role: r, food: f, segundo: ocupado[r.key] > 1 });
   });
-  // Valen las que cubren los papeles obligatorios y, si has fijado los
-  // gramos de algo, las que lo incluyen: fijar gramos es decir "esto va".
-  const obligados = Object.keys(fijos || {});
-  return combos.filter(c =>
-    tpl.roles.every(r => !r.req || c.some(x => x.role.key === r.key)) &&
-    obligados.every(id => selectedIds.indexOf(id) < 0 || c.some(x => x.food.id === id)));
+
+  let faltanReq = tpl.roles.filter(r => r.req && !ocupado[r.key]);
+  const anadidos = [];
+
+  // Un formato no se descarta por faltarle una pieza: se propone diciendo
+  // qué hay que añadir, que es más útil que no ofrecer la receta.
+  if (conRelleno && faltanReq.length) {
+    const yaUsados = selectedIds.slice();
+    faltanReq.forEach(r => {
+      const f = fillerFor(r, meal, yaUsados);
+      if (!f) return;
+      yaUsados.push(f.id);
+      asig.push({ role: r, food: f, segundo: false, anadido: true });
+      anadidos.push(f);
+      ocupado[r.key] = 1;
+    });
+    faltanReq = tpl.roles.filter(r => r.req && !ocupado[r.key]);
+  }
+  return { asig: asig, sobran: sobran, faltanReq: faltanReq, anadidos: anadidos };
 }
 
 /* Ajusta los gramos de una asignación. `fijos` son los gramos que la
@@ -2230,7 +2272,9 @@ function fitAssignment(asig, targets, fijos) {
   const grids = asig.map(x => {
     const fijo = fijos && fijos[x.food.id];
     if (fijo) return [fijo];
-    const min = Math.max(x.role.min, composeMin(x.food));
+    // Al segundo ingrediente de un mismo papel no se le exige la ración
+    // entera: dos frutas en un bowl se reparten el sitio.
+    const min = x.segundo ? composeMin(x.food) : Math.max(x.role.min, composeMin(x.food));
     const max = Math.max(min, x.role.max);
     const paso = x.food.peso_ud_g && x.food.peso_ud_g <= max ? x.food.peso_ud_g : 5;
     const out = [];
@@ -2262,6 +2306,7 @@ function fitAssignment(asig, targets, fijos) {
     food: x.food, grams: amounts[i], role: x.role.label,
     uds: x.food.peso_ud_g ? Math.round(amounts[i] / x.food.peso_ud_g) : null,
     fijo: !!(fijos && fijos[x.food.id]),
+    anadido: !!x.anadido,
   }));
   const totals = sumFor(foods, amounts);
   return { items: items, totals: totals, error: composeError(totals, targets, 0) };
@@ -2279,37 +2324,60 @@ function recipeTitle(tpl, items) {
 }
 
 /**
- * Recetas propuestas para una comida, un tiempo disponible y unos macros.
- * Devuelve una por formato, la mejor de cada uno, para que las opciones
- * sean platos distintos y no variantes del mismo.
+ * Recetas propuestas. Se prefieren las que colocan todo lo elegido; solo
+ * se admite dejar algo fuera cuando el formato no tiene dónde ponerlo, y
+ * entonces se dice. Siempre se intenta devolver al menos tres platos.
  */
 function proposeRecipes(meal, selectedIds, targets, opts) {
   opts = opts || {};
-  const out = [];
-  templatesFor(meal, opts.maxTiempo).forEach(tpl => {
-    const asigs = roleAssignments(tpl, selectedIds, 200, opts.fijos);
-    let mejor = null;
-    asigs.forEach(a => {
-      if (a.length < (tpl.min_ing || 2)) return;
-      const r = fitAssignment(a, targets, opts.fijos);
-      if (!r) return;
-      // Premia usar más de lo que ha elegido: los puso por algo
-      const puntua = r.error - a.length * 0.04;
-      if (!mejor || puntua < mejor.puntua) mejor = Object.assign(r, { puntua: puntua, tpl: tpl });
-    });
-    if (mejor) {
-      mejor.nombre = recipeTitle(tpl, mejor.items);
-      mejor.tiempo = tpl.tiempo;
-      mejor.pasos = tpl.pasos;
-      mejor.gaps = composeGaps(mejor.totals, targets);
-      mejor.sinUsar = selectedIds
-        .filter(id => !mejor.items.some(x => x.food.id === id))
-        .map(id => shortName(foodById(id)));
-      out.push(mejor);
-    }
-  });
-  out.sort((a, b) => a.puntua - b.puntua);
-  return out.slice(0, opts.cuantas || 3);
+  const minimo = opts.cuantas || 3;
+
+  const evaluar = (tpl, fueraDeTiempo, conRelleno) => {
+    const a = assignAll(tpl, selectedIds, meal, conRelleno);
+    if (a.faltanReq.length) return null;              // ni con relleno se sostiene
+    if (a.asig.length < (tpl.min_ing || 2)) return null;
+    const r = fitAssignment(a.asig, targets, opts.fijos);
+    if (!r) return null;
+    r.tpl = tpl;
+    r.nombre = recipeTitle(tpl, r.items);
+    r.tiempo = tpl.tiempo;
+    r.pasos = tpl.pasos;
+    r.gaps = composeGaps(r.totals, targets);
+    r.sinUsar = a.sobran.map(f => shortName(f));
+    r.anadidos = (a.anadidos || []).map(f => shortName(f));
+    r.fueraDeTiempo = !!fueraDeTiempo;
+    return r;
+  };
+
+  // Orden: usar todo lo elegido manda; después, necesitar menos añadidos;
+  // después, cuadrar mejor con los macros.
+  const ordenar = list => list.sort((a, b) =>
+    a.sinUsar.length - b.sinUsar.length ||
+    a.anadidos.length - b.anadidos.length ||
+    a.error - b.error);
+
+  const recoger = (tpls, fuera, relleno) => {
+    const vistos = {};
+    return ordenar(tpls.map(t => evaluar(t, fuera, relleno)).filter(Boolean)
+      .filter(r => vistos[r.tpl.id] ? false : (vistos[r.tpl.id] = true)));
+  };
+
+  const enTiempo = templatesFor(meal, opts.maxTiempo);
+  let out = recoger(enTiempo, false, false);
+
+  // Si no llegan tres, se admiten formatos que necesitan un ingrediente
+  // más, y solo después se relaja el tiempo. Cada receta lo dice.
+  if (out.length < minimo) {
+    const ya = out.map(r => r.tpl.id);
+    out = out.concat(recoger(enTiempo.filter(t => ya.indexOf(t.id) < 0), false, true));
+  }
+  if (out.length < minimo && opts.maxTiempo) {
+    const ya = out.map(r => r.tpl.id);
+    const fuera = templatesFor(meal, 0).filter(t => ya.indexOf(t.id) < 0);
+    out = out.concat(recoger(fuera, true, false)).concat(
+      recoger(fuera.filter(t => out.every(r => r.tpl.id !== t.id)), true, true));
+  }
+  return out.slice(0, Math.max(minimo, 3));
 }
 
 /**
@@ -3326,19 +3394,25 @@ function composerResults() {
           '<span class="role"> · ' + esc(x.role) + '</span></span>' +
         '<span class="g">' + x.grams + ' ' + (x.food.unit || 'g') +
           (x.uds ? ' <span class="faint">· ' + x.uds + (x.uds === 1 ? ' ud' : ' uds') + '</span>' : '') +
-          (x.fijo ? ' <span class="pin">fijo</span>' : '') + '</span></div>').join('');
+          (x.fijo ? ' <span class="pin">fijo</span>' : '') +
+          (x.anadido ? ' <span class="pin add">te falta</span>' : '') + '</span></div>').join('');
       const compra = missingFromPantry(r.items);
       return '<div class="option' + (i === 0 ? ' option-full' : '') + '">' +
         '<div class="option-head"><span class="recipe-title">' + esc(r.nombre) + '</span></div>' +
         '<div class="recipe-meta"><span class="tag">⏱ ' + r.tiempo + ' min</span>' +
-          (cuadra ? '<span class="tag blue">cuadra tus macros</span>' : '') + '</div>' +
+          (cuadra ? '<span class="tag blue">cuadra tus macros</span>' : '') +
+          (r.sinUsar.length === 0 ? '<span class="tag blue">lleva todo lo tuyo</span>' : '') +
+          (r.fueraDeTiempo ? '<span class="tag warn-tag">más de lo que tienes</span>' : '') + '</div>' +
         ing +
         '<div class="macro-row" style="margin-top:8px"><b>' + Math.round(r.totals.kcal) + ' kcal</b>' +
           '<span>P ' + fmt1(r.totals.prot) + '</span><span>C ' + fmt1(r.totals.carbs) + '</span>' +
           '<span>G ' + fmt1(r.totals.fat) + '</span><span>fibra ' + fmt1(r.totals.fiber) + '</span></div>' +
         (r.gaps.length ? '<div class="careful">' + r.gaps.map(g =>
             g.label + ' ' + (g.diff > 0 ? '+' : '−') + Math.abs(Math.round(g.diff)) + ' g').join(' · ') + '</div>' : '') +
-        (r.sinUsar.length ? '<div class="quita">No lleva: ' + esc(r.sinUsar.join(', ')) + '</div>' : '') +
+        (r.anadidos && r.anadidos.length
+          ? '<div class="need-add">Necesitas añadir: ' + esc(r.anadidos.join(', ')) + '</div>' : '') +
+        (r.sinUsar.length ? '<div class="quita">No lleva: ' + esc(r.sinUsar.join(', ')) +
+          ' — no tienen sitio en este plato</div>' : '') +
         '<details class="pasos"><summary>Cómo se hace</summary><ol>' +
           r.pasos.map(x => '<li>' + esc(x) + '</li>').join('') + '</ol></details>' +
         (pantry().length === 0
