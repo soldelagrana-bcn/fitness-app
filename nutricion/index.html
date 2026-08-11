@@ -595,6 +595,48 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
   border-top: 1px solid var(--line-soft);
 }
 .meal-foot .btn { padding: 8px 10px; font-size: 12.5px; min-width: 44px; }
+
+/* ---- Compositor de recetas ---- */
+.fav-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+.fav-chip {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft);
+  border-radius: 999px; padding: 8px 11px; min-height: 44px;
+  font-size: 12px; font-weight: 600; line-height: 1.2;
+}
+.fav-chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.fav-chip[aria-pressed="false"] { opacity: .55; text-decoration: line-through; }
+
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tiny-field { display: flex; flex-direction: column; gap: 4px; }
+.tiny-field > span { font-size: 10.5px; font-weight: 660; color: var(--ink-faint); }
+
+.pick-main { flex: 1; min-width: 0; border: 0; background: none; text-align: left; padding: 0; display: flex; min-height: 44px; align-items: center; }
+.star {
+  border: 0; background: none; color: var(--accent);
+  font-size: 19px; min-width: 44px; min-height: 44px; padding: 0;
+}
+.star[aria-pressed="false"] { color: var(--ink-faint); }
+
+.option {
+  border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--surface); padding: 12px; margin-bottom: 10px;
+}
+.option-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.option-n { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+.suggest-extra {
+  margin-top: 9px; padding: 9px 10px; border-radius: var(--r-sm);
+  background: var(--accent-wash); border: 1px solid var(--accent-line);
+  font-size: 12px; color: var(--ink-soft);
+}
+.link-btn {
+  border: 0; background: none; padding: 4px 0 0;
+  color: var(--accent); font-size: 12px; font-weight: 660;
+  text-decoration: underline; display: block; min-height: 32px;
+}
+.need-buy {
+  margin-top: 8px; font-size: 11.5px; color: var(--warn);
+}
+.have-all { margin-top: 8px; font-size: 11.5px; color: var(--good); }
 </style>
 
 <div class="app">
@@ -902,6 +944,10 @@ const FOODS = [
   { id:'j10', cat:'Proteínas', nombre:'Merluza fresca Fresc de Mercat',     tienda:'Jespac', kcal100:72,  prot100:16.0, carbs100:0,   fat100:0.8, sat100:0.2, fiber100:0,   fe100:0.4, ca100:15, vd100:1.0 },
   { id:'j11', cat:'Proteínas', nombre:'Ternera magra Fresc de Mercat',      tienda:'Jespac', kcal100:125, prot100:21.5, carbs100:0,   fat100:4.2, sat100:1.8, fiber100:0,   fe100:2.4, ca100:10, vd100:0.2 },
   { id:'j12', cat:'Verduras', nombre:'Verdura de temporada Fresc de Mercat', tienda:'Jespac', kcal100:30,  prot100:2.0,  carbs100:4.0, fat100:0.3, sat100:0.1, fiber100:2.4, fe100:0.9, ca100:45, vd100:0 },
+
+  // ══ TUS HABITUALES ═══════════════════════════════════════
+  { id:'b230', cat:'Carbohidratos', nombre:'Granola',                       kcal100:450, prot100:9.0,  carbs100:60.0, fat100:18.0, sat100:2.5, fiber100:7.0, fe100:3.0, ca100:60,  vd100:0 },
+  { id:'b231', cat:'Suplementos', nombre:'Whey vainilla MyProtein',         kcal100:400, prot100:82.0, carbs100:4.5,  fat100:7.0,  sat100:4.5, fiber100:0.5, fe100:0.6, ca100:400, vd100:0 },
 ];
 
 /* ---- Recetas de partida ---- */
@@ -1315,6 +1361,14 @@ function macrosOf(food, grams) {
 }
 function foodHasTag(f, tag) { return !!(f && f.tags && f.tags.indexOf(tag) >= 0); }
 
+/* Nombre corto para los chips: la marca no ayuda a reconocerlo y sí
+   ocupa media fila. El nombre completo sigue en la receta y la búsqueda. */
+const MARCAS = /\s+(Hacendado|Carrefour( Bio)?|Alteza|Selex|MyProtein|Ametller Origen|La Sirena|Fresc de Mercat|Quaker)\b.*$/i;
+function shortName(f) {
+  if (!f) return '';
+  return f.nombre.replace(MARCAS, '').replace(/\s*\([^)]*\)/g, '').trim() || f.nombre;
+}
+
 /* Relevancia al BUSCAR. Aquí manda que coincida con lo escrito, no la
    densidad proteica: quien escribe "huevo" quiere el huevo, no la clara
    en polvo. La densidad solo desempata. */
@@ -1652,6 +1706,249 @@ function suggestIngredients(fecha, limit) {
     .filter(x => x.macros.kcal <= rem.kcal * 1.1 && x.macros.sat <= satLeft + 0.5)
     .sort((a, b) => b.dens - a.dens)
     .slice(0, limit || 3);
+}
+
+/* ============================================================
+   FAVORITOS Y COMPOSITOR DE RECETAS
+   Dados unos ingredientes y unos macros objetivo, calcula los
+   gramos de cada uno. Es un problema de ajuste, no de búsqueda:
+   se parte de una ración razonable y se afina ingrediente a
+   ingrediente hasta que deja de mejorar.
+   ============================================================ */
+
+const FAV_SEED = {
+  desayuno: ['b003', 'b230', 'b074', 'b231', 'b070', 'b220', 'b023', 'b024', 'b101'],
+  almuerzo: [], snack: [], cena: [],
+};
+
+function favorites(meal) {
+  const saved = DB.get('favs', null);
+  if (saved && saved[meal]) return saved[meal];
+  return (FAV_SEED[meal] || []).slice();
+}
+function setFavorites(meal, ids) {
+  const all = DB.get('favs', null) || JSON.parse(JSON.stringify(FAV_SEED));
+  all[meal] = ids;
+  DB.set('favs', all);
+}
+function toggleFavorite(meal, id) {
+  const list = favorites(meal).slice();
+  const i = list.indexOf(id);
+  if (i >= 0) list.splice(i, 1); else list.push(id);
+  setFavorites(meal, list);
+  return list;
+}
+function isFavorite(meal, id) { return favorites(meal).indexOf(id) >= 0; }
+
+/* Tope razonable por ingrediente, para que no proponga 300 g de
+   aguacate ni medio bote de proteína con tal de cuadrar el número. */
+function composeCap(f) {
+  if (f.kcal100 >= 500) return 40;                               // aceites, cremas, frutos secos
+  if (f.prot100 >= 60) return 60;                                // proteína en polvo
+  if (f.fat100 >= 10) return 100;                                // aguacate, huevo, quesos
+  if (f.kcal100 >= 300) return 120;                              // granola, avena, secos
+  if (f.cat === 'Carbohidratos' && f.kcal100 >= 200) return 150; // panes
+  if (f.cat === 'Frutas') return 200;                            // una pieza y media, no tres
+  if (f.peso_ud_g) return Math.max(f.peso_ud_g * 2, 120);
+  return 300;
+}
+
+/* Cantidad mínima con sentido en una receta. Por debajo de esto no se
+   usa el ingrediente: 5 g de granola no son un ingrediente, son ruido. */
+function composeMin(f) {
+  if (f.peso_ud_g) return f.peso_ud_g;
+  if (f.kcal100 >= 500) return 5;
+  if (f.prot100 >= 60) return 10;
+  return 20;
+}
+
+/* Cantidades que se van a probar. Lo que se compra por unidades
+   (huevos, rebanadas) salta de unidad en unidad; el resto de 5 en 5. */
+function composeGrid(f) {
+  const cap = composeCap(f), min = composeMin(f);
+  const out = [0];
+  if (f.peso_ud_g) {
+    for (let g = f.peso_ud_g; g <= cap; g += f.peso_ud_g) out.push(g);
+  } else {
+    for (let g = min; g <= cap; g += 5) out.push(g);
+  }
+  return out;
+}
+
+function sumFor(foods, amounts) {
+  const t = { kcal: 0, prot: 0, carbs: 0, fat: 0, sat: 0, fiber: 0, fe: 0, ca: 0, vd: 0 };
+  foods.forEach((f, i) => {
+    if (!amounts[i]) return;
+    const m = macrosOf(f, amounts[i]);
+    for (const k in t) t[k] += m[k];
+  });
+  return t;
+}
+
+/* Error contra los objetivos. Solo cuentan los que se hayan puesto:
+   pedir proteína y fibra no debería forzar un número de grasa. */
+const COMPOSE_WEIGHTS = { prot: 3, carbs: 2, fiber: 2, kcal: 1.5, fat: 1 };
+/* Cada ingrediente extra paga un peaje pequeño: cuadrar el número con
+   nueve alimentos es peor receta que cuadrarlo casi igual con cuatro. */
+const COMPOSE_ITEM_COST = 0.05;
+function composeError(totals, targets, usados) {
+  let e = usados ? usados * COMPOSE_ITEM_COST : 0;
+  for (const k in targets) {
+    const t = targets[k];
+    if (t == null || isNaN(t)) continue;
+    const diff = (totals[k] || 0) - t;
+    const scale = Math.max(t, 10);
+    // Pasarse penaliza algo más que quedarse corto en kcal y grasa
+    const over = diff > 0 && (k === 'kcal' || k === 'fat') ? 1.3 : 1;
+    e += (COMPOSE_WEIGHTS[k] || 1) * over * Math.pow(diff / scale, 2);
+  }
+  return e;
+}
+
+/**
+ * Ajusta los gramos de cada ingrediente para acercarse a los objetivos.
+ * Descenso por coordenadas: recorre un ingrediente cada vez probando
+ * cantidades en pasos de 5 g y se queda con la que menos error deja.
+ * Permite el 0, así que puede descartar lo que no haga falta.
+ */
+function composeRecipe(ids, targets, seed) {
+  const foods = ids.map(foodById).filter(Boolean);
+  if (!foods.length) return null;
+  const grids = foods.map(composeGrid);
+
+  let amounts = foods.map((f, i) => {
+    // `seed` marca con qué ingredientes se arranca. Partir de sitios
+    // distintos es lo que hace que salgan recetas distintas: si siempre
+    // se empieza igual, siempre se cae en la misma solución.
+    if (seed && seed.indexOf(i) < 0) return 0;
+    const d = Math.min(composeCap(f), defaultGrams(f));
+    return grids[i].reduce((best, g) => Math.abs(g - d) < Math.abs(best - d) ? g : best, 0);
+  });
+  const errOf = a => composeError(sumFor(foods, a), targets, a.filter(x => x > 0).length);
+
+  for (let pass = 0; pass < 30; pass++) {
+    let moved = false;
+    for (let i = 0; i < foods.length; i++) {
+      const start = amounts[i];
+      let bestG = start, bestE = errOf(amounts);
+      for (const g of grids[i]) {
+        if (g === start) continue;
+        amounts[i] = g;
+        const e = errOf(amounts);
+        if (e < bestE - 1e-9) { bestE = e; bestG = g; }
+      }
+      amounts[i] = bestG;
+      if (bestG !== start) moved = true;
+    }
+    if (!moved) break;
+  }
+
+  const items = foods
+    .map((f, i) => ({
+      food: f, grams: amounts[i],
+      uds: f.peso_ud_g ? Math.round(amounts[i] / f.peso_ud_g) : null,
+    }))
+    .filter(x => x.grams > 0);
+  const totals = sumFor(foods, amounts);
+
+  return {
+    items: items,
+    totals: totals,
+    dropped: foods.filter((f, i) => !amounts[i]).map(f => f.nombre),
+    gaps: composeGaps(totals, targets),
+    error: composeError(totals, targets, items.length),
+    key: items.map(x => x.food.id).sort().join('|'),
+  };
+}
+
+/**
+ * Varias recetas distintas con los mismos ingredientes y objetivos.
+ * Se arranca desde combinaciones al azar y se descartan las repetidas:
+ * tener tres opciones donde elegir vale más que una sola óptima.
+ */
+function composeOptions(ids, targets, howMany) {
+  const n = ids.length;
+  if (!n) return [];
+  const found = {}, out = [];
+  const push = r => {
+    if (!r || !r.items.length) return;
+    if (found[r.key] && found[r.key].error <= r.error) return;
+    found[r.key] = r;
+  };
+
+  push(composeRecipe(ids, targets, null));
+  for (let intento = 0; intento < 14; intento++) {
+    const idx = [];
+    for (let i = 0; i < n; i++) idx.push(i);
+    for (let i = idx.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = idx[i]; idx[i] = idx[j]; idx[j] = t;
+    }
+    const cuantos = Math.min(n, 3 + Math.floor(Math.random() * 3));
+    push(composeRecipe(ids, targets, idx.slice(0, cuantos)));
+  }
+
+  Object.keys(found).forEach(k => out.push(found[k]));
+  out.sort((a, b) => a.error - b.error);
+  return out.slice(0, howMany || 3);
+}
+
+/* Qué objetivos quedaron lejos, para poder decirlo con claridad. */
+function composeGaps(totals, targets) {
+  const out = [];
+  const labels = { prot: 'proteína', carbs: 'carbohidratos', fat: 'grasa', fiber: 'fibra', kcal: 'kcal' };
+  for (const k in targets) {
+    const t = targets[k];
+    if (t == null || isNaN(t)) continue;
+    const v = totals[k] || 0;
+    const diff = v - t;
+    if (Math.abs(diff) / Math.max(t, 1) > 0.12) {
+      out.push({ key: k, label: labels[k] || k, target: t, value: v, diff: diff });
+    }
+  }
+  return out;
+}
+
+/**
+ * Si algún objetivo se queda corto, busca qué ingrediente lo cerraría
+ * mejor sin cargar de kcal. Mira primero entre los favoritos de esa
+ * comida, que es lo que la usuaria tiene y usa.
+ */
+function suggestIngredientFor(gap, meal, alreadyIds) {
+  if (!gap || gap.diff >= 0) return null;
+  const key = gap.key === 'kcal' ? 'kcal' : gap.key;
+  const per100 = { prot: 'prot100', carbs: 'carbs100', fat: 'fat100', fiber: 'fiber100', kcal: 'kcal100' }[key];
+  if (!per100) return null;
+  const falta = -gap.diff;
+  const favIds = favorites(meal);
+
+  const candidatos = allFoods()
+    .filter(f => alreadyIds.indexOf(f.id) < 0)
+    .filter(f => (f[per100] || 0) > 0)
+    .map(f => {
+      const grams = Math.min(composeCap(f), Math.max(5, Math.round((falta / f[per100]) * 100 / 5) * 5));
+      const aporta = (f[per100] * grams) / 100;
+      const kcal = (f.kcal100 * grams) / 100;
+      // Cuanto más aporte de lo que falta por caloría, mejor
+      const eficiencia = kcal > 0 ? aporta / kcal : aporta;
+      return { food: f, grams: grams, aporta: aporta, kcal: kcal, score: eficiencia * (favIds.indexOf(f.id) >= 0 ? 1.6 : 1) };
+    })
+    .filter(x => x.aporta >= falta * 0.5)
+    .sort((a, b) => b.score - a.score);
+
+  return candidatos.length ? candidatos[0] : null;
+}
+
+/* Cuáles de los ingredientes de la receta no están en casa. */
+function missingFromPantry(items) {
+  return items
+    .filter(x => pantryQty(x.food.id) < x.grams)
+    .map(x => ({
+      nombre: x.food.nombre,
+      falta: Math.round(x.grams - pantryQty(x.food.id)),
+      unit: x.food.unit || 'g',
+      tiene: Math.round(pantryQty(x.food.id)),
+    }));
 }
 
 /* ============================================================
@@ -2112,8 +2409,14 @@ function viewRecetas() {
     '</button>';
   }).join('');
 
-  return chips +
-    '<button class="btn primary wide" data-act="new-recipe">Nueva receta</button>' +
+  return '<div class="card">' +
+      '<span class="eyebrow">Crear con lo que te gusta</span>' +
+      '<p class="hint" style="margin:7px 0 10px">Elige entre tus ingredientes favoritos, di qué macros quieres ' +
+        'alcanzar y te calculo los gramos de cada cosa.</p>' +
+      '<button class="btn primary wide" data-act="composer">Proponme una receta</button>' +
+    '</div>' +
+    chips +
+    '<button class="btn wide" data-act="new-recipe">Escribir una receta a mano</button>' +
     '<div>' + (cards || '<p class="empty">No hay recetas en esta categoría.</p>') + '</div>';
 }
 
@@ -2433,6 +2736,235 @@ function pullEditor() {
   if (t) draft.tags = t.value.split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
   if (f) draft.is_fixed = f.checked;
   if (o) draft.notes = o.value;
+}
+
+/* ============================================================
+   HOJA: PROPONME UNA RECETA
+   ============================================================ */
+let composer = null;
+
+function sheetComposer(meal) {
+  const m = meal || 'desayuno';
+  const gap = shareForMeal(curDate, m);
+  const w = (MEALS.find(x => x.key === m) || {}).weight || 0.25;
+  composer = {
+    meal: m,
+    selected: favorites(m).slice(),
+    targets: {
+      prot: Math.max(10, Math.round(gap.prot)),
+      carbs: Math.max(10, Math.round(gap.carbs)),
+      fiber: Math.round(MICRO_TARGETS.fiber * w),
+    },
+    results: [],
+  };
+  openSheet('Proponme una receta', '<div id="cp"></div>', () => paintComposer());
+}
+
+function paintComposer() {
+  const box = document.getElementById('cp');
+  if (!box || !composer) return;
+  const favs = favorites(composer.meal);
+  const extras = composer.selected.filter(id => favs.indexOf(id) < 0);
+
+  const chipFor = (id, esFav) => {
+    const f = foodById(id);
+    if (!f) return '';
+    const on = composer.selected.indexOf(id) >= 0;
+    return '<button class="fav-chip" data-tog="' + id + '" aria-pressed="' + (on ? 'true' : 'false') +
+      '" title="' + esc(f.nombre) + '">' +
+      esc(shortName(f)) + (esFav ? '' : ' <span class="faint">·nuevo</span>') + '</button>';
+  };
+
+  box.innerHTML =
+    '<div class="field"><label>Comida</label><div class="chips">' +
+      MEALS.map(t => '<button class="chip" data-cmeal="' + t.key + '" aria-pressed="' +
+        (composer.meal === t.key ? 'true' : 'false') + '">' + t.name + '</button>').join('') +
+    '</div></div>' +
+
+    '<div class="field"><label>Tus ingredientes favoritos</label>' +
+      (favs.length
+        ? '<div class="fav-wrap">' + favs.map(id => chipFor(id, true)).join('') + '</div>' +
+          '<p class="hint" style="margin:6px 0 0">Toca para quitar o volver a poner. Solo entran en la receta los marcados.</p>'
+        : '<p class="empty">Aún no has guardado favoritos para esta comida. Búscalos abajo y toca la estrella.</p>') +
+      (extras.length ? '<div class="fav-wrap" style="margin-top:8px">' + extras.map(id => chipFor(id, false)).join('') + '</div>' : '') +
+    '</div>' +
+
+    '<div class="field"><label for="cp-q">Buscar otro ingrediente</label>' +
+      '<input class="input" id="cp-q" type="search" placeholder="Buscar en los 220 alimentos" ' +
+        'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">' +
+      '<div id="cp-res"></div>' +
+    '</div>' +
+
+    '<div class="field"><label>Qué quieres alcanzar</label><div class="grid3">' +
+      '<label class="tiny-field"><span>Proteína g</span><input class="input numeric" id="cp-prot" type="number" inputmode="numeric" value="' + composer.targets.prot + '"></label>' +
+      '<label class="tiny-field"><span>Carbos g</span><input class="input numeric" id="cp-carbs" type="number" inputmode="numeric" value="' + composer.targets.carbs + '"></label>' +
+      '<label class="tiny-field"><span>Fibra g</span><input class="input numeric" id="cp-fiber" type="number" inputmode="numeric" value="' + composer.targets.fiber + '"></label>' +
+    '</div>' +
+    '<p class="hint" style="margin:6px 0 0">Deja en blanco lo que no te importe.</p></div>' +
+
+    '<button class="btn primary wide" data-calc>Calcular la receta</button>' +
+    '<div id="cp-out">' + composerResults() + '</div>';
+
+  box.querySelectorAll('[data-cmeal]').forEach(b => b.onclick = () => {
+    pullComposerTargets();
+    composer.meal = b.dataset.cmeal;
+    composer.selected = favorites(composer.meal).slice();
+    composer.results = [];
+    paintComposer();
+  });
+  box.querySelectorAll('[data-tog]').forEach(b => b.onclick = () => {
+    pullComposerTargets();
+    const id = b.dataset.tog, i = composer.selected.indexOf(id);
+    if (i >= 0) composer.selected.splice(i, 1); else composer.selected.push(id);
+    paintComposer();
+  });
+  const q = box.querySelector('#cp-q');
+  q.addEventListener('input', () => composerSearch(q.value.trim()));
+  box.querySelector('[data-calc]').onclick = () => {
+    pullComposerTargets();
+    if (composer.selected.length < 2) { toast('Elige al menos dos ingredientes'); return; }
+    composer.results = composeOptions(composer.selected, composer.targets, 3);
+    const out = document.getElementById('cp-out');
+    out.innerHTML = composerResults();
+    bindComposerResults();
+    out.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  bindComposerResults();
+}
+
+function pullComposerTargets() {
+  const num = id => {
+    const el = document.getElementById(id);
+    if (!el || el.value === '') return null;
+    const v = parseInt(el.value, 10);
+    return isNaN(v) ? null : v;
+  };
+  const t = { prot: num('cp-prot'), carbs: num('cp-carbs'), fiber: num('cp-fiber') };
+  Object.keys(t).forEach(k => { if (t[k] == null) delete t[k]; });
+  composer.targets = t;
+}
+
+function composerSearch(term) {
+  const box = document.getElementById('cp-res');
+  if (!box) return;
+  if (norm(term).length < 2) { box.innerHTML = ''; return; }
+  box.innerHTML = searchFoods(term, 12).map(f => {
+    const fav = isFavorite(composer.meal, f.id);
+    return '<div class="pick"><button class="pick-main" data-use="' + f.id + '"><div class="info">' +
+      '<span class="nm">' + esc(f.nombre) + '</span>' +
+      '<span class="sub">' + f.kcal100 + ' kcal · P' + f.prot100 + ' C' + f.carbs100 + ' G' + f.fat100 +
+        ' / 100 ' + (f.unit || 'g') + '</span></div></button>' +
+      '<button class="star" data-fav="' + f.id + '" aria-pressed="' + (fav ? 'true' : 'false') +
+        '" aria-label="Guardar en favoritos">' + (fav ? '★' : '☆') + '</button></div>';
+  }).join('');
+  box.querySelectorAll('[data-use]').forEach(b => b.onclick = () => {
+    pullComposerTargets();
+    if (composer.selected.indexOf(b.dataset.use) < 0) composer.selected.push(b.dataset.use);
+    document.getElementById('cp-q').value = '';
+    paintComposer();
+    toast(foodById(b.dataset.use).nombre + ' añadido a la receta');
+  });
+  box.querySelectorAll('[data-fav]').forEach(b => b.onclick = () => {
+    pullComposerTargets();
+    toggleFavorite(composer.meal, b.dataset.fav);
+    const nombre = foodById(b.dataset.fav).nombre;
+    const ahora = isFavorite(composer.meal, b.dataset.fav);
+    if (ahora && composer.selected.indexOf(b.dataset.fav) < 0) composer.selected.push(b.dataset.fav);
+    paintComposer();
+    toast(ahora ? nombre + ' guardado en favoritos' : nombre + ' quitado de favoritos');
+  });
+}
+
+function composerResults() {
+  if (!composer.results.length) return '';
+  return '<div class="or-line"><span>' +
+    (composer.results.length === 1 ? 'propuesta' : composer.results.length + ' propuestas') + '</span></div>' +
+    composer.results.map((r, i) => {
+      const ing = r.items.map(x =>
+        '<div class="detail-ing"><span class="nm">' + esc(x.food.nombre) + '</span>' +
+        '<span class="g">' + x.grams + ' ' + (x.food.unit || 'g') +
+          (x.uds ? ' <span class="faint">· ' + x.uds + (x.uds === 1 ? ' ud' : ' uds') + '</span>' : '') +
+        '</span></div>').join('');
+
+      const cuadra = r.gaps.length === 0;
+      const falta = r.gaps.filter(g => g.diff < 0);
+      const extra = falta.length
+        ? suggestIngredientFor(falta[0], composer.meal, r.items.map(x => x.food.id))
+        : null;
+      const compra = missingFromPantry(r.items);
+
+      return '<div class="option">' +
+        '<div class="option-head"><span class="option-n">Opción ' + (i + 1) + '</span>' +
+          (cuadra ? '<span class="tag blue">cuadra</span>' : '') + '</div>' +
+        ing +
+        '<div class="macro-row" style="margin-top:8px"><b>' + Math.round(r.totals.kcal) + ' kcal</b>' +
+          '<span>P ' + fmt1(r.totals.prot) + '</span><span>C ' + fmt1(r.totals.carbs) + '</span>' +
+          '<span>G ' + fmt1(r.totals.fat) + '</span><span>fibra ' + fmt1(r.totals.fiber) + '</span></div>' +
+        (r.gaps.length
+          ? '<div class="careful">' + r.gaps.map(g =>
+              g.label + ' ' + (g.diff > 0 ? '+' : '−') + Math.abs(Math.round(g.diff)) + ' g').join(' · ') + '</div>'
+          : '') +
+        (extra
+          ? '<div class="suggest-extra">Para llegar te ayudaría <b>' + esc(extra.food.nombre) + '</b>, unos ' +
+            extra.grams + ' g. <button class="link-btn" data-add-extra="' + extra.food.id + '">Añadirlo y recalcular</button></div>'
+          : '') +
+        (pantry().length === 0
+          ? '<div class="hint" style="margin-top:8px">Apunta lo que tienes en casa desde la pestaña Compra ' +
+            'y aquí te diré qué falta para esta receta.</div>'
+          : compra.length
+            ? '<div class="need-buy">Te falta en casa: ' + compra.map(c =>
+                esc(c.nombre) + ' <span class="num">' + c.falta + ' ' + c.unit + '</span>').join(', ') + '</div>'
+            : '<div class="have-all">Tienes todo en casa</div>') +
+        '<div class="sug-actions">' +
+          '<button class="btn grow" data-save-opt="' + i + '">Guardar receta</button>' +
+          '<button class="btn primary grow" data-log-opt="' + i + '">Registrar ahora</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+}
+
+function bindComposerResults() {
+  const out = document.getElementById('cp-out');
+  if (!out) return;
+  out.querySelectorAll('[data-add-extra]').forEach(b => b.onclick = () => {
+    if (composer.selected.indexOf(b.dataset.addExtra) < 0) composer.selected.push(b.dataset.addExtra);
+    composer.results = composeOptions(composer.selected, composer.targets, 3);
+    paintComposer();
+    toast('Recalculado con ' + foodById(b.dataset.addExtra).nombre);
+  });
+  out.querySelectorAll('[data-log-opt]').forEach(b => b.onclick = () => {
+    const r = composer.results[+b.dataset.logOpt];
+    const stamp = Date.now();
+    r.items.forEach((x, i) => {
+      const m = macrosOf(x.food, x.grams);
+      addEntry(curDate, {
+        id: 'c' + stamp + '_' + i, meal: composer.meal, nombre: x.food.nombre,
+        qty: x.grams, unit: x.food.unit || 'g',
+        kcal: Math.round(m.kcal), prot: round1(m.prot), carbs: round1(m.carbs),
+        fat: round1(m.fat), sat: round1(m.sat), fiber: round1(m.fiber),
+        fe: round1(m.fe), ca: Math.round(m.ca), vd: round1(m.vd),
+        food_id: x.food.id,
+      });
+    });
+    closeSheet(); tab = 'hoy'; render();
+    toast('Registrado en ' + mealName(composer.meal).toLowerCase());
+  });
+  out.querySelectorAll('[data-save-opt]').forEach(b => b.onclick = () => {
+    const r = composer.results[+b.dataset.saveOpt];
+    const partes = r.items.slice(0, 3).map(x => x.food.nombre.split(' (')[0].split(' ').slice(0, 2).join(' '));
+    const nombre = partes.length > 1
+      ? partes.slice(0, -1).join(', ') + ' y ' + partes[partes.length - 1]
+      : partes[0];
+    saveRecipe({
+      id: 'r' + Date.now().toString(36),
+      name: nombre, meal_type: composer.meal,
+      ingredients: r.items.map(x => ({ ingredient_id: x.food.id, amount_g: x.grams })),
+      is_fixed: false, tags: [], notes: 'Calculada para ' +
+        Object.keys(composer.targets).map(k => composer.targets[k] + ' g de ' + k).join(', ') + '.',
+    });
+    closeSheet(); tab = 'recetas'; render();
+    toast('Guardada como «' + nombre + '»');
+  });
 }
 
 /* ---- Selector de alimentos: ordenado por proteína/caloría ---- */
@@ -2862,6 +3394,7 @@ document.getElementById('view').addEventListener('click', ev => {
   if (act === 'del-entry') { removeEntry(curDate, d.id); render(); return; }
   if (act === 'rfilter') { recipeFilter = d.f; render(); return; }
   if (act === 'new-recipe') { sheetEditor(null); return; }
+  if (act === 'composer') { sheetComposer(recipeFilter === 'todas' ? 'desayuno' : recipeFilter); return; }
   if (act === 'week') {
     const base = menuWeek || weekStartOf(today());
     menuWeek = shiftDate(base, parseInt(d.d, 10));
