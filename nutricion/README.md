@@ -37,7 +37,30 @@ Al sugerir, cada comida tiene su parte del margen de saturadas con algo de holgu
 para que un huevo con aguacate no dispare un aviso cada mañana. Solo registra y
 avisa; no interpreta nada clínicamente.
 
-## Cómo se calculan las recetas propuestas
+## Cómo se proponen las recetas
+
+Una receta no es una suma de macros: es un **formato** (bowl, tortitas, porridge,
+tostadas, batido, muffins, galletas, revuelto, plancha, ensalada) donde cada
+ingrediente cumple un **papel** — base, crujiente, fruta, proteína en polvo, liante,
+grasa para untar, guarnición. Los papeles se derivan del alimento en `foodRoles()`.
+
+Al proponer se elige un formato compatible con la comida y con el tiempo disponible,
+se reparten los ingredientes elegidos por sus papeles y se ajustan los gramos dentro
+de lo que cada papel admite. De ahí salen platos con nombre, tiempo y pasos.
+
+Esto es lo que impide que aparezca una berenjena en un desayuno: no tiene ningún papel
+en los formatos de desayuno, y los que llevan verdura la acotan a las que pintan algo
+ahí (tomate, espinacas, champiñones). En una cena sí entra, porque ahí sí tiene papel.
+
+**Cantidades fijas.** Si escribes los gramos de un ingrediente, esos no se tocan y ese
+ingrediente entra en la receta obligatoriamente. Fijar gramos es decir «esto va, y va
+así».
+
+**Lo que falta.** Si con un ingrediente más se desbloquea un formato, se dice cuál y
+para qué: «te falta pan para las Tostadas». Al ir por papeles, nunca sugiere algo que
+no pinte nada en esa comida.
+
+## Cómo se ajustan las cantidades
 
 Es un ajuste, no una búsqueda: se parte de una ración normal de cada ingrediente y se
 afina uno a uno, en pasos de 5 g, hasta que deja de mejorar. Tres detalles hacen que

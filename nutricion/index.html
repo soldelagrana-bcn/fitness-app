@@ -643,6 +643,25 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
   font-size: 11.5px; color: var(--warn);
   margin: -2px 0 8px;
 }
+
+.recipe-title { font-size: 15px; font-weight: 700; line-height: 1.25; text-wrap: balance; }
+.recipe-meta { display: flex; gap: 6px; margin: 6px 0 10px; flex-wrap: wrap; }
+.detail-ing .role { color: var(--ink-faint); font-size: 11px; font-weight: 500; }
+.pin {
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  background: var(--accent-wash); color: var(--accent); padding: 1px 5px; border-radius: 4px;
+}
+.pasos { margin-top: 10px; }
+.pasos summary {
+  cursor: pointer; font-size: 12px; font-weight: 660; color: var(--accent);
+  min-height: 32px; display: flex; align-items: center;
+}
+.pasos ol { margin: 4px 0 0; padding-left: 20px; font-size: 12.5px; color: var(--ink-soft); }
+.pasos li { margin-bottom: 5px; line-height: 1.45; }
+.miss-row {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
+  padding-top: 7px; font-size: 11.5px;
+}
 </style>
 
 <div class="app">
@@ -1977,6 +1996,356 @@ function missingFromPantry(items) {
 }
 
 /* ============================================================
+   PAPELES Y FORMATOS DE RECETA
+   Una receta no es una suma de macros: es un formato (tortitas,
+   bowl, muffins) donde cada ingrediente cumple un papel. Sin esto
+   el cálculo puede meter berenjena en un desayuno porque encaja
+   en los números.
+   ============================================================ */
+
+function foodRoles(f) {
+  if (!f) return [];
+  if (f._roles) return f._roles;
+  const n = norm(f.nombre), cat = f.cat || '', r = [];
+  const add = x => { if (r.indexOf(x) < 0) r.push(x); };
+
+  if (/leche|bebida de|batido de/.test(n) && !/coco \(lata\)/.test(n)) add('liquido');
+  if (/yogur|iogurt|skyr|kefir|quark|queso batido|requeson|queso fresco|cottage/.test(n)) { add('yogur_base'); add('lacteo_prot'); }
+  if (/copos de avena|avena instant|harina/.test(n)) add('cereal_seco');
+  if (/granola|muesli|copos de maiz|tortitas de arroz/.test(n)) add('crujiente');
+  if (cat === 'Frutas') add('fruta');
+  if (f.prot100 >= 60 && /protein|whey|proteina|clara de huevo en polvo/.test(n)) add('prot_polvo');
+  if (/huevo/.test(n) && !/en polvo/.test(n)) add('huevo');
+  if (/^pan|pan de|tostada|baguette|wrap|tortillas de trigo|pan crujiente/.test(n)) add('pan');
+  if (/aguacate|crema de|mantequilla de|tahini|hummus/.test(n)) add('grasa_untar');
+  if (cat === 'Proteínas' && !/huevo/.test(n)) add('prot_animal');
+  if (cat === 'Verduras' && !/aguacate|maiz/.test(n)) add('verdura');
+  if (cat === 'Carbohidratos' && /arroz|pasta|patata|boniato|quinoa|macarron|espagueti|maiz/.test(n)) add('carbo_guarnicion');
+  if (cat === 'Legumbres') add('legumbre');
+  if (/miel|mermelada|datil|sirope/.test(n)) add('endulzante');
+  if (/aceite/.test(n)) add('aceite');
+  if (/chia|lino|almendra|nuece|pistacho|avellana|anacardo|cacahuete|sesamo/.test(n)) add('semillas');
+  if (/cacao|chocolate/.test(n)) add('cacao');
+
+  try { Object.defineProperty(f, '_roles', { value: r, enumerable: false }); } catch (e) {}
+  return r;
+}
+function hasRole(f, role) { return foodRoles(f).indexOf(role) >= 0; }
+
+/* Formatos. `min`/`max` acotan cada papel a lo que tiene sentido en ese
+   plato: 30 g de proteína en polvo en unas tortitas, no 60. */
+const TEMPLATES = [
+  {
+    id: 'bowl_yogur', nombre: 'Bowl de yogur', meals: ['desayuno', 'snack'], min_ing: 2, tiempo: 5,
+    roles: [
+      { key: 'yogur_base', label: 'yogur', req: true,  min: 100, max: 300 },
+      { key: 'crujiente',  label: 'crujiente', req: false, min: 20, max: 80 },
+      { key: 'fruta',      label: 'fruta', req: false, min: 60, max: 200 },
+      { key: 'prot_polvo', label: 'proteína en polvo', req: false, min: 10, max: 30 },
+      { key: 'semillas',   label: 'semillas', req: false, min: 5, max: 20 },
+      { key: 'endulzante', label: 'toque dulce', req: false, min: 5, max: 20 },
+    ],
+    pasos: ['Pon el yogur en un bol y mézclalo con la proteína en polvo si la usas.',
+            'Añade la fruta troceada por encima.',
+            'Termina con el crujiente y las semillas justo antes de comer, para que no se ablanden.'],
+  },
+  {
+    id: 'tortitas', nombre: 'Tortitas', meals: ['desayuno', 'snack'], min_ing: 2, tiempo: 15,
+    roles: [
+      { key: 'cereal_seco', label: 'avena o harina', req: false, min: 30, max: 80 },
+      { key: 'huevo',       label: 'huevo o clara', req: true,  min: 60, max: 250 },
+      { key: 'prot_polvo',  label: 'proteína en polvo', req: false, min: 10, max: 30 },
+      { key: 'fruta',       label: 'fruta para la masa', req: false, min: 50, max: 150 },
+      { key: 'yogur_base',  label: 'yogur para acompañar', req: false, min: 50, max: 150 },
+      { key: 'endulzante',  label: 'toque dulce', req: false, min: 5, max: 20 },
+    ],
+    pasos: ['Tritura la avena con el huevo o la clara, la fruta y la proteína hasta tener una masa lisa.',
+            'Deja reposar 5 minutos: la avena absorbe líquido y las tortitas quedan más esponjosas.',
+            'Hazlas en una sartén antiadherente a fuego medio, 2 minutos por cada lado.',
+            'Sirve con el yogur y el toque dulce por encima.'],
+  },
+  {
+    id: 'porridge', nombre: 'Porridge', meals: ['desayuno'], min_ing: 2, tiempo: 10,
+    roles: [
+      { key: 'cereal_seco', label: 'copos de avena', req: true,  min: 30, max: 80 },
+      { key: 'liquido',     label: 'leche o bebida vegetal', req: true,  min: 150, max: 300 },
+      { key: 'prot_polvo',  label: 'proteína en polvo', req: false, min: 10, max: 30 },
+      { key: 'fruta',       label: 'fruta', req: false, min: 60, max: 200 },
+      { key: 'semillas',    label: 'semillas', req: false, min: 5, max: 20 },
+    ],
+    pasos: ['Calienta la avena con la bebida a fuego suave, removiendo, unos 5 minutos.',
+            'Fuera del fuego, incorpora la proteína en polvo: si la echas hirviendo se corta.',
+            'Sirve con la fruta y las semillas por encima.'],
+  },
+  {
+    id: 'tostadas', nombre: 'Tostadas', meals: ['desayuno', 'snack'], min_ing: 2, tiempo: 8,
+    roles: [
+      { key: 'pan',         label: 'pan', req: true,  min: 40, max: 120 },
+      { key: 'grasa_untar', label: 'aguacate o crema', req: false, min: 20, max: 80 },
+      { key: 'huevo',       label: 'huevo o clara', req: false, min: 60, max: 200 },
+      { key: 'prot_animal', label: 'proteína', req: false, min: 40, max: 120 },
+      { key: 'verdura',     label: 'tomate o verdura', req: false, min: 40, max: 120, filtro: /tomate|espinaca|rucula|champinon|pimiento|cebolla|canonigo/ },
+      { key: 'endulzante',  label: 'toque dulce', req: false, min: 5, max: 20 },
+    ],
+    pasos: ['Tuesta el pan.',
+            'Unta el aguacate o la crema y salpimenta.',
+            'Prepara el huevo como más te guste y colócalo encima con la verdura.'],
+  },
+  {
+    id: 'batido', nombre: 'Batido', meals: ['desayuno', 'snack'], min_ing: 2, tiempo: 5,
+    roles: [
+      { key: 'liquido',    label: 'bebida', req: true,  min: 150, max: 350 },
+      { key: 'prot_polvo', label: 'proteína en polvo', req: false, min: 15, max: 30 },
+      { key: 'fruta',      label: 'fruta', req: false, min: 60, max: 200 },
+      { key: 'yogur_base', label: 'yogur', req: false, min: 60, max: 200 },
+      { key: 'cereal_seco',label: 'avena', req: false, min: 20, max: 60 },
+    ],
+    pasos: ['Tritura todo junto con hielo hasta que quede cremoso.',
+            'Si lo quieres más espeso, añade menos bebida o más avena.'],
+  },
+  {
+    id: 'muffins', nombre: 'Muffins proteicos', meals: ['desayuno', 'snack'], min_ing: 3, tiempo: 30,
+    roles: [
+      { key: 'cereal_seco', label: 'avena o harina', req: true,  min: 60, max: 120 },
+      { key: 'huevo',       label: 'huevo o clara', req: true,  min: 60, max: 200 },
+      { key: 'prot_polvo',  label: 'proteína en polvo', req: false, min: 15, max: 30 },
+      { key: 'fruta',       label: 'fruta', req: false, min: 60, max: 180 },
+      { key: 'yogur_base',  label: 'yogur', req: false, min: 50, max: 150 },
+      { key: 'cacao',       label: 'cacao o chocolate', req: false, min: 5, max: 20 },
+    ],
+    pasos: ['Precalienta el horno a 180 grados.',
+            'Tritura la avena hasta hacerla harina y mézclala con el resto y una cucharadita de levadura.',
+            'Reparte en moldes sin llenarlos del todo y hornea 20 minutos.',
+            'Salen varias unidades: las cantidades son del total, divídelas entre lo que te hagas.'],
+  },
+  {
+    id: 'galletas', nombre: 'Galletas de avena', meals: ['snack', 'desayuno'], min_ing: 2, tiempo: 25,
+    roles: [
+      { key: 'cereal_seco', label: 'copos de avena', req: true,  min: 60, max: 120 },
+      { key: 'fruta',       label: 'plátano maduro', req: true,  min: 80, max: 200 },
+      { key: 'prot_polvo',  label: 'proteína en polvo', req: false, min: 10, max: 30 },
+      { key: 'cacao',       label: 'cacao o chocolate', req: false, min: 5, max: 20 },
+      { key: 'semillas',    label: 'frutos secos', req: false, min: 5, max: 20 },
+    ],
+    pasos: ['Aplasta el plátano con un tenedor y mézclalo con la avena y la proteína.',
+            'Forma montoncitos aplastados sobre papel de horno.',
+            'Hornea a 180 grados unos 15 minutos.'],
+  },
+  {
+    id: 'revuelto', nombre: 'Revuelto', meals: ['desayuno', 'cena'], min_ing: 2, tiempo: 10,
+    roles: [
+      { key: 'huevo',   label: 'huevo o clara', req: true,  min: 100, max: 300 },
+      { key: 'verdura', label: 'verdura', req: false, min: 60, max: 200, filtro: /espinaca|champinon|tomate|pimiento|cebolla|calabacin|puerro|esparrago|rucula/ },
+      { key: 'pan',     label: 'pan para acompañar', req: false, min: 30, max: 100 },
+      { key: 'grasa_untar', label: 'aguacate', req: false, min: 20, max: 80 },
+      { key: 'aceite',  label: 'aceite', req: false, min: 5, max: 10 },
+    ],
+    pasos: ['Saltea la verdura en la sartén con el aceite.',
+            'Añade el huevo batido y remueve a fuego bajo hasta que cuaje sin secarse.',
+            'Acompaña con el pan y el aguacate.'],
+  },
+  {
+    id: 'bowl_salado', nombre: 'Bowl salado', meals: ['almuerzo', 'cena'], min_ing: 2, tiempo: 15,
+    roles: [
+      { key: 'carbo_guarnicion', label: 'base de cereal', req: false, min: 100, max: 250 },
+      { key: 'legumbre',    label: 'legumbre', req: false, min: 80, max: 200 },
+      { key: 'prot_animal', label: 'proteína', req: true,  min: 80, max: 200 },
+      { key: 'verdura',     label: 'verdura', req: false, min: 80, max: 250 },
+      { key: 'grasa_untar', label: 'aguacate o hummus', req: false, min: 20, max: 80 },
+      { key: 'aceite',      label: 'aceite', req: false, min: 5, max: 12 },
+    ],
+    pasos: ['Cuece la base si hace falta y deja templar.',
+            'Cocina la proteína a la plancha con poco aceite.',
+            'Monta el bol con la base, la verdura, la proteína y el aliño.'],
+  },
+  {
+    id: 'plancha', nombre: 'Plancha con guarnición', meals: ['almuerzo', 'cena'], min_ing: 2, tiempo: 20,
+    roles: [
+      { key: 'prot_animal',      label: 'proteína', req: true,  min: 100, max: 220 },
+      { key: 'carbo_guarnicion', label: 'guarnición', req: false, min: 100, max: 250 },
+      { key: 'verdura',          label: 'verdura', req: false, min: 100, max: 250 },
+      { key: 'aceite',           label: 'aceite', req: false, min: 5, max: 12 },
+    ],
+    pasos: ['Salpimenta la proteína y hazla a la plancha bien caliente.',
+            'Saltea o cuece la verdura mientras.',
+            'Sirve con la guarnición y un hilo de aceite en crudo.'],
+  },
+  {
+    id: 'ensalada', nombre: 'Ensalada completa', meals: ['almuerzo', 'cena'], min_ing: 2, tiempo: 10,
+    roles: [
+      { key: 'verdura',     label: 'verdura', req: true,  min: 100, max: 250 },
+      { key: 'prot_animal', label: 'proteína', req: false, min: 80, max: 180 },
+      { key: 'legumbre',    label: 'legumbre', req: false, min: 80, max: 200 },
+      { key: 'grasa_untar', label: 'aguacate', req: false, min: 20, max: 80 },
+      { key: 'aceite',      label: 'aceite', req: false, min: 5, max: 12 },
+      { key: 'pan',         label: 'pan', req: false, min: 30, max: 80 },
+    ],
+    pasos: ['Trocea la verdura y colócala de base.',
+            'Añade la proteína y la legumbre.',
+            'Aliña con el aceite justo antes de comer.'],
+  },
+];
+
+function templatesFor(meal, maxTiempo) {
+  return TEMPLATES.filter(t => t.meals.indexOf(meal) >= 0)
+    .filter(t => !maxTiempo || t.tiempo <= maxTiempo);
+}
+
+/* ============================================================
+   PROPUESTA DE RECETAS
+   Se elige un formato, se reparten los ingredientes elegidos por
+   sus papeles y se ajustan los gramos dentro de lo que cada papel
+   admite. Así lo que sale es una receta, no una suma que cuadra.
+   ============================================================ */
+
+/* Combinaciones de asignación ingrediente→papel, acotadas para no
+   explotar: con 4 papeles y 3 candidatos cada uno ya son 81. */
+function roleAssignments(tpl, selectedIds, limite, fijos) {
+  const foods = selectedIds.map(foodById).filter(Boolean);
+  let combos = [[]];
+  tpl.roles.forEach(role => {
+    const cand = foods.filter(f => hasRole(f, role.key))
+      .filter(f => !role.filtro || role.filtro.test(norm(f.nombre)));
+    const next = [];
+    combos.forEach(c => {
+      const usados = c.map(x => x.food.id);
+      const libres = cand.filter(f => usados.indexOf(f.id) < 0);
+      if (!role.req) next.push(c);                       // se puede dejar vacío
+      libres.forEach(f => next.push(c.concat([{ role: role, food: f }])));
+    });
+    combos = next.slice(0, limite || 200);
+  });
+  // Valen las que cubren los papeles obligatorios y, si has fijado los
+  // gramos de algo, las que lo incluyen: fijar gramos es decir "esto va".
+  const obligados = Object.keys(fijos || {});
+  return combos.filter(c =>
+    tpl.roles.every(r => !r.req || c.some(x => x.role.key === r.key)) &&
+    obligados.every(id => selectedIds.indexOf(id) < 0 || c.some(x => x.food.id === id)));
+}
+
+/* Ajusta los gramos de una asignación. `fijos` son los gramos que la
+   usuaria ha decidido a mano: esos no se tocan. */
+function fitAssignment(asig, targets, fijos) {
+  if (!asig.length) return null;
+  const grids = asig.map(x => {
+    const fijo = fijos && fijos[x.food.id];
+    if (fijo) return [fijo];
+    const min = Math.max(x.role.min, composeMin(x.food));
+    const max = Math.max(min, x.role.max);
+    const paso = x.food.peso_ud_g && x.food.peso_ud_g <= max ? x.food.peso_ud_g : 5;
+    const out = [];
+    for (let g = paso === 5 ? min : Math.max(paso, Math.ceil(min / paso) * paso); g <= max; g += paso) out.push(g);
+    if (!out.length) out.push(min);
+    return out;
+  });
+  const foods = asig.map(x => x.food);
+  let amounts = grids.map(g => g[Math.floor(g.length / 2)]);
+  const errOf = a => composeError(sumFor(foods, a), targets, 0);
+
+  for (let pass = 0; pass < 25; pass++) {
+    let moved = false;
+    for (let i = 0; i < asig.length; i++) {
+      const start = amounts[i];
+      let bestG = start, bestE = errOf(amounts);
+      for (const g of grids[i]) {
+        if (g === start) continue;
+        amounts[i] = g;
+        const e = errOf(amounts);
+        if (e < bestE - 1e-9) { bestE = e; bestG = g; }
+      }
+      amounts[i] = bestG;
+      if (bestG !== start) moved = true;
+    }
+    if (!moved) break;
+  }
+  const items = asig.map((x, i) => ({
+    food: x.food, grams: amounts[i], role: x.role.label,
+    uds: x.food.peso_ud_g ? Math.round(amounts[i] / x.food.peso_ud_g) : null,
+    fijo: !!(fijos && fijos[x.food.id]),
+  }));
+  const totals = sumFor(foods, amounts);
+  return { items: items, totals: totals, error: composeError(totals, targets, 0) };
+}
+
+function recipeTitle(tpl, items) {
+  const claves = items
+    .filter(x => x.role !== 'aceite' && x.role !== 'toque dulce')
+    .sort((a, b) => b.grams * (b.food.kcal100 || 1) - a.grams * (a.food.kcal100 || 1))
+    .slice(0, 2)
+    .map(x => shortName(x.food).toLowerCase());
+  if (!claves.length) return tpl.nombre;
+  const nexo = /\sde\s/.test(tpl.nombre) ? ' con ' : ' de ';
+  return tpl.nombre + nexo + (claves.length > 1 ? claves[0] + ' y ' + claves[1] : claves[0]);
+}
+
+/**
+ * Recetas propuestas para una comida, un tiempo disponible y unos macros.
+ * Devuelve una por formato, la mejor de cada uno, para que las opciones
+ * sean platos distintos y no variantes del mismo.
+ */
+function proposeRecipes(meal, selectedIds, targets, opts) {
+  opts = opts || {};
+  const out = [];
+  templatesFor(meal, opts.maxTiempo).forEach(tpl => {
+    const asigs = roleAssignments(tpl, selectedIds, 200, opts.fijos);
+    let mejor = null;
+    asigs.forEach(a => {
+      if (a.length < (tpl.min_ing || 2)) return;
+      const r = fitAssignment(a, targets, opts.fijos);
+      if (!r) return;
+      // Premia usar más de lo que ha elegido: los puso por algo
+      const puntua = r.error - a.length * 0.04;
+      if (!mejor || puntua < mejor.puntua) mejor = Object.assign(r, { puntua: puntua, tpl: tpl });
+    });
+    if (mejor) {
+      mejor.nombre = recipeTitle(tpl, mejor.items);
+      mejor.tiempo = tpl.tiempo;
+      mejor.pasos = tpl.pasos;
+      mejor.gaps = composeGaps(mejor.totals, targets);
+      mejor.sinUsar = selectedIds
+        .filter(id => !mejor.items.some(x => x.food.id === id))
+        .map(id => shortName(foodById(id)));
+      out.push(mejor);
+    }
+  });
+  out.sort((a, b) => a.puntua - b.puntua);
+  return out.slice(0, opts.cuantas || 3);
+}
+
+/**
+ * Qué le falta para poder hacer más recetas. Solo mira papeles que de
+ * verdad usan los formatos de esa comida, así que nunca propondrá una
+ * berenjena para desayunar.
+ */
+function missingRoleSuggestions(meal, selectedIds, opts) {
+  opts = opts || {};
+  const tpls = templatesFor(meal, opts.maxTiempo);
+  const foods = selectedIds.map(foodById).filter(Boolean);
+  const tiene = role => foods.some(f => hasRole(f, role));
+  const faltan = {};
+
+  tpls.forEach(tpl => {
+    const req = tpl.roles.filter(r => r.req);
+    const sinCubrir = req.filter(r => !tiene(r.key));
+    // Solo interesa si con un ingrediente más se desbloquea el formato
+    if (sinCubrir.length === 1) {
+      const k = sinCubrir[0].key;
+      (faltan[k] = faltan[k] || { role: sinCubrir[0], formatos: [] }).formatos.push(tpl.nombre);
+    }
+  });
+
+  return Object.keys(faltan).map(k => {
+    const info = faltan[k];
+    const favs = favorites(meal);
+    const cand = allFoods()
+      .filter(f => hasRole(f, k) && selectedIds.indexOf(f.id) < 0)
+      .sort((a, b) => (favs.indexOf(b.id) >= 0 ? 1 : 0) - (favs.indexOf(a.id) >= 0 ? 1 : 0)
+                    || density(b) - density(a));
+    return cand.length ? { role: info.role, formatos: info.formatos, food: cand[0] } : null;
+  }).filter(Boolean);
+}
+
+/* ============================================================
    MENÚ SEMANAL Y COMPRA
    ============================================================ */
 function weekStartOf(fecha) {
@@ -2438,7 +2807,7 @@ function viewRecetas() {
       '<span class="eyebrow">Crear con lo que te gusta</span>' +
       '<p class="hint" style="margin:7px 0 10px">Elige entre tus ingredientes favoritos, di qué macros quieres ' +
         'alcanzar y te calculo los gramos de cada cosa.</p>' +
-      '<button class="btn primary wide" data-act="composer">Proponme una receta</button>' +
+      '<button class="btn primary wide" data-act="composer">Proponme recetas</button>' +
     '</div>' +
     chips +
     '<button class="btn wide" data-act="new-recipe">Escribir una receta a mano</button>' +
@@ -2782,9 +3151,12 @@ function sheetComposer(meal) {
       carbs: Math.max(10, Math.round(gap.carbs)),
       fiber: Math.round(MICRO_TARGETS.fiber * w),
     },
+    fijos: {},
+    maxTiempo: 0,
     results: [],
+    faltan: [],
   };
-  openSheet('Proponme una receta', '<div id="cp"></div>', () => paintComposer());
+  openSheet('Proponme recetas', '<div id="cp"></div>', () => paintComposer());
 }
 
 function paintComposer() {
@@ -2798,10 +3170,19 @@ function paintComposer() {
     if (!f) return '';
     const on = composer.selected.indexOf(id) >= 0;
     return '<button class="fav-chip" data-tog="' + id + '" aria-pressed="' + (on ? 'true' : 'false') +
-      '" title="' + esc(f.nombre) + '">' +
-      (on ? '<span class="tick">✓</span>' : '') +
+      '" title="' + esc(f.nombre) + '">' + (on ? '<span class="tick">✓</span>' : '') +
       esc(shortName(f)) + (esFav ? '' : ' <span class="faint">·nuevo</span>') + '</button>';
   };
+
+  const elegidos = composer.selected.map(id => {
+    const f = foodById(id);
+    if (!f) return '';
+    const fijo = composer.fijos[id];
+    return '<div class="ing-edit"><span class="nm">' + esc(shortName(f)) + '</span>' +
+      '<input type="number" inputmode="numeric" min="1" max="2000" placeholder="auto" ' +
+        'value="' + (fijo || '') + '" data-fijo="' + id + '">' +
+      '<span class="u">' + (f.unit || 'g') + '</span></div>';
+  }).join('');
 
   box.innerHTML =
     '<div class="field"><label>Comida</label><div class="chips">' +
@@ -2809,50 +3190,76 @@ function paintComposer() {
         (composer.meal === t.key ? 'true' : 'false') + '">' + t.name + '</button>').join('') +
     '</div></div>' +
 
+    '<div class="field"><label>Tiempo que tienes</label><div class="chips">' +
+      [{ v: 10, t: '10 min' }, { v: 20, t: '20 min' }, { v: 30, t: '30 min' }, { v: 0, t: 'El que haga falta' }]
+        .map(o => '<button class="chip" data-time="' + o.v + '" aria-pressed="' +
+          (composer.maxTiempo === o.v ? 'true' : 'false') + '">' + o.t + '</button>').join('') +
+    '</div></div>' +
+
     '<div class="field"><label>Elige los ingredientes de hoy' +
         (composer.selected.length ? ' · ' + composer.selected.length + ' elegidos' : '') + '</label>' +
       (favs.length
         ? '<div class="fav-wrap">' + favs.map(id => chipFor(id, true)).join('') + '</div>' +
-          '<p class="hint" style="margin:6px 0 0">Toca los que quieras comer. Solo esos entran en la receta.</p>'
-        : '<p class="empty">Aún no has guardado favoritos para esta comida. Búscalos abajo y toca la estrella.</p>') +
+          '<p class="hint" style="margin:6px 0 0">Toca los que quieras comer.</p>'
+        : '<p class="empty">Aún no tienes favoritos de esta comida. Búscalos abajo y toca la estrella.</p>') +
       (extras.length ? '<div class="fav-wrap" style="margin-top:8px">' + extras.map(id => chipFor(id, false)).join('') + '</div>' : '') +
     '</div>' +
 
+    (composer.selected.length
+      ? '<div class="field"><label>Cantidades que quieres fijar</label>' + elegidos +
+        '<p class="hint" style="margin:6px 0 0">Deja en blanco lo que quieras que calcule yo. ' +
+        'Lo que fijes entra en la receta sí o sí, con esos gramos exactos.</p></div>'
+      : '') +
+
     '<div class="field"><label for="cp-q">Buscar otro ingrediente</label>' +
-      '<input class="input" id="cp-q" type="search" placeholder="Buscar en los 220 alimentos" ' +
+      '<input class="input" id="cp-q" type="search" placeholder="Buscar en los ' + allFoods().length + ' alimentos" ' +
         'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">' +
       '<div id="cp-res"></div>' +
     '</div>' +
 
     '<div class="field"><label>Qué quieres alcanzar</label><div class="grid3">' +
-      '<label class="tiny-field"><span>Proteína g</span><input class="input numeric" id="cp-prot" type="number" inputmode="numeric" value="' + composer.targets.prot + '"></label>' +
-      '<label class="tiny-field"><span>Carbos g</span><input class="input numeric" id="cp-carbs" type="number" inputmode="numeric" value="' + composer.targets.carbs + '"></label>' +
-      '<label class="tiny-field"><span>Fibra g</span><input class="input numeric" id="cp-fiber" type="number" inputmode="numeric" value="' + composer.targets.fiber + '"></label>' +
-    '</div>' +
-    '<p class="hint" style="margin:6px 0 0">Deja en blanco lo que no te importe.</p></div>' +
+      '<label class="tiny-field"><span>Proteína g</span><input class="input numeric" id="cp-prot" type="number" inputmode="numeric" value="' + (composer.targets.prot || '') + '"></label>' +
+      '<label class="tiny-field"><span>Carbos g</span><input class="input numeric" id="cp-carbs" type="number" inputmode="numeric" value="' + (composer.targets.carbs || '') + '"></label>' +
+      '<label class="tiny-field"><span>Fibra g</span><input class="input numeric" id="cp-fiber" type="number" inputmode="numeric" value="' + (composer.targets.fiber || '') + '"></label>' +
+    '</div><p class="hint" style="margin:6px 0 0">Deja en blanco lo que no te importe.</p></div>' +
 
-    '<button class="btn primary wide" data-calc>Calcular la receta</button>' +
+    '<button class="btn primary wide" data-calc>Proponme recetas</button>' +
     '<div id="cp-out">' + composerResults() + '</div>';
 
   box.querySelectorAll('[data-cmeal]').forEach(b => b.onclick = () => {
-    pullComposerTargets();
+    pullComposer();
     composer.meal = b.dataset.cmeal;
-    composer.selected = [];
-    composer.results = [];
+    composer.selected = []; composer.fijos = {}; composer.results = [];
+    const gap = shareForMeal(curDate, composer.meal);
+    const w = (MEALS.find(x => x.key === composer.meal) || {}).weight || 0.25;
+    composer.targets = { prot: Math.max(10, Math.round(gap.prot)), carbs: Math.max(10, Math.round(gap.carbs)),
+                         fiber: Math.round(MICRO_TARGETS.fiber * w) };
     paintComposer();
   });
+  box.querySelectorAll('[data-time]').forEach(b => b.onclick = () => {
+    pullComposer(); composer.maxTiempo = parseInt(b.dataset.time, 10); paintComposer();
+  });
   box.querySelectorAll('[data-tog]').forEach(b => b.onclick = () => {
-    pullComposerTargets();
+    pullComposer();
     const id = b.dataset.tog, i = composer.selected.indexOf(id);
-    if (i >= 0) composer.selected.splice(i, 1); else composer.selected.push(id);
+    if (i >= 0) { composer.selected.splice(i, 1); delete composer.fijos[id]; }
+    else composer.selected.push(id);
     paintComposer();
+  });
+  box.querySelectorAll('[data-fijo]').forEach(inp => inp.oninput = () => {
+    const v = parseInt(inp.value, 10);
+    if (isNaN(v) || v <= 0) delete composer.fijos[inp.dataset.fijo];
+    else composer.fijos[inp.dataset.fijo] = v;
   });
   const q = box.querySelector('#cp-q');
   q.addEventListener('input', () => composerSearch(q.value.trim()));
   box.querySelector('[data-calc]').onclick = () => {
-    pullComposerTargets();
+    pullComposer();
     if (composer.selected.length < 2) { toast('Toca al menos dos ingredientes'); return; }
-    composer.results = composeOptions(composer.selected, composer.targets, 3);
+    composer.results = proposeRecipes(composer.meal, composer.selected, composer.targets, {
+      maxTiempo: composer.maxTiempo, fijos: composer.fijos, cuantas: 3,
+    });
+    composer.faltan = missingRoleSuggestions(composer.meal, composer.selected, { maxTiempo: composer.maxTiempo });
     const out = document.getElementById('cp-out');
     out.innerHTML = composerResults();
     bindComposerResults();
@@ -2861,7 +3268,7 @@ function paintComposer() {
   bindComposerResults();
 }
 
-function pullComposerTargets() {
+function pullComposer() {
   const num = id => {
     const el = document.getElementById(id);
     if (!el || el.value === '') return null;
@@ -2887,70 +3294,55 @@ function composerSearch(term) {
         '" aria-label="Guardar en favoritos">' + (fav ? '★' : '☆') + '</button></div>';
   }).join('');
   box.querySelectorAll('[data-use]').forEach(b => b.onclick = () => {
-    pullComposerTargets();
+    pullComposer();
     if (composer.selected.indexOf(b.dataset.use) < 0) composer.selected.push(b.dataset.use);
     document.getElementById('cp-q').value = '';
     paintComposer();
-    toast(foodById(b.dataset.use).nombre + ' añadido a la receta');
+    toast(shortName(foodById(b.dataset.use)) + ' añadido');
   });
   box.querySelectorAll('[data-fav]').forEach(b => b.onclick = () => {
-    pullComposerTargets();
+    pullComposer();
     toggleFavorite(composer.meal, b.dataset.fav);
-    const nombre = foodById(b.dataset.fav).nombre;
     const ahora = isFavorite(composer.meal, b.dataset.fav);
     if (ahora && composer.selected.indexOf(b.dataset.fav) < 0) composer.selected.push(b.dataset.fav);
     paintComposer();
-    toast(ahora ? nombre + ' guardado en favoritos' : nombre + ' quitado de favoritos');
+    toast(shortName(foodById(b.dataset.fav)) + (ahora ? ' guardado en favoritos' : ' quitado de favoritos'));
   });
 }
 
 function composerResults() {
-  if (!composer.results.length) return '';
+  if (!composer.results.length && !(composer.faltan || []).length) return '';
+  if (!composer.results.length) {
+    return '<div class="or-line"><span>sin recetas</span></div>' +
+      '<p class="empty">Con esos ingredientes y ese tiempo no me sale ningún plato. ' +
+      'Prueba a darte más tiempo o añade algo de lo de abajo.</p>' + composerMissing();
+  }
   return '<div class="or-line"><span>' +
-    (composer.results.length === 1 ? 'propuesta' : composer.results.length + ' propuestas') + '</span></div>' +
-    '<p class="hint" style="margin:0 0 10px">La primera lleva todo lo que has marcado. ' +
-      'Si alguna versión corta deja algo fuera, te lo dice.</p>' +
+      (composer.results.length === 1 ? 'una receta' : composer.results.length + ' recetas') + '</span></div>' +
     composer.results.map((r, i) => {
+      const cuadra = r.gaps.length === 0;
       const ing = r.items.map(x =>
-        '<div class="detail-ing"><span class="nm">' + esc(x.food.nombre) + '</span>' +
+        '<div class="detail-ing"><span class="nm">' + esc(x.food.nombre) +
+          '<span class="role"> · ' + esc(x.role) + '</span></span>' +
         '<span class="g">' + x.grams + ' ' + (x.food.unit || 'g') +
           (x.uds ? ' <span class="faint">· ' + x.uds + (x.uds === 1 ? ' ud' : ' uds') + '</span>' : '') +
-        '</span></div>').join('');
-
-      const cuadra = r.gaps.length === 0;
-      // Muchos ingredientes al mínimo = la selección es demasiado amplia
-      // para una sola comida, y salen pellizcos en vez de raciones.
-      const alMinimo = r.items.filter(x => x.grams <= composeMin(x.food)).length;
-      const falta = r.gaps.filter(g => g.diff < 0);
-      const extra = falta.length
-        ? suggestIngredientFor(falta[0], composer.meal, r.items.map(x => x.food.id))
-        : null;
+          (x.fijo ? ' <span class="pin">fijo</span>' : '') + '</span></div>').join('');
       const compra = missingFromPantry(r.items);
-
-      return '<div class="option' + (r.usaTodos ? ' option-full' : '') + '">' +
-        '<div class="option-head"><span class="option-n">' + esc(r.etiqueta || ('Opción ' + (i + 1))) + '</span>' +
-          (cuadra ? '<span class="tag blue">cuadra</span>' : '') + '</div>' +
-        (r.quita && r.quita.length
-          ? '<div class="quita">Deja fuera: ' + esc(r.quita.join(', ')) + '</div>' : '') +
+      return '<div class="option' + (i === 0 ? ' option-full' : '') + '">' +
+        '<div class="option-head"><span class="recipe-title">' + esc(r.nombre) + '</span></div>' +
+        '<div class="recipe-meta"><span class="tag">⏱ ' + r.tiempo + ' min</span>' +
+          (cuadra ? '<span class="tag blue">cuadra tus macros</span>' : '') + '</div>' +
         ing +
         '<div class="macro-row" style="margin-top:8px"><b>' + Math.round(r.totals.kcal) + ' kcal</b>' +
           '<span>P ' + fmt1(r.totals.prot) + '</span><span>C ' + fmt1(r.totals.carbs) + '</span>' +
           '<span>G ' + fmt1(r.totals.fat) + '</span><span>fibra ' + fmt1(r.totals.fiber) + '</span></div>' +
-        (alMinimo >= 3
-          ? '<div class="careful">Con ' + r.items.length + ' ingredientes salen cantidades muy pequeñas. ' +
-            'Quita alguno y las raciones serán más generosas.</div>'
-          : '') +
-        (r.gaps.length
-          ? '<div class="careful">' + r.gaps.map(g =>
-              g.label + ' ' + (g.diff > 0 ? '+' : '−') + Math.abs(Math.round(g.diff)) + ' g').join(' · ') + '</div>'
-          : '') +
-        (extra
-          ? '<div class="suggest-extra">Para llegar te ayudaría <b>' + esc(extra.food.nombre) + '</b>, unos ' +
-            extra.grams + ' g. <button class="link-btn" data-add-extra="' + extra.food.id + '">Añadirlo y recalcular</button></div>'
-          : '') +
+        (r.gaps.length ? '<div class="careful">' + r.gaps.map(g =>
+            g.label + ' ' + (g.diff > 0 ? '+' : '−') + Math.abs(Math.round(g.diff)) + ' g').join(' · ') + '</div>' : '') +
+        (r.sinUsar.length ? '<div class="quita">No lleva: ' + esc(r.sinUsar.join(', ')) + '</div>' : '') +
+        '<details class="pasos"><summary>Cómo se hace</summary><ol>' +
+          r.pasos.map(x => '<li>' + esc(x) + '</li>').join('') + '</ol></details>' +
         (pantry().length === 0
-          ? '<div class="hint" style="margin-top:8px">Apunta lo que tienes en casa desde la pestaña Compra ' +
-            'y aquí te diré qué falta para esta receta.</div>'
+          ? ''
           : compra.length
             ? '<div class="need-buy">Te falta en casa: ' + compra.map(c =>
                 esc(c.nombre) + ' <span class="num">' + c.falta + ' ' + c.unit + '</span>').join(', ') + '</div>'
@@ -2960,17 +3352,31 @@ function composerResults() {
           '<button class="btn primary grow" data-log-opt="' + i + '">Registrar ahora</button>' +
         '</div>' +
       '</div>';
-    }).join('');
+    }).join('') + composerMissing();
+}
+
+/* Lo que le falta para desbloquear más formatos. Al ir por papeles,
+   nunca sugiere algo que no pinte nada en esa comida. */
+function composerMissing() {
+  const f = composer.faltan || [];
+  if (!f.length) return '';
+  return '<div class="suggest-extra"><b>Con un ingrediente más podrías hacer:</b>' +
+    f.slice(0, 3).map(x =>
+      '<div class="miss-row"><span>' + esc(x.formatos.join(', ')) + ' — te falta ' + esc(x.role.label) +
+      '</span><button class="link-btn" data-add-role="' + x.food.id + '">Añadir ' +
+      esc(shortName(x.food)) + '</button></div>').join('') + '</div>';
 }
 
 function bindComposerResults() {
   const out = document.getElementById('cp-out');
   if (!out) return;
-  out.querySelectorAll('[data-add-extra]').forEach(b => b.onclick = () => {
-    if (composer.selected.indexOf(b.dataset.addExtra) < 0) composer.selected.push(b.dataset.addExtra);
-    composer.results = composeOptions(composer.selected, composer.targets, 3);
+  out.querySelectorAll('[data-add-role]').forEach(b => b.onclick = () => {
+    if (composer.selected.indexOf(b.dataset.addRole) < 0) composer.selected.push(b.dataset.addRole);
+    composer.results = proposeRecipes(composer.meal, composer.selected, composer.targets, {
+      maxTiempo: composer.maxTiempo, fijos: composer.fijos, cuantas: 3 });
+    composer.faltan = missingRoleSuggestions(composer.meal, composer.selected, { maxTiempo: composer.maxTiempo });
     paintComposer();
-    toast('Recalculado con ' + foodById(b.dataset.addExtra).nombre);
+    toast('Añadido ' + shortName(foodById(b.dataset.addRole)));
   });
   out.querySelectorAll('[data-log-opt]').forEach(b => b.onclick = () => {
     const r = composer.results[+b.dataset.logOpt];
@@ -2991,19 +3397,15 @@ function bindComposerResults() {
   });
   out.querySelectorAll('[data-save-opt]').forEach(b => b.onclick = () => {
     const r = composer.results[+b.dataset.saveOpt];
-    const partes = r.items.slice(0, 3).map(x => x.food.nombre.split(' (')[0].split(' ').slice(0, 2).join(' '));
-    const nombre = partes.length > 1
-      ? partes.slice(0, -1).join(', ') + ' y ' + partes[partes.length - 1]
-      : partes[0];
     saveRecipe({
       id: 'r' + Date.now().toString(36),
-      name: nombre, meal_type: composer.meal,
+      name: r.nombre.charAt(0).toUpperCase() + r.nombre.slice(1),
+      meal_type: composer.meal,
       ingredients: r.items.map(x => ({ ingredient_id: x.food.id, amount_g: x.grams })),
-      is_fixed: false, tags: [], notes: 'Calculada para ' +
-        Object.keys(composer.targets).map(k => composer.targets[k] + ' g de ' + k).join(', ') + '.',
+      is_fixed: false, tags: [], notes: r.tiempo + ' min. ' + r.pasos.join(' '),
     });
     closeSheet(); tab = 'recetas'; render();
-    toast('Guardada como «' + nombre + '»');
+    toast('Guardada «' + r.nombre + '»');
   });
 }
 
