@@ -13,6 +13,10 @@ No tiene nada de entrenamiento: ni rutinas, ni fases, ni cargas, ni Garmin.
   con la **porción ya ajustada** al hueco que queda, y un atajo para cerrar el
   hueco de proteína con un solo ingrediente.
 - **Recetas** — 23 de partida (desayunos dulces y salados), editables, más las tuyas.
+  Y **«Proponme una receta»**: eliges entre tus ingredientes favoritos, dices qué
+  macros quieres alcanzar (por ejemplo 35 g de proteína, 70 de carbos y 10 de fibra)
+  y calcula los gramos de cada cosa, con tres propuestas distintas. Si con lo elegido
+  no se llega, recomienda qué ingrediente añadir; y te dice qué falta en la despensa.
 - **Menú** — semana completa cuadrada con los objetivos; cambia o fija cada comida.
 - **Compra** — despensa, recetas que puedes hacer con lo que hay, y lista que
   resta lo que ya tienes.
@@ -32,6 +36,22 @@ viven. «Recalcular carbos y grasa» cuadra los macros con las kcal sin tocar la
 Al sugerir, cada comida tiene su parte del margen de saturadas con algo de holgura,
 para que un huevo con aguacate no dispare un aviso cada mañana. Solo registra y
 avisa; no interpreta nada clínicamente.
+
+## Cómo se calculan las recetas propuestas
+
+Es un ajuste, no una búsqueda: se parte de una ración normal de cada ingrediente y se
+afina uno a uno, en pasos de 5 g, hasta que deja de mejorar. Tres detalles hacen que
+el resultado sea una receta y no una lista de números:
+
+- **Mínimos con sentido.** Por debajo de cierta cantidad el ingrediente no se usa;
+  5 g de granola no son un ingrediente.
+- **Peaje por ingrediente.** Cuadrar el objetivo con cuatro alimentos es mejor receta
+  que cuadrarlo casi igual con nueve, así que cada uno extra penaliza un poco.
+- **Varios arranques.** Se prueba desde combinaciones distintas y se descartan las
+  repetidas, porque partiendo siempre del mismo sitio sale siempre la misma receta.
+
+Lo que se compra por unidades (huevos) salta de unidad en unidad, y hay topes por
+alimento para que no proponga 300 g de aguacate con tal de cuadrar el número.
 
 ## Densidad proteica
 
