@@ -47,8 +47,13 @@ el resultado sea una receta y no una lista de números:
   5 g de granola no son un ingrediente.
 - **Peaje por ingrediente.** Cuadrar el objetivo con cuatro alimentos es mejor receta
   que cuadrarlo casi igual con nueve, así que cada uno extra penaliza un poco.
-- **Varios arranques.** Se prueba desde combinaciones distintas y se descartan las
-  repetidas, porque partiendo siempre del mismo sitio sale siempre la misma receta.
+- **Varios arranques.** Se prueba desde repartos distintos, porque partiendo siempre
+  del mismo sitio sale siempre la misma receta.
+
+Y una regla que manda sobre las demás: **la primera propuesta usa todos los
+ingredientes marcados**. Marcarlos significa «quiero comer esto», no «tienes permiso
+para usarlo». Las versiones más cortas que vienen debajo dicen en voz alta qué dejan
+fuera, para que nada desaparezca en silencio.
 
 Lo que se compra por unidades (huevos) salta de unidad en unidad, y hay topes por
 alimento para que no proponga 300 g de aguacate con tal de cuadrar el número.
