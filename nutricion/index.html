@@ -637,6 +637,12 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
   margin-top: 8px; font-size: 11.5px; color: var(--warn);
 }
 .have-all { margin-top: 8px; font-size: 11.5px; color: var(--good); }
+
+.option-full { border-color: var(--accent-line); box-shadow: 0 0 0 1px var(--accent-line) inset; }
+.quita {
+  font-size: 11.5px; color: var(--warn);
+  margin: -2px 0 8px;
+}
 </style>
 
 <div class="app">
@@ -1764,14 +1770,16 @@ function composeMin(f) {
 
 /* Cantidades que se van a probar. Lo que se compra por unidades
    (huevos, rebanadas) salta de unidad en unidad; el resto de 5 en 5. */
-function composeGrid(f) {
+function composeGrid(f, obligatorio) {
   const cap = composeCap(f), min = composeMin(f);
-  const out = [0];
+  // Con `obligatorio` no se ofrece el 0: el ingrediente entra sí o sí.
+  const out = obligatorio ? [] : [0];
   if (f.peso_ud_g) {
     for (let g = f.peso_ud_g; g <= cap; g += f.peso_ud_g) out.push(g);
   } else {
     for (let g = min; g <= cap; g += 5) out.push(g);
   }
+  if (!out.length) out.push(min);
   return out;
 }
 
@@ -1811,18 +1819,21 @@ function composeError(totals, targets, usados) {
  * cantidades en pasos de 5 g y se queda con la que menos error deja.
  * Permite el 0, así que puede descartar lo que no haga falta.
  */
-function composeRecipe(ids, targets, seed) {
+function composeRecipe(ids, targets, opts) {
+  opts = opts || {};
+  const todos = opts.todos !== false;   // por defecto, se usan TODOS los elegidos
   const foods = ids.map(foodById).filter(Boolean);
   if (!foods.length) return null;
-  const grids = foods.map(composeGrid);
+  const grids = foods.map(f => composeGrid(f, todos));
 
   let amounts = foods.map((f, i) => {
-    // `seed` marca con qué ingredientes se arranca. Partir de sitios
-    // distintos es lo que hace que salgan recetas distintas: si siempre
+    // `seed` marca desde dónde arranca cada ingrediente. Partir de sitios
+    // distintos es lo que hace que salgan repartos distintos: si siempre
     // se empieza igual, siempre se cae en la misma solución.
-    if (seed && seed.indexOf(i) < 0) return 0;
+    if (!todos && opts.seed && opts.seed.indexOf(i) < 0) return 0;
+    if (opts.aleatorio) return grids[i][Math.floor(Math.random() * grids[i].length)];
     const d = Math.min(composeCap(f), defaultGrams(f));
-    return grids[i].reduce((best, g) => Math.abs(g - d) < Math.abs(best - d) ? g : best, 0);
+    return grids[i].reduce((best, g) => Math.abs(g - d) < Math.abs(best - d) ? g : best, grids[i][0]);
   });
   const errOf = a => composeError(sumFor(foods, a), targets, a.filter(x => x > 0).length);
 
@@ -1854,30 +1865,39 @@ function composeRecipe(ids, targets, seed) {
   return {
     items: items,
     totals: totals,
-    dropped: foods.filter((f, i) => !amounts[i]).map(f => f.nombre),
+    dropped: foods.filter((f, i) => !amounts[i]).map(f => shortName(f)),
     gaps: composeGaps(totals, targets),
     error: composeError(totals, targets, items.length),
     key: items.map(x => x.food.id).sort().join('|'),
+    usaTodos: items.length === foods.length,
   };
 }
 
 /**
- * Varias recetas distintas con los mismos ingredientes y objetivos.
- * Se arranca desde combinaciones al azar y se descartan las repetidas:
- * tener tres opciones donde elegir vale más que una sola óptima.
+ * Propuestas para unos ingredientes y unos objetivos.
+ *
+ * La primera usa SIEMPRE todos los ingredientes elegidos: si los has
+ * seleccionado es porque quieres comerlos, no para darme permiso.
+ * Las siguientes son versiones más cortas, y cada una dice en voz alta
+ * qué ha quitado, para que nunca desaparezca nada en silencio.
  */
 function composeOptions(ids, targets, howMany) {
   const n = ids.length;
   if (!n) return [];
-  const found = {}, out = [];
-  const push = r => {
-    if (!r || !r.items.length) return;
-    if (found[r.key] && found[r.key].error <= r.error) return;
-    found[r.key] = r;
-  };
 
-  push(composeRecipe(ids, targets, null));
-  for (let intento = 0; intento < 14; intento++) {
+  // Con todos: varios arranques y nos quedamos con el mejor reparto
+  let conTodos = composeRecipe(ids, targets, { todos: true });
+  for (let i = 0; i < 8; i++) {
+    const r = composeRecipe(ids, targets, { todos: true, aleatorio: true });
+    if (r && r.error < conTodos.error) conTodos = r;
+  }
+  if (conTodos) conTodos.etiqueta = 'Con todos tus ingredientes';
+  const out = conTodos ? [conTodos] : [];
+  if (n <= 2) return out;
+
+  // Versiones más cortas, solo si de verdad cuadran mejor
+  const cortas = {};
+  for (let intento = 0; intento < 16; intento++) {
     const idx = [];
     for (let i = 0; i < n; i++) idx.push(i);
     for (let i = idx.length - 1; i > 0; i--) {
@@ -1885,12 +1905,17 @@ function composeOptions(ids, targets, howMany) {
       const t = idx[i]; idx[i] = idx[j]; idx[j] = t;
     }
     const cuantos = Math.min(n, 3 + Math.floor(Math.random() * 3));
-    push(composeRecipe(ids, targets, idx.slice(0, cuantos)));
+    const r = composeRecipe(ids, targets, { todos: false, seed: idx.slice(0, cuantos) });
+    if (!r || !r.items.length || r.usaTodos) continue;
+    if (cortas[r.key] && cortas[r.key].error <= r.error) continue;
+    cortas[r.key] = r;
   }
-
-  Object.keys(found).forEach(k => out.push(found[k]));
-  out.sort((a, b) => a.error - b.error);
-  return out.slice(0, howMany || 3);
+  const lista = Object.keys(cortas).map(k => cortas[k]).sort((a, b) => a.error - b.error);
+  lista.forEach(r => {
+    r.etiqueta = 'Versión más corta';
+    r.quita = r.dropped;
+  });
+  return out.concat(lista.slice(0, (howMany || 3) - out.length));
 }
 
 /* Qué objetivos quedaron lejos, para poder decirlo con claridad. */
@@ -2879,6 +2904,8 @@ function composerResults() {
   if (!composer.results.length) return '';
   return '<div class="or-line"><span>' +
     (composer.results.length === 1 ? 'propuesta' : composer.results.length + ' propuestas') + '</span></div>' +
+    '<p class="hint" style="margin:0 0 10px">La primera lleva todo lo que has marcado. ' +
+      'Si alguna versión corta deja algo fuera, te lo dice.</p>' +
     composer.results.map((r, i) => {
       const ing = r.items.map(x =>
         '<div class="detail-ing"><span class="nm">' + esc(x.food.nombre) + '</span>' +
@@ -2887,19 +2914,28 @@ function composerResults() {
         '</span></div>').join('');
 
       const cuadra = r.gaps.length === 0;
+      // Muchos ingredientes al mínimo = la selección es demasiado amplia
+      // para una sola comida, y salen pellizcos en vez de raciones.
+      const alMinimo = r.items.filter(x => x.grams <= composeMin(x.food)).length;
       const falta = r.gaps.filter(g => g.diff < 0);
       const extra = falta.length
         ? suggestIngredientFor(falta[0], composer.meal, r.items.map(x => x.food.id))
         : null;
       const compra = missingFromPantry(r.items);
 
-      return '<div class="option">' +
-        '<div class="option-head"><span class="option-n">Opción ' + (i + 1) + '</span>' +
+      return '<div class="option' + (r.usaTodos ? ' option-full' : '') + '">' +
+        '<div class="option-head"><span class="option-n">' + esc(r.etiqueta || ('Opción ' + (i + 1))) + '</span>' +
           (cuadra ? '<span class="tag blue">cuadra</span>' : '') + '</div>' +
+        (r.quita && r.quita.length
+          ? '<div class="quita">Deja fuera: ' + esc(r.quita.join(', ')) + '</div>' : '') +
         ing +
         '<div class="macro-row" style="margin-top:8px"><b>' + Math.round(r.totals.kcal) + ' kcal</b>' +
           '<span>P ' + fmt1(r.totals.prot) + '</span><span>C ' + fmt1(r.totals.carbs) + '</span>' +
           '<span>G ' + fmt1(r.totals.fat) + '</span><span>fibra ' + fmt1(r.totals.fiber) + '</span></div>' +
+        (alMinimo >= 3
+          ? '<div class="careful">Con ' + r.items.length + ' ingredientes salen cantidades muy pequeñas. ' +
+            'Quita alguno y las raciones serán más generosas.</div>'
+          : '') +
         (r.gaps.length
           ? '<div class="careful">' + r.gaps.map(g =>
               g.label + ' ' + (g.diff > 0 ? '+' : '−') + Math.abs(Math.round(g.diff)) + ' g').join(' · ') + '</div>'
