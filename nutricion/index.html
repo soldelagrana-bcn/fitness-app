@@ -108,7 +108,7 @@
   --shadow-up: 0 -1px 0 var(--line), 0 -8px 24px rgba(0,0,0,.35);
 }
 
-* { box-sizing: border-box; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
@@ -118,6 +118,7 @@ body {
   font-size: 15px;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
 }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
@@ -143,6 +144,7 @@ button { cursor: pointer; }
   align-items: baseline;
   gap: 10px;
   padding: 14px 18px 10px;
+  padding-top: calc(14px + env(safe-area-inset-top));
   background: color-mix(in srgb, var(--ground) 88%, transparent);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--line-soft);
@@ -163,7 +165,7 @@ button { cursor: pointer; }
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--ink-soft);
-  width: 32px; height: 32px;
+  width: 44px; height: 44px;
   border-radius: 50%;
   display: grid; place-items: center;
   font-size: 14px;
@@ -187,6 +189,7 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 }
 .tab {
   border: 0; background: none;
+  min-height: 48px;
   padding: 10px 4px 12px;
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   color: var(--ink-faint);
@@ -259,19 +262,32 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
   font-size: 12px; color: var(--ink-soft);
 }
 .switch {
+  /* El botón mide 44px de alto para el pulgar; la vía se dibuja dentro
+     con la medida nativa de iOS (51x31). Un pseudo-elemento que
+     sobresale de un <button> no recibe los toques, así que la zona
+     táctil tiene que ser el propio botón. */
   margin-left: auto;
-  width: 42px; height: 24px; border-radius: 12px;
-  border: 1px solid var(--line); background: var(--sunken);
-  position: relative; transition: background .2s, border-color .2s;
+  position: relative;
+  width: 51px; height: 44px;
+  border: 0; background: none; padding: 0;
+  flex: 0 0 51px;
+}
+.switch::before {
+  content: ""; position: absolute; left: 0; top: 50%;
+  width: 51px; height: 31px; margin-top: -15.5px;
+  border-radius: 16px;
+  background: var(--sunken); border: 1px solid var(--line);
+  transition: background .2s, border-color .2s;
 }
 .switch::after {
-  content: ""; position: absolute; top: 2px; left: 2px;
-  width: 18px; height: 18px; border-radius: 50%;
-  background: var(--surface); box-shadow: 0 1px 2px rgba(0,0,0,.2);
+  content: ""; position: absolute; left: 3px; top: 50%;
+  width: 25px; height: 25px; margin-top: -12.5px;
+  border-radius: 50%;
+  background: var(--surface); box-shadow: 0 1px 2px rgba(0,0,0,.25);
   transition: transform .2s;
 }
-.switch[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); }
-.switch[aria-pressed="true"]::after { transform: translateX(18px); }
+.switch[aria-pressed="true"]::before { background: var(--accent); border-color: var(--accent); }
+.switch[aria-pressed="true"]::after { transform: translateX(20px); }
 
 /* ---- Avisos ---- */
 .notes { display: flex; flex-direction: column; gap: 7px; }
@@ -301,6 +317,7 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
   background: var(--surface);
   color: var(--ink-soft);
   border-radius: 999px;
+  min-height: 44px;
   padding: 6px 4px;
   font-size: 11.5px; font-weight: 600;
   white-space: nowrap;
@@ -344,6 +361,9 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
   background: var(--surface);
   color: var(--ink);
   padding: 8px 12px;
+  /* 44px es la zona táctil mínima cómoda para el pulgar */
+  min-height: 44px;
+  display: inline-flex; align-items: center; justify-content: center;
   font-size: 12.5px; font-weight: 620;
 }
 .btn:active { background: var(--sunken); }
@@ -351,14 +371,14 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 .btn.grow { flex: 1; }
 .btn.wide { width: 100%; }
 .btn.danger { color: var(--crit); }
-.btn.small { padding: 6px 10px; font-size: 11.5px; }
+.btn.small { padding: 6px 10px; font-size: 13px; min-width: 44px; }
 
 .ing-close { margin-top: 12px; border-top: 1px solid var(--line-soft); padding-top: 10px; }
 .ing-row {
   display: flex; align-items: baseline; gap: 9px;
-  width: 100%; text-align: left;
+  width: 100%; text-align: left; min-height: 44px;
   border: 0; border-bottom: 1px solid var(--line-soft);
-  background: none; padding: 8px 0;
+  background: none; padding: 10px 0;
 }
 .ing-row:last-child { border-bottom: 0; }
 .ing-row .n { flex: 1; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -373,9 +393,12 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 .meal-kcal { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
 .mini {
   border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft);
-  width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
   font-size: 14px; line-height: 1; padding: 0;
+  position: relative;
 }
+/* El objetivo táctil llega a 44px sin agrandar el botón a la vista */
+.mini::after { content: ""; position: absolute; inset: -5px; }
 .mini.accent { color: var(--accent); border-color: var(--accent-line); background: var(--accent-wash); }
 .entries { border-top: 1px solid var(--line-soft); }
 .entry { display: flex; align-items: center; gap: 9px; padding: 8px 12px; border-bottom: 1px solid var(--line-soft); }
@@ -384,7 +407,11 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 .entry .nm { display: block; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .entry .qt { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); }
 .entry .kc { font-family: var(--mono); font-size: 12px; font-weight: 620; }
-.x { border: 0; background: none; color: var(--ink-faint); font-size: 13px; padding: 2px 4px; line-height: 1; }
+.x {
+  border: 0; background: none; color: var(--ink-faint);
+  font-size: 15px; line-height: 1;
+  min-width: 44px; min-height: 44px; padding: 0;
+}
 .x:active { color: var(--crit); }
 
 /* ---- Recetas ---- */
@@ -414,10 +441,10 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 .slot { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line-soft); }
 .slot:last-child { border-bottom: 0; }
 .slot-key { font-size: 9.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); width: 38px; flex: 0 0 38px; }
-.slot-body { flex: 1; min-width: 0; border: 0; background: none; text-align: left; padding: 0; }
+.slot-body { flex: 1; min-width: 0; min-height: 44px; border: 0; background: none; text-align: left; padding: 0; display: flex; flex-direction: column; justify-content: center; }
 .slot-name { display: block; font-size: 12.5px; font-weight: 560; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .slot-macros { display: block; font-family: var(--mono); font-size: 10px; color: var(--ink-faint); }
-.lock { border: 0; background: none; font-size: 12px; padding: 3px; opacity: .3; }
+.lock { border: 0; background: none; font-size: 14px; min-width: 44px; min-height: 44px; padding: 0; opacity: .3; }
 .lock[aria-pressed="true"] { opacity: 1; }
 
 /* ---- Despensa y compra ---- */
@@ -427,7 +454,7 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 .prow .nm { display: block; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .prow .sub { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); }
 .stepper { display: flex; align-items: center; gap: 3px; }
-.cook { width: 100%; text-align: left; border: 0; background: none; padding: 9px 0; border-bottom: 1px solid var(--line-soft); }
+.cook { width: 100%; min-height: 44px; text-align: left; border: 0; background: none; padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
 .cook:last-child { border-bottom: 0; }
 .cook .bar2 { height: 3px; background: var(--sunken); border-radius: 2px; overflow: hidden; margin-bottom: 6px; }
 .cook .bar2 > i { display: block; height: 100%; background: var(--good); }
@@ -436,7 +463,7 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 .shop-group + .shop-group { margin-top: 12px; }
 .shop-cat { font-size: 10px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 3px; }
 .shop {
-  display: flex; align-items: center; gap: 9px; width: 100%;
+  display: flex; align-items: center; gap: 9px; width: 100%; min-height: 44px;
   text-align: left; border: 0; background: none;
   padding: 8px 0; border-bottom: 1px solid var(--line-soft);
 }
@@ -472,7 +499,12 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
   background: var(--surface);
 }
 .sheet-head h3 { margin: 0; flex: 1; font-size: 14.5px; font-weight: 660; }
-.sheet-body { overflow-y: auto; padding: 14px 18px 24px; display: flex; flex-direction: column; gap: 12px; }
+.sheet-body {
+  overflow-y: auto; overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 18px calc(24px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: 12px;
+}
 
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field > label { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
@@ -480,13 +512,14 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
   width: 100%;
   border: 1px solid var(--line); border-radius: var(--r-sm);
   background: var(--surface); padding: 9px 10px;
-  font-size: 14px;
+  /* 16px es el mínimo: por debajo, Safari en iOS hace zoom al enfocar */
+  font-size: 16px;
 }
-.ta { resize: vertical; min-height: 62px; font-size: 12.5px; }
+.ta { resize: vertical; min-height: 62px; font-size: 16px; }
 .input.numeric { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 620; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
-.pick { width: 100%; text-align: left; border: 0; background: none; padding: 9px 0; border-bottom: 1px solid var(--line-soft); display: flex; align-items: center; gap: 9px; }
+.pick { width: 100%; min-height: 48px; text-align: left; border: 0; background: none; padding: 9px 0; border-bottom: 1px solid var(--line-soft); display: flex; align-items: center; gap: 9px; }
 .pick .info { flex: 1; min-width: 0; }
 .pick .nm { display: block; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pick .sub { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); }
@@ -494,7 +527,7 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 
 .ing-edit { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
 .ing-edit .nm { flex: 1; font-size: 12.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ing-edit input { width: 72px; text-align: right; font-family: var(--mono); font-weight: 620; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); padding: 6px 8px; font-size: 13px; }
+.ing-edit input { width: 82px; min-height: 44px; text-align: right; font-family: var(--mono); font-weight: 620; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); padding: 6px 8px; font-size: 16px; }
 .ing-edit .u { font-size: 11px; color: var(--ink-faint); width: 16px; }
 
 .preview {
@@ -561,7 +594,7 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
   display: flex; gap: 6px; padding: 9px 12px;
   border-top: 1px solid var(--line-soft);
 }
-.meal-foot .btn { padding: 8px 10px; font-size: 12.5px; }
+.meal-foot .btn { padding: 8px 10px; font-size: 12.5px; min-width: 44px; }
 </style>
 
 <div class="app">
@@ -2405,7 +2438,7 @@ function pullEditor() {
 /* ---- Selector de alimentos: ordenado por proteína/caloría ---- */
 function sheetPicker(title, onPick) {
   const body =
-    '<div class="field"><input class="input" id="pk-q" placeholder="Buscar alimento" autocomplete="off"></div>' +
+    '<div class="field"><input class="input" id="pk-q" type="search" placeholder="Buscar alimento" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>' +
     '<div id="pk-list"></div>';
   openSheet(title, body, scrim => {
     const q = scrim.querySelector('#pk-q');
@@ -2448,7 +2481,7 @@ function sheetBuilder(mealKey) {
   builder = { meal: mealKey, items: [] };
   const body =
     '<div class="field">' +
-      '<input class="input" id="bd-q" placeholder="Buscar alimento y tocar para añadir" autocomplete="off">' +
+      '<input class="input" id="bd-q" type="search" placeholder="Buscar alimento y tocar para añadir" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">' +
     '</div>' +
     '<div id="bd-results"></div>' +
     '<div id="bd-items"></div>' +
