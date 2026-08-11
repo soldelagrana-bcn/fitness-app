@@ -604,7 +604,7 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
   font-size: 12px; font-weight: 600; line-height: 1.2;
 }
 .fav-chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.fav-chip[aria-pressed="false"] { opacity: .55; text-decoration: line-through; }
+.fav-chip .tick { margin-right: 5px; font-weight: 700; }
 
 .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .tiny-field { display: flex; flex-direction: column; gap: 4px; }
@@ -2774,7 +2774,9 @@ function sheetComposer(meal) {
   const w = (MEALS.find(x => x.key === m) || {}).weight || 0.25;
   composer = {
     meal: m,
-    selected: favorites(m).slice(),
+    // Se empieza en blanco: tocar un ingrediente lo mete en la receta.
+    // Al revés (todos puestos y tocar para quitar) se lee como tachar.
+    selected: [],
     targets: {
       prot: Math.max(10, Math.round(gap.prot)),
       carbs: Math.max(10, Math.round(gap.carbs)),
@@ -2797,6 +2799,7 @@ function paintComposer() {
     const on = composer.selected.indexOf(id) >= 0;
     return '<button class="fav-chip" data-tog="' + id + '" aria-pressed="' + (on ? 'true' : 'false') +
       '" title="' + esc(f.nombre) + '">' +
+      (on ? '<span class="tick">✓</span>' : '') +
       esc(shortName(f)) + (esFav ? '' : ' <span class="faint">·nuevo</span>') + '</button>';
   };
 
@@ -2806,10 +2809,11 @@ function paintComposer() {
         (composer.meal === t.key ? 'true' : 'false') + '">' + t.name + '</button>').join('') +
     '</div></div>' +
 
-    '<div class="field"><label>Tus ingredientes favoritos</label>' +
+    '<div class="field"><label>Elige los ingredientes de hoy' +
+        (composer.selected.length ? ' · ' + composer.selected.length + ' elegidos' : '') + '</label>' +
       (favs.length
         ? '<div class="fav-wrap">' + favs.map(id => chipFor(id, true)).join('') + '</div>' +
-          '<p class="hint" style="margin:6px 0 0">Toca para quitar o volver a poner. Solo entran en la receta los marcados.</p>'
+          '<p class="hint" style="margin:6px 0 0">Toca los que quieras comer. Solo esos entran en la receta.</p>'
         : '<p class="empty">Aún no has guardado favoritos para esta comida. Búscalos abajo y toca la estrella.</p>') +
       (extras.length ? '<div class="fav-wrap" style="margin-top:8px">' + extras.map(id => chipFor(id, false)).join('') + '</div>' : '') +
     '</div>' +
@@ -2833,7 +2837,7 @@ function paintComposer() {
   box.querySelectorAll('[data-cmeal]').forEach(b => b.onclick = () => {
     pullComposerTargets();
     composer.meal = b.dataset.cmeal;
-    composer.selected = favorites(composer.meal).slice();
+    composer.selected = [];
     composer.results = [];
     paintComposer();
   });
@@ -2847,7 +2851,7 @@ function paintComposer() {
   q.addEventListener('input', () => composerSearch(q.value.trim()));
   box.querySelector('[data-calc]').onclick = () => {
     pullComposerTargets();
-    if (composer.selected.length < 2) { toast('Elige al menos dos ingredientes'); return; }
+    if (composer.selected.length < 2) { toast('Toca al menos dos ingredientes'); return; }
     composer.results = composeOptions(composer.selected, composer.targets, 3);
     const out = document.getElementById('cp-out');
     out.innerHTML = composerResults();
