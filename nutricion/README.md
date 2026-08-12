@@ -104,6 +104,7 @@ No hay casilla de «¿entrenaste hoy?». La hubo, y servía para dejar entrar el
 Evolate en el menú, pero un batido post-entreno no se planifica: depende de si entrenas, y
 eso no se sabe una semana antes. Las recetas con la etiqueta `post_entreno` quedan fuera
 del menú automático y se ponen a mano el día que toca.
+
 ## Datos
 
 Todo local, sin cuentas ni servidor. En Ajustes puedes copiar tus datos como texto
