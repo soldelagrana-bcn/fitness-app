@@ -17,10 +17,11 @@ Cuatro pestañas, cada una con un trabajo:
 | **Compra** | Seguir lo que consumes y montar la lista de la compra |
 
 **Hoy no sugiere nada.** Es un cuadro de mandos y un registro: el número grande es lo que
-falta de calorías, y debajo hay ocho baldosas —proteína, carbos, grasa, saturadas, fibra,
-hierro, calcio y vitamina D— con su número, su objetivo y su barra. Cada comida tiene un
-único botón: registrar. Proponer es trabajo de Recetas y de Menú, y tenerlo también aquí
-llenaba la pantalla de cosas que no eran el registro.
+falta de calorías, debajo cuatro baldosas de macros —proteína, carbos, grasa, saturadas—
+con su número, su objetivo y su barra, y al pie una tira pequeña con fibra, hierro, calcio
+y vitamina D. Los micros son contexto, no el objetivo del día, y se ven como tal. Cada
+comida tiene un único botón: registrar. Proponer es trabajo de Recetas y de Menú, y
+tenerlo también aquí llenaba la pantalla de cosas que no eran el registro.
 
 ## Objetivos
 
@@ -89,9 +90,14 @@ filtran: la crema de cacahuete o los frutos secos siguen ahí, en dosis pequeña
 
 ## Las dos proteínas en polvo
 
-- **Evolate whey** — solo post-entreno. Aparece únicamente si marcas «¿Entrenaste hoy?».
-- **Garden of Life** — solo en recetas, nunca suelta ni como post-entreno.
+Uso excluyente: la **Evolate** es solo post-entreno y la **Garden of Life** solo para
+recetas. La regla la vigila `powderWarning` al abrir o editar una receta, que es donde se
+decide.
 
+No hay casilla de «¿entrenaste hoy?». La hubo, y servía para dejar entrar el batido de
+Evolate en el menú, pero un batido post-entreno no se planifica: depende de si entrenas, y
+eso no se sabe una semana antes. Las recetas con la etiqueta `post_entreno` quedan fuera
+del menú automático y se ponen a mano el día que toca.
 ## Datos
 
 Todo local, sin cuentas ni servidor. En Ajustes puedes copiar tus datos como texto
