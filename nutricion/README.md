@@ -96,6 +96,29 @@ filtran: la crema de cacahuete o los frutos secos siguen ahí, en dosis pequeña
 Todo local, sin cuentas ni servidor. En Ajustes puedes copiar tus datos como texto
 y pegarlos para restaurarlos, que es también la forma de pasarlos a otro dispositivo.
 
+## Cargar la compra
+
+Tres vías, porque ninguna sirve siempre:
+
+- **Dictar** — al volver del súper, del tirón: «dos kilos de pechuga de pollo, media
+  docena de huevos, un litro de leche». Usa el reconocimiento de voz del navegador.
+- **Archivo** — un `.txt` o `.csv` con un producto por línea. De un PDF o una foto no
+  puede leer: la app funciona sin conexión y no lleva reconocimiento de imagen.
+- **Escribir** — pegar el ticket o la lista.
+
+Se interpretan cantidades en cifra y en palabra, unidades de peso, volumen, unidades,
+docenas y formatos de venta («2 latas de atún» = dos botes, no dos gramos). Interpretar
+es adivinar, así que **siempre hay pantalla de revisión**: se ve qué ha entendido de
+cada línea, se pueden cambiar el producto y los gramos, y solo entonces entra en la
+despensa.
+
+## Consumo y reposición
+
+Cada comida que se registra **descuenta de la despensa**. Con eso y el histórico se
+calcula cuánto se gasta al día de cada cosa y para cuántos días queda, y la lista de la
+compra se adelanta en vez de ir a remolque. Cada línea dice por qué está: «para el
+menú», «te queda poco», «lo usas y no te queda».
+
 ## Buscador
 
 Busca **por palabras sueltas, no como frase literal**: «pan integral» encuentra «Pan de

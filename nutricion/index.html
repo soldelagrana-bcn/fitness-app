@@ -666,6 +666,42 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 .pin.add { background: var(--warn-wash); color: var(--warn); }
 .warn-tag { background: var(--warn-wash); color: var(--warn); }
 .need-add { margin-top: 8px; font-size: 11.5px; color: var(--warn); }
+
+/* ---- Cargar la compra ---- */
+.dictado {
+  min-height: 70px; margin-top: 10px; padding: 11px;
+  border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--surface); font-size: 13.5px; line-height: 1.5;
+  white-space: pre-wrap;
+}
+.dictado .interim { color: var(--ink-faint); }
+.btn.grabando { background: var(--crit); border-color: var(--crit); color: #fff; }
+.rev-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 0; border-bottom: 1px solid var(--line-soft);
+}
+.rev-row:last-of-type { border-bottom: 0; }
+.rev-row .info { flex: 1; min-width: 0; }
+.rev-row .sub { display: block; font-size: 10.5px; color: var(--ink-faint); }
+.rev-row input {
+  width: 78px; min-height: 44px; text-align: right; font-family: var(--mono);
+  font-weight: 620; font-size: 16px; border: 1px solid var(--line);
+  border-radius: var(--r-sm); background: var(--surface); padding: 6px 8px;
+}
+.rev-row .u { font-size: 11px; color: var(--ink-faint); width: 16px; }
+.rev-name {
+  border: 0; background: none; padding: 0; text-align: left;
+  font-size: 13px; font-weight: 560; color: var(--ink); min-height: 24px;
+}
+.rev-name .cambiar { color: var(--accent); font-size: 11px; font-weight: 660; }
+.rev-no .nm { font-size: 13px; color: var(--ink-soft); }
+.cook-recipe { padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+.cook-recipe:last-child { border-bottom: 0; }
+.cook-top { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.cook-top .nm { flex: 1; font-size: 13.5px; font-weight: 620; }
+.cook-recipe .sub { font-size: 11.5px; color: var(--ink-soft); display: block; margin-bottom: 7px; }
+.motivo { color: var(--ink-faint); font-size: 10.5px; font-weight: 500; }
+input[type="file"] { padding: 12px; font-size: 14px; }
 </style>
 
 <div class="app">
@@ -1620,19 +1656,36 @@ function shortName(f) {
      las palabras vayan juntas y en ese orden deja fuera casi todo.
    - Manda parecerse a lo escrito, no la densidad proteica: quien
      escribe "huevo" quiere el huevo, no la clara en polvo. */
+/* Quita la marca de plural para que "huevos" encuentre "Huevo entero" y
+   "arandano" encuentre "Arándanos". Solo en palabras largas, para no
+   destrozar las cortas. */
+function stem(w) { return w.length > 4 ? w.replace(/(es|s)$/, '') : w; }
+function stemmedName(f) {
+  if (f._stem) return f._stem;
+  const v = norm(f.nombre).split(/\s+/).map(stem).join(' ');
+  try { Object.defineProperty(f, '_stem', { value: v, enumerable: false }); } catch (e) {}
+  return v;
+}
+
+/* Una palabra completa vale mucho más que un trozo de otra: "pan" es
+   Pan integral, no Panga ni Panceta. */
 function wordScore(name, w) {
   const pos = name.indexOf(w);
   if (pos < 0) return -1;
   if (name === w) return 100;
-  if (pos === 0) return 80;
-  if (name[pos - 1] === ' ' || name[pos - 1] === '(') return 60;
-  return 30;
+  const abre = pos === 0 || name[pos - 1] === ' ' || name[pos - 1] === '(';
+  const cierra = pos + w.length >= name.length || /[\s),./%-]/.test(name[pos + w.length]);
+  if (abre && cierra) return pos === 0 ? 90 : 70;   // palabra entera
+  if (abre) return pos === 0 ? 45 : 35;             // empieza igual pero sigue
+  return 20;                                        // dentro de otra palabra
 }
 function searchScore(food, palabras) {
   const name = norm(food.nombre);
+  const raiz = stemmedName(food);
   let total = 0;
   for (const w of palabras) {
-    const s = wordScore(name, w);
+    let s = wordScore(name, w);
+    if (s < 0) s = wordScore(raiz, stem(w)) - 5;   // coincidencia por raíz, algo peor
     if (s < 0) return -1;             // todas las palabras deben aparecer
     total += s;
   }
@@ -1640,6 +1693,13 @@ function searchScore(food, palabras) {
   // Un nombre corto suele ser el alimento base; los largos son variantes
   score -= Math.min(18, name.length / 6);
   if (/polvo|desecad|deshidrat/.test(name)) score -= 12;
+  // Si no pides una preparación concreta, se entiende el alimento tal cual:
+  // quien escribe "huevos" quiere el huevo, no el huevo cocido.
+  const prep = /cocid|asad|frit|ahumad|almibar|congelad|en vinagre|braseado/;
+  if (prep.test(name) && !palabras.some(w => prep.test(w))) score -= 6;
+  // "Arroz CON leche" es un plato, no el arroz. Si buscas el ingrediente,
+  // lo compuesto va detrás.
+  if (palabras.some(w => name.indexOf(w + ' con ') === 0)) score -= 14;
   return score + density(food) * 8;
 }
 function searchFoods(term, limit) {
@@ -2822,6 +2882,170 @@ function consumeFromPantry(recipe) {
 }
 
 /* ============================================================
+   LA COMPRA: LEERLA DE UN TEXTO Y SEGUIR EL CONSUMO
+   ============================================================ */
+
+const NUM_PALABRA = {
+  un: 1, una: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6,
+  siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12,
+  media: 0.5, medio: 0.5, par: 2, docena: 12, docenas: 12,
+};
+
+/* Cantidad de compra por defecto cuando no se dice ninguna: lo que se
+   suele traer del súper de esa cosa, no 100 g. */
+function defaultPurchase(f) {
+  if (!f) return 500;
+  if (f.unit === 'ml') return 1000;
+  if (f.peso_ud_g) return f.peso_ud_g * 6;
+  if (f.kcal100 >= 500) return 250;
+  if (f.cat === 'Frutas' || f.cat === 'Verduras') return 750;
+  return 500;
+}
+
+/**
+ * Interpreta una línea del tipo "2 kg de pechuga de pollo", "media docena
+ * de huevos" o simplemente "tomate cherry". Devuelve la cantidad en
+ * gramos o mililitros y el alimento con el que mejor casa.
+ */
+function parseShoppingLine(linea) {
+  const original = linea.trim();
+  if (!original) return null;
+  // Quita viñetas ("- x", "• x") y numeración de lista ("1. x", "2) x"),
+  // pero nunca un número suelto: ese es la cantidad.
+  let t = norm(original).replace(/^[-*•·]+\s+/, '').replace(/^\d+[.)]\s+/, '');
+
+  let cantidad = null, unidad = null;
+
+  // Número al principio, en cifra o en palabra
+  let m = t.match(/^(\d+(?:[.,]\d+)?)\s*/);
+  if (m) { cantidad = parseFloat(m[1].replace(',', '.')); t = t.slice(m[0].length); }
+  else {
+    const w = t.split(/\s+/)[0];
+    if (NUM_PALABRA[w] != null) { cantidad = NUM_PALABRA[w]; t = t.slice(w.length).trim(); }
+  }
+
+  // Unidad
+  m = t.match(/^(kg|kilos?|kilogramos?|gramos?|grs?|g|litros?|lts?|l|mililitros?|ml|unidades?|uds?|ud|docenas?|paquetes?|botes?|latas?|bolsas?|bandejas?|barras?|piezas?)\b\s*/);
+  if (m) { unidad = m[1]; t = t.slice(m[0].length); }
+
+  t = t.replace(/^de\s+/, '').replace(/^del\s+/, '').replace(/^la\s+|^el\s+|^los\s+|^las\s+/, '').trim();
+  if (!t) return null;
+
+  const candidatos = searchFoods(t, 5);
+  const food = candidatos[0] || null;
+
+  // Traducir a gramos o mililitros
+  let gramos;
+  const esPeso = /^(kg|kilo|gramo|gr|g)/.test(unidad || '');
+  const esVol  = /^(litro|lt|l$|mililitro|ml)/.test(unidad || '');
+  const esUd   = /^(unidad|ud|docena|paquete|bote|lata|bolsa|bandeja|barra|pieza)/.test(unidad || '');
+
+  if (cantidad != null && esPeso) gramos = /^(kg|kilo)/.test(unidad) ? cantidad * 1000 : cantidad;
+  else if (cantidad != null && esVol) gramos = /^(litro|lt|l$)/.test(unidad) ? cantidad * 1000 : cantidad;
+  else if (cantidad != null && esUd) {
+    if (/^(paquete|bote|lata|bolsa|bandeja|barra)/.test(unidad)) {
+      // Un paquete es un formato de venta entero, no una pieza suelta
+      gramos = cantidad * defaultPurchase(food);
+    } else {
+      const uds = /^docena/.test(unidad) ? cantidad * 12 : cantidad;
+      gramos = uds * (food && food.peso_ud_g ? food.peso_ud_g : defaultPurchase(food) / 6);
+    }
+  } else if (cantidad != null) {
+    // "6 huevos", "2 aguacates": número sin unidad = unidades
+    gramos = cantidad * (food && food.peso_ud_g ? food.peso_ud_g : (food ? defaultPurchase(food) / 4 : 125));
+  } else {
+    gramos = defaultPurchase(food);
+  }
+
+  return {
+    raw: original,
+    texto: t,
+    food: food,
+    candidatos: candidatos,
+    gramos: Math.max(1, Math.round(gramos)),
+    seguro: !!food && norm(food.nombre).indexOf(t) >= 0,
+  };
+}
+
+/* Separa por líneas y también por comas o "y": al dictar sale todo seguido. */
+function parseShoppingText(texto) {
+  return String(texto || '')
+    .split(/\r?\n|;|,| y (?=\s*(?:\d|un |una |dos |tres |cuatro |cinco |seis |medio |media ))/i)
+    .map(l => parseShoppingLine(l))
+    .filter(Boolean);
+}
+
+/* ---- Consumo y reposición ---- */
+
+/** Gramos al día de un alimento, mirando lo registrado los últimos días. */
+function consumptionRate(foodId, dias) {
+  const n = dias || 21;
+  let total = 0, diasConDatos = 0;
+  for (let i = 0; i < n; i++) {
+    const f = shiftDate(today(), -i);
+    const log = dayLog(f);
+    if (!log.entries.length) continue;
+    diasConDatos++;
+    log.entries.forEach(e => { if (e.food_id === foodId) total += (e.qty || 0); });
+  }
+  if (!diasConDatos) return 0;
+  return total / diasConDatos;
+}
+
+/**
+ * Estado de la despensa: cuánto queda de cada cosa y para cuántos días,
+ * según lo que se consume de verdad. Es lo que convierte la lista de la
+ * compra en algo que se adelanta en vez de ir a remolque.
+ */
+function pantryStatus(diasAviso) {
+  const umbral = diasAviso || 5;
+  return pantry().map(p => {
+    const f = foodById(p.ingredient_id);
+    if (!f) return null;
+    const ritmo = consumptionRate(p.ingredient_id);
+    const quedan = p.estimated_quantity || 0;
+    const dias = ritmo > 0 ? quedan / ritmo : null;
+    return {
+      food: f, cantidad: quedan, ritmo: ritmo,
+      dias: dias == null ? null : Math.floor(dias),
+      seAcaba: quedan <= 0 || (dias != null && dias <= umbral),
+      sinDatos: ritmo === 0,
+    };
+  }).filter(Boolean).sort((a, b) => {
+    if (a.dias == null && b.dias == null) return a.cantidad - b.cantidad;
+    if (a.dias == null) return 1;
+    if (b.dias == null) return -1;
+    return a.dias - b.dias;
+  });
+}
+
+/** Lo que consumes a menudo y no tienes en casa. */
+function habitualesSinStock(diasMirar) {
+  const uso = {};
+  const n = diasMirar || 21;
+  for (let i = 0; i < n; i++) {
+    const log = dayLog(shiftDate(today(), -i));
+    log.entries.forEach(e => {
+      if (!e.food_id) return;
+      uso[e.food_id] = (uso[e.food_id] || 0) + (e.qty || 0);
+    });
+  }
+  return Object.keys(uso)
+    .filter(id => pantryQty(id) <= 0 && foodById(id))
+    .map(id => ({ food: foodById(id), gramos: uso[id], veces: uso[id] }))
+    .sort((a, b) => b.gramos - a.gramos)
+    .slice(0, 8);
+}
+
+/* Al registrar comida, descontar de la despensa: si no, el stock miente
+   y la lista de la compra deja de servir. */
+function consumeFood(foodId, grams) {
+  const actual = pantryQty(foodId);
+  if (actual <= 0) return;
+  savePantry({ ingredient_id: foodId, estimated_quantity: Math.max(0, actual - grams) });
+}
+
+/* ============================================================
    UTILIDADES
    ============================================================ */
 function today() { return isoFromDate(new Date()); }
@@ -2875,6 +3099,8 @@ let suggestMeal = null;
 let recipeFilter = 'todas';
 let menuWeek = null;
 let draft = null;
+let nutMealForPantry = 'almuerzo';   // comida para la que se proponen platos con la despensa
+let shoppingDraft = null;            // líneas de la compra pendientes de revisar
 
 function render() {
   const view = document.getElementById('view');
@@ -3191,11 +3417,50 @@ function viewMenu() {
 function viewCompra() {
   const ws = menuWeek || weekStartOf(today());
   const menu = getMenu(ws);
-  const list = shoppingList(menu);
+  const lista = shoppingList(menu);
   const checked = DB.get('shop_' + ws, []);
-  const items = pantry();
+  const estado = pantryStatus();
+  const acabando = estado.filter(x => x.seAcaba);
+  const faltanHabituales = habitualesSinStock();
 
-  const pantryRows = items.length ? items.map(p => {
+  // ---- Lo que se está acabando, según lo que consumes ----
+  const acabandoHtml = acabando.length
+    ? acabando.map(x =>
+        '<div class="prow"><div class="info">' +
+          '<span class="nm">' + esc(shortName(x.food)) + '</span>' +
+          '<span class="sub">' + (x.cantidad <= 0
+            ? 'se ha terminado'
+            : Math.round(x.cantidad) + ' ' + (x.food.unit || 'g') +
+              (x.dias != null ? ' · para ' + x.dias + (x.dias === 1 ? ' día' : ' días') : '')) + '</span>' +
+        '</div><button class="btn small" data-act="pan" data-id="' + x.food.id + '" data-d="500">+500</button></div>').join('')
+    : '<p class="empty">Nada a punto de acabarse. Se calcula con lo que registras a diario.</p>';
+
+  // ---- Recetas con lo que hay en casa ----
+  const enCasa = pantry().filter(p => (p.estimated_quantity || 0) > 0).map(p => p.ingredient_id);
+  let cocinarHtml;
+  if (enCasa.length < 2) {
+    cocinarHtml = '<p class="empty">Carga la compra y te propongo platos con lo que tengas.</p>';
+  } else {
+    const recetas = proposeRecipes(nutMealForPantry, enCasa, {}, { cuantas: 3 });
+    cocinarHtml = recetas.length
+      ? '<div class="chips" style="margin-bottom:10px">' + MEALS.map(m =>
+          '<button class="chip" data-act="pantry-meal" data-meal="' + m.key + '" aria-pressed="' +
+          (nutMealForPantry === m.key ? 'true' : 'false') + '">' + m.name + '</button>').join('') + '</div>' +
+        recetas.map(r =>
+          '<div class="cook-recipe"><div class="cook-top">' +
+            '<span class="nm">' + esc(r.nombre) + '</span><span class="tag">⏱ ' + r.tiempo + ' min</span></div>' +
+            '<div class="sub">' + r.items.map(x => shortName(x.food) + ' ' + x.grams + 'g').join(' · ') + '</div>' +
+            (r.anadidos && r.anadidos.length
+              ? '<div class="need-add">Te falta: ' + esc(r.anadidos.join(', ')) + '</div>' : '') +
+            '<button class="btn small" data-act="log-pantry-recipe" data-i="' + recetas.indexOf(r) + '">Registrar</button>' +
+          '</div>').join('')
+      : '<p class="empty">Con lo que hay en casa no me sale ningún plato completo.</p>';
+    pantryRecipes = recetas;
+  }
+
+  // ---- Despensa ----
+  const items = pantry();
+  const pantryHtml = items.length ? items.map(p => {
     const f = foodById(p.ingredient_id);
     if (!f) return '';
     return '<div class="prow"><div class="info">' +
@@ -3207,40 +3472,265 @@ function viewCompra() {
         '<button class="mini" data-act="pan" data-id="' + p.ingredient_id + '" data-d="100" aria-label="Añadir 100">+</button>' +
         '<button class="x" data-act="pan-del" data-id="' + p.ingredient_id + '" aria-label="Quitar de la despensa">✕</button>' +
       '</div></div>';
-  }).join('') : '<p class="empty">Vacía. Añade lo que sueles tener en casa y la app propondrá recetas con eso.</p>';
+  }).join('') : '<p class="empty">Vacía. Carga la compra y empieza.</p>';
 
-  const cook = cookableNow(0.5).slice(0, 5);
-  const cookRows = cook.length ? cook.map(c =>
-    '<button class="cook" data-act="recipe" data-id="' + c.recipe.id + '">' +
-      '<div class="bar2"><i style="width:' + Math.round(c.coverage * 100) + '%"></i></div>' +
-      '<div class="nm">' + esc(c.recipe.name) + '</div>' +
-      '<div class="sub">' + Math.round(c.coverage * 100) + ' % en casa' +
-        (c.missing.length ? ' · faltan: ' + esc(c.missing.join(', ')) : ' · completa') + '</div>' +
-    '</button>').join('') : '<p class="empty">Añade alimentos a la despensa para ver qué puedes cocinar.</p>';
+  // ---- Lista de la compra: menú + reposición ----
+  const lineas = {};
+  if (lista) lista.groups.forEach(g => g.items.forEach(it => {
+    lineas[it.id] = { food: foodById(it.id), cantidad: it.buy, motivo: 'para el menú' };
+  }));
+  acabando.forEach(x => {
+    const falta = Math.max(defaultPurchase(x.food) - x.cantidad, 0);
+    if (falta <= 0) return;
+    if (lineas[x.food.id]) lineas[x.food.id].motivo += ' y se acaba';
+    else lineas[x.food.id] = { food: x.food, cantidad: Math.round(falta), motivo: x.cantidad <= 0 ? 'se ha terminado' : 'te queda poco' };
+  });
+  faltanHabituales.forEach(x => {
+    if (lineas[x.food.id]) return;
+    lineas[x.food.id] = { food: x.food, cantidad: defaultPurchase(x.food), motivo: 'lo usas y no te queda' };
+  });
 
-  let shopRows;
-  if (!list) shopRows = '<p class="empty">Genera un menú semanal y aquí tendrás la lista.</p>';
-  else if (!list.count) shopRows = '<p class="empty">Ya tienes en casa todo lo del menú de esta semana.</p>';
-  else shopRows = list.groups.map(g =>
-    '<div class="shop-group"><div class="shop-cat">' + esc(g.cat) + '</div>' +
-      g.items.map(i => {
-        const on = checked.indexOf(i.id) >= 0;
-        return '<button class="shop" data-act="check" data-id="' + i.id + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
-          '<span class="box">' + (on ? '✓' : '') + '</span>' +
-          '<span class="nm">' + esc(i.nombre) + '</span>' +
-          '<span class="qt">' + i.buy + ' ' + i.unit + '</span>' +
-        '</button>';
-      }).join('') + '</div>').join('');
+  const porCat = {};
+  Object.keys(lineas).forEach(id => {
+    const l = lineas[id];
+    if (!l.food) return;
+    (porCat[l.food.cat || 'Otros'] = porCat[l.food.cat || 'Otros'] || []).push(Object.assign({ id: id }, l));
+  });
+  const total = Object.keys(lineas).length;
+  const shopHtml = total
+    ? Object.keys(porCat).sort().map(cat =>
+        '<div class="shop-group"><div class="shop-cat">' + esc(cat) + '</div>' +
+        porCat[cat].sort((a, b) => a.food.nombre.localeCompare(b.food.nombre)).map(l => {
+          const on = checked.indexOf(l.id) >= 0;
+          return '<button class="shop" data-act="check" data-id="' + l.id + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
+            '<span class="box">' + (on ? '✓' : '') + '</span>' +
+            '<span class="nm">' + esc(shortName(l.food)) +
+              '<span class="motivo"> · ' + esc(l.motivo) + '</span></span>' +
+            '<span class="qt">' + Math.round(l.cantidad) + ' ' + (l.food.unit || 'g') + '</span></button>';
+        }).join('') + '</div>').join('')
+    : '<p class="empty">Nada que comprar por ahora. Aparecerá aquí lo que necesite el menú y lo que se te vaya acabando.</p>';
 
-  return '<div><div class="section-head"><h2>Lo que tengo en casa</h2>' +
-      '<span class="rest">' + items.length + '</span></div>' +
-      '<button class="btn wide" style="margin:9px 0" data-act="pan-add">Añadir a la despensa</button>' +
-      '<div class="card">' + pantryRows + '</div></div>' +
-    '<div><div class="section-head"><h2>Puedo cocinar ahora</h2></div>' +
-      '<div class="card" style="margin-top:9px">' + cookRows + '</div></div>' +
+  return '<button class="btn primary wide" data-act="load-shopping">Cargar la compra</button>' +
+    '<p class="hint" style="margin:-4px 0 0">Dicta lo que has comprado, sube un archivo o pega el ticket.</p>' +
+
+    '<div><div class="section-head"><h2>Se te está acabando</h2>' +
+      (acabando.length ? '<span class="rest">' + acabando.length + '</span>' : '') + '</div>' +
+      '<div class="card" style="margin-top:9px">' + acabandoHtml + '</div></div>' +
+
+    '<div><div class="section-head"><h2>Puedo cocinar con lo que tengo</h2></div>' +
+      '<div class="card" style="margin-top:9px">' + cocinarHtml + '</div></div>' +
+
     '<div id="shop"><div class="section-head"><h2>Lista de la compra</h2>' +
-      (list && list.count ? '<span class="rest">' + list.count + ' cosas</span>' : '') + '</div>' +
-      '<div class="card" style="margin-top:9px">' + shopRows + '</div></div>';
+      (total ? '<span class="rest">' + total + '</span>' : '') + '</div>' +
+      '<div class="card shop-list" style="margin-top:9px">' + shopHtml + '</div></div>' +
+
+    '<div><div class="section-head"><h2>Mi despensa</h2>' +
+      '<span class="rest">' + items.length + '</span></div>' +
+      '<button class="btn wide" style="margin:9px 0" data-act="pan-add">Añadir un alimento suelto</button>' +
+      '<div class="card">' + pantryHtml + '</div></div>';
+}
+
+/* ============================================================
+   CARGAR LA COMPRA
+   Tres vías porque ninguna sirve siempre: dictar es lo más rápido
+   al volver del súper, el archivo va bien con el ticket digital y
+   pegar texto funciona en cualquier móvil.
+   ============================================================ */
+let dictado = null;
+
+function hayDictado() {
+  return typeof window !== 'undefined' &&
+    (window.SpeechRecognition || window.webkitSpeechRecognition);
+}
+
+function sheetLoadShopping() {
+  shoppingDraft = null;
+  const body =
+    '<div class="chips" id="load-tabs">' +
+      (hayDictado() ? '<button class="chip" data-modo="voz" aria-pressed="true">🎤 Dictar</button>' : '') +
+      '<button class="chip" data-modo="archivo" aria-pressed="' + (hayDictado() ? 'false' : 'true') + '">📄 Archivo</button>' +
+      '<button class="chip" data-modo="texto" aria-pressed="false">⌨️ Escribir</button>' +
+    '</div>' +
+    '<div id="load-body"></div>' +
+    '<div id="load-review"></div>';
+
+  openSheet('Cargar la compra', body, scrim => {
+    scrim.querySelectorAll('[data-modo]').forEach(b => b.onclick = () => {
+      scrim.querySelectorAll('[data-modo]').forEach(x => x.setAttribute('aria-pressed', 'false'));
+      b.setAttribute('aria-pressed', 'true');
+      paintLoadMode(b.dataset.modo);
+    });
+    paintLoadMode(hayDictado() ? 'voz' : 'archivo');
+  });
+}
+
+function paintLoadMode(modo) {
+  const box = document.getElementById('load-body');
+  if (!box) return;
+  pararDictado();
+
+  if (modo === 'voz') {
+    box.innerHTML =
+      '<p class="hint" style="margin:0 0 10px">Di lo que has comprado del tirón: «dos kilos de pechuga de pollo, ' +
+        'media docena de huevos, un litro de leche, tomate cherry». Puedes parar y seguir.</p>' +
+      '<button class="btn primary wide" id="mic-btn">Empezar a dictar</button>' +
+      '<div class="dictado" id="dictado-texto"></div>' +
+      '<button class="btn wide" id="voz-listo" style="display:none">Revisar lo dictado</button>';
+    const btn = box.querySelector('#mic-btn');
+    btn.onclick = () => (dictado && dictado.activo) ? pararDictado(true) : empezarDictado();
+    box.querySelector('#voz-listo').onclick = () => {
+      const t = document.getElementById('dictado-texto').dataset.texto || '';
+      if (!t.trim()) { toast('No he oído nada todavía'); return; }
+      revisarCompra(t);
+    };
+  } else if (modo === 'archivo') {
+    box.innerHTML =
+      '<p class="hint" style="margin:0 0 10px">Sube un archivo de texto o CSV con un producto por línea. ' +
+        'Vale el ticket digital del súper si puedes exportarlo como texto.</p>' +
+      '<input type="file" id="archivo" accept=".txt,.csv,.md,text/plain,text/csv" class="input">' +
+      '<p class="hint" style="margin:8px 0 0">De un PDF o una foto no puedo leer el texto: esta app funciona ' +
+        'sin conexión y no lleva reconocimiento de imagen. Copia el contenido y pégalo en «Escribir».</p>';
+    box.querySelector('#archivo').onchange = ev => {
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      const fr = new FileReader();
+      fr.onload = () => revisarCompra(String(fr.result || ''));
+      fr.onerror = () => toast('No he podido leer ese archivo');
+      fr.readAsText(file);
+    };
+  } else {
+    box.innerHTML =
+      '<p class="hint" style="margin:0 0 10px">Un producto por línea, o separados por comas. ' +
+        'Las cantidades son opcionales.</p>' +
+      '<textarea class="ta" id="texto-compra" rows="6" placeholder="2 kg pechuga de pollo&#10;6 huevos&#10;250 g arándanos&#10;pan integral"></textarea>' +
+      '<button class="btn primary wide" style="margin-top:10px" id="texto-listo">Revisar</button>';
+    box.querySelector('#texto-listo').onclick = () => {
+      const t = document.getElementById('texto-compra').value;
+      if (!t.trim()) { toast('Escribe algo primero'); return; }
+      revisarCompra(t);
+    };
+  }
+}
+
+function empezarDictado() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { toast('Este móvil no permite dictar'); return; }
+  const rec = new SR();
+  rec.lang = 'es-ES';
+  rec.continuous = true;
+  rec.interimResults = true;
+  let acumulado = '';
+
+  rec.onresult = ev => {
+    let interim = '';
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const t = ev.results[i][0].transcript;
+      if (ev.results[i].isFinal) acumulado += t + '\n'; else interim += t;
+    }
+    const box = document.getElementById('dictado-texto');
+    if (box) {
+      box.dataset.texto = acumulado;
+      box.innerHTML = esc(acumulado) + (interim ? '<span class="interim">' + esc(interim) + '</span>' : '');
+      const listo = document.getElementById('voz-listo');
+      if (listo) listo.style.display = acumulado.trim() ? 'block' : 'none';
+    }
+  };
+  rec.onerror = ev => {
+    pararDictado();
+    toast(ev.error === 'not-allowed'
+      ? 'Tienes que dar permiso al micrófono'
+      : 'El dictado se ha cortado; prueba a escribirlo');
+  };
+  rec.onend = () => { if (dictado && dictado.activo) { try { rec.start(); } catch (e) {} } };
+
+  dictado = { rec: rec, activo: true };
+  try { rec.start(); } catch (e) { toast('No he podido abrir el micrófono'); dictado = null; return; }
+  const btn = document.getElementById('mic-btn');
+  if (btn) { btn.textContent = 'Parar'; btn.classList.add('grabando'); }
+}
+
+function pararDictado(avisar) {
+  if (!dictado) return;
+  dictado.activo = false;
+  try { dictado.rec.stop(); } catch (e) {}
+  dictado = null;
+  const btn = document.getElementById('mic-btn');
+  if (btn) { btn.textContent = 'Seguir dictando'; btn.classList.remove('grabando'); }
+  if (avisar) {
+    const listo = document.getElementById('voz-listo');
+    if (listo && (document.getElementById('dictado-texto').dataset.texto || '').trim()) listo.style.display = 'block';
+  }
+}
+
+/* Revisión antes de guardar: interpretar es adivinar, así que lo que se
+   ha entendido se enseña y se puede corregir línea a línea. */
+function revisarCompra(texto) {
+  pararDictado();
+  shoppingDraft = parseShoppingText(texto);
+  if (!shoppingDraft.length) { toast('No he encontrado productos ahí'); return; }
+  paintReview();
+  const r = document.getElementById('load-review');
+  if (r) r.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function paintReview() {
+  const box = document.getElementById('load-review');
+  if (!box || !shoppingDraft) return;
+  const reconocidos = shoppingDraft.filter(l => l.food).length;
+
+  box.innerHTML =
+    '<div class="or-line"><span>' + reconocidos + ' de ' + shoppingDraft.length + ' reconocidos</span></div>' +
+    shoppingDraft.map((l, i) => {
+      if (!l.food) {
+        return '<div class="rev-row rev-no"><div class="info">' +
+          '<span class="nm">' + esc(l.raw) + '</span>' +
+          '<span class="sub">no lo tengo en el catálogo</span></div>' +
+          '<button class="btn small" data-buscar="' + i + '">Buscar</button>' +
+          '<button class="x" data-quitar="' + i + '" aria-label="Descartar">✕</button></div>';
+      }
+      return '<div class="rev-row"><div class="info">' +
+        '<button class="rev-name" data-buscar="' + i + '">' + esc(l.food.nombre) +
+          '<span class="cambiar"> cambiar</span></button>' +
+        '<span class="sub">' + esc(l.raw) + '</span></div>' +
+        '<input type="number" inputmode="numeric" min="1" max="20000" value="' + l.gramos + '" data-g="' + i + '">' +
+        '<span class="u">' + (l.food.unit || 'g') + '</span>' +
+        '<button class="x" data-quitar="' + i + '" aria-label="Descartar">✕</button></div>';
+    }).join('') +
+    '<button class="btn primary wide" style="margin-top:12px" data-guardar>Añadir ' + reconocidos + ' a la despensa</button>';
+
+  box.querySelectorAll('[data-g]').forEach(inp => inp.oninput = () => {
+    const v = parseInt(inp.value, 10);
+    if (!isNaN(v) && v > 0) shoppingDraft[+inp.dataset.g].gramos = v;
+  });
+  box.querySelectorAll('[data-quitar]').forEach(b => b.onclick = () => {
+    shoppingDraft.splice(+b.dataset.quitar, 1);
+    paintReview();
+  });
+  box.querySelectorAll('[data-buscar]').forEach(b => b.onclick = () => {
+    const i = +b.dataset.buscar;
+    sheetPicker('Elegir producto', food => {
+      shoppingDraft[i].food = food;
+      shoppingDraft[i].gramos = shoppingDraft[i].gramos || defaultPurchase(food);
+      sheetLoadShopping();
+      setTimeout(() => { paintReview(); }, 60);
+    });
+  });
+  box.querySelector('[data-guardar]').onclick = () => {
+    let n = 0;
+    shoppingDraft.forEach(l => {
+      if (!l.food) return;
+      savePantry({
+        ingredient_id: l.food.id,
+        estimated_quantity: pantryQty(l.food.id) + l.gramos,
+        last_purchased: today(),
+      });
+      n++;
+    });
+    shoppingDraft = null;
+    closeSheet();
+    tab = 'compra'; render();
+    toast(n + (n === 1 ? ' producto añadido' : ' productos añadidos a la despensa'));
+  };
 }
 
 /* ============================================================
@@ -3443,6 +3933,7 @@ function pullEditor() {
    HOJA: PROPONME UNA RECETA
    ============================================================ */
 let composer = null;
+let pantryRecipes = [];
 
 function sheetComposer(meal) {
   const m = meal || 'desayuno';
@@ -3704,6 +4195,7 @@ function bindComposerResults() {
         fe: round1(m.fe), ca: Math.round(m.ca), vd: round1(m.vd),
         food_id: x.food.id,
       });
+      consumeFood(x.food.id, x.grams);
     });
     closeSheet(); tab = 'hoy'; render();
     toast('Registrado en ' + mealName(composer.meal).toLowerCase());
@@ -3896,6 +4388,7 @@ function builderCommit() {
       fe: round1(m.fe), ca: Math.round(m.ca), vd: round1(m.vd),
       food_id: f.id,
     });
+    consumeFood(f.id, it.grams);
   });
 
   const nameEl = document.getElementById('bd-name');
@@ -4141,6 +4634,7 @@ document.getElementById('view').addEventListener('click', ev => {
       fe: round1(m.fe), ca: Math.round(m.ca), vd: round1(m.vd),
       food_id: food.id,
     });
+    consumeFood(food.id, grams);
     render();
     toast(grams + ' ' + (food.unit || 'g') + ' de ' + food.nombre);
     return;
@@ -4178,6 +4672,28 @@ document.getElementById('view').addEventListener('click', ev => {
     render();
     const s = document.getElementById('shop');
     if (s) s.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  if (act === 'load-shopping') { sheetLoadShopping(); return; }
+  if (act === 'pantry-meal') { nutMealForPantry = d.meal; render(); return; }
+  if (act === 'log-pantry-recipe') {
+    const r = pantryRecipes[+d.i];
+    if (!r) return;
+    const stamp = Date.now();
+    r.items.forEach((x, i) => {
+      const m = macrosOf(x.food, x.grams);
+      addEntry(curDate, {
+        id: 'p' + stamp + '_' + i, meal: nutMealForPantry, nombre: x.food.nombre,
+        qty: x.grams, unit: x.food.unit || 'g',
+        kcal: Math.round(m.kcal), prot: round1(m.prot), carbs: round1(m.carbs),
+        fat: round1(m.fat), sat: round1(m.sat), fiber: round1(m.fiber),
+        fe: round1(m.fe), ca: Math.round(m.ca), vd: round1(m.vd),
+        food_id: x.food.id,
+      });
+      consumeFood(x.food.id, x.grams);
+    });
+    tab = 'hoy'; render();
+    toast('Registrado en ' + mealName(nutMealForPantry).toLowerCase());
     return;
   }
   if (act === 'pan-add') {
