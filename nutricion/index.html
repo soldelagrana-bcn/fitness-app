@@ -255,40 +255,6 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 .rail > i.warn { background: var(--warn); }
 .rail > i.crit { background: var(--crit); }
 
-.trained {
-  display: flex; align-items: center; gap: 9px;
-  margin-top: 12px; padding-top: 11px;
-  border-top: 1px solid var(--line-soft);
-  font-size: 12px; color: var(--ink-soft);
-}
-.switch {
-  /* El botón mide 44px de alto para el pulgar; la vía se dibuja dentro
-     con la medida nativa de iOS (51x31). Un pseudo-elemento que
-     sobresale de un <button> no recibe los toques, así que la zona
-     táctil tiene que ser el propio botón. */
-  margin-left: auto;
-  position: relative;
-  width: 51px; height: 44px;
-  border: 0; background: none; padding: 0;
-  flex: 0 0 51px;
-}
-.switch::before {
-  content: ""; position: absolute; left: 0; top: 50%;
-  width: 51px; height: 31px; margin-top: -15.5px;
-  border-radius: 16px;
-  background: var(--sunken); border: 1px solid var(--line);
-  transition: background .2s, border-color .2s;
-}
-.switch::after {
-  content: ""; position: absolute; left: 3px; top: 50%;
-  width: 25px; height: 25px; margin-top: -12.5px;
-  border-radius: 50%;
-  background: var(--surface); box-shadow: 0 1px 2px rgba(0,0,0,.25);
-  transition: transform .2s;
-}
-.switch[aria-pressed="true"]::before { background: var(--accent); border-color: var(--accent); }
-.switch[aria-pressed="true"]::after { transform: translateX(20px); }
-
 /* ---- Avisos ---- */
 .notes { display: flex; flex-direction: column; gap: 7px; }
 .note {
@@ -602,6 +568,13 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 .tile.good .tv b { color: var(--good); }
 .tile.warn .tv b { color: var(--warn); }
 .tile.crit .tv b { color: var(--crit); }
+.micros-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+.ms .mk { display: block; font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+.ms .mv { display: block; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 620; margin: 2px 0 5px; }
+.ms .mv small { font-size: 9.5px; font-weight: 500; color: var(--ink-faint); }
+.ms.good .mv { color: var(--good); }
+.ms .rail { height: 3px; }
+
 .dash-split {
   display: flex; align-items: center; gap: 10px;
   margin: 15px 0 11px;
@@ -2344,8 +2317,6 @@ function remaining(fecha) {
   const t = targets(), d = dayTotals(fecha);
   return { kcal: t.kcal - d.kcal, prot: t.protein - d.prot, carbs: t.carbs - d.carbs, fat: t.fat - d.fat };
 }
-function trainedOn(fecha) { return DB.get('trained_' + fecha, false) === true; }
-function setTrained(fecha, v) { DB.set('trained_' + fecha, !!v); }
 
 /* ---- Despensa ---- */
 function pantry() { return DB.get('pantry', []); }
@@ -2446,7 +2417,11 @@ function hasGoodFats(r) {
   });
 }
 /* La Evolate solo los días de entreno. */
-function postWorkoutOk(r, fecha) { return !hasTag(r, 'post_entreno') || trainedOn(fecha); }
+/* Un batido post-entreno no se planifica: depende de si has entrenado, y
+   eso no se sabe una semana antes. Se queda fuera del menú automático,
+   pero sigue estando para ponerlo a mano cuando toque. La regla de las dos
+   proteínas no se pierde: la vigila powderWarning al abrir la receta. */
+function plannable(r) { return !hasTag(r, 'post_entreno'); }
 
 function scoreRecipe(recipe, gap, ctx) {
   ctx = ctx || {};
@@ -3340,7 +3315,7 @@ function generateMenu(ws, opts) {
       const recent = history.filter(h => daysApart(h.date, date) <= 2).map(h => h.id)
         .concat(history.map(h => h.id));
 
-      const pool = recipesFor(meal.key).filter(r => postWorkoutOk(r, date));
+      const pool = recipesFor(meal.key).filter(plannable);
       if (!pool.length) { slots.push({ meal_type: meal.key, recipe_id: null, factor: 1, is_locked: false }); return; }
 
       const ranked = pool.map(r => {
@@ -3940,6 +3915,18 @@ function viewHoy() {
     '</div>';
   };
 
+  /* Los micros son contexto, no el objetivo del día: van en una tira
+     pequeña debajo, para que no compitan con los macros. */
+  const micro = (label, val, max, unit, dec) => {
+    const pct = Math.min(100, (val / (max || 1)) * 100);
+    const ok = val >= max;
+    return '<div class="ms' + (ok ? ' good' : '') + '">' +
+      '<span class="mk">' + label + '</span>' +
+      '<span class="mv">' + (dec ? fmt1(val) : Math.round(val)) + '<small> / ' + max + ' ' + unit + '</small></span>' +
+      '<div class="rail"><i class="' + (ok ? 'good' : '') + '" style="width:' + pct.toFixed(1) + '%"></i></div>' +
+    '</div>';
+  };
+
   const headWord = done ? 'Día cerrado' : over ? 'Te has pasado' : 'Te falta hoy';
   const bigNum = done ? Math.round(tot.kcal) : Math.abs(Math.round(rem.kcal));
   const pctDia = Math.min(100, (tot.kcal / (t.kcal || 1)) * 100);
@@ -3962,17 +3949,12 @@ function viewHoy() {
       '</div>' +
 
       '<div class="dash-split">Micronutrientes</div>' +
-      '<div class="tiles">' +
-        tile('Fibra', tot.fiber, MICRO_TARGETS.fiber, 'g', tot.fiber >= MICRO_TARGETS.fiber ? 'good' : '', true) +
-        tile('Hierro', tot.fe, MICRO_TARGETS.fe, 'mg', tot.fe >= MICRO_TARGETS.fe ? 'good' : '', true) +
-        tile('Calcio', tot.ca, MICRO_TARGETS.ca, 'mg', tot.ca >= MICRO_TARGETS.ca ? 'good' : '', false) +
-        tile('Vitamina D', tot.vd, MICRO_TARGETS.vd, 'µg', tot.vd >= MICRO_TARGETS.vd ? 'good' : '', true) +
+      '<div class="micros-strip">' +
+        micro('Fibra', tot.fiber, MICRO_TARGETS.fiber, 'g', true) +
+        micro('Hierro', tot.fe, MICRO_TARGETS.fe, 'mg', true) +
+        micro('Calcio', tot.ca, MICRO_TARGETS.ca, 'mg', false) +
+        micro('Vit. D', tot.vd, MICRO_TARGETS.vd, 'µg', true) +
       '</div>' +
-
-      (isToday ?
-        '<div class="trained"><span>¿Entrenaste hoy?</span>' +
-        '<button class="switch" id="trained-toggle" aria-pressed="' + (trainedOn(curDate) ? 'true' : 'false') +
-        '" aria-label="Marcar si has entrenado hoy"></button></div>' : '') +
     '</div>';
 
   const al = alerts(curDate);
@@ -5305,7 +5287,6 @@ function sheetSwap(date, mealKey) {
   const gap = slotGap(day, mealKey);
 
   const options = recipesFor(mealKey)
-    .filter(r => postWorkoutOk(r, date))
     .map(r => {
       const factor = fitFactor(r, gap);
       const adj = scaleRecipe(r, factor);
@@ -5481,16 +5462,8 @@ document.getElementById('tabs').addEventListener('click', ev => {
 document.getElementById('gear').addEventListener('click', sheetSettings);
 
 document.getElementById('view').addEventListener('click', ev => {
-  const el = ev.target.closest('[data-act], #trained-toggle');
+  const el = ev.target.closest('[data-act]');
   if (!el) return;
-
-  if (el.id === 'trained-toggle') {
-    const now = !trainedOn(curDate);
-    setTrained(curDate, now);
-    render();
-    toast(now ? 'Entreno marcado: ya puedes usar la Evolate' : 'Entreno desmarcado');
-    return;
-  }
 
   const act = el.dataset.act;
   const d = el.dataset;
