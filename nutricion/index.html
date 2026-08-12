@@ -508,6 +508,14 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 }
 
 .field { display: flex; flex-direction: column; gap: 5px; }
+/* La barra de búsqueda se queda arriba del todo. Antes, al aparecer los
+   resultados y abrirse el teclado, se iba de la pantalla y se escribía a
+   ciegas: se veía lo que salía pero no lo que estabas escribiendo. */
+.sheet-body .sticky-search {
+  position: sticky; top: 0; z-index: 5;
+  background: var(--ground);
+  padding: 10px 0 8px; margin: -10px 0 -6px;
+}
 .field > label { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
 .input, .ta {
   width: 100%;
@@ -1569,6 +1577,142 @@ const FOODS = [
   { id:'e289', cat:'Otros', nombre:'Agua con gas', kcal100:0, prot100:0, carbs100:0, fat100:0, sat100:0, fiber100:0, fe100:0, ca100:10, vd100:0, unit:'ml', racion_g:330 },
   { id:'e290', cat:'Otros', nombre:'Tónica', kcal100:34, prot100:0, carbs100:8.5, fat100:0, sat100:0, fiber100:0, fe100:0, ca100:2, vd100:0, unit:'ml', racion_g:200 },
   { id:'e291', cat:'Otros', nombre:'Limonada', kcal100:40, prot100:0.1, carbs100:10, fat100:0, sat100:0, fiber100:0, fe100:0.1, ca100:5, vd100:0, unit:'ml', racion_g:250 },
+
+  // ══ DE RESTAURANTE ═══════════════════════════════════════
+  // Comer fuera también es comer. Cada plato lleva alias con su
+  // cocina, así que se buscan por «restaurante», «japonés»,
+  // «tapas», «italiano»… además de por su nombre.
+  { id:'r001', cat:'Platos', nombre:'Pan con tomate', kcal100:200, prot100:5, carbs100:30, fat100:6.5, sat100:1, fiber100:2.2, fe100:1.5, ca100:30, vd100:0, racion_g:80, alias:'restaurante tapas espanol' },
+  { id:'r002', cat:'Platos', nombre:'Huevos estrellados con jamón', kcal100:235, prot100:11, carbs100:15, fat100:15, sat100:4, fiber100:1.4, fe100:1.5, ca100:40, vd100:1.1, racion_g:250, alias:'restaurante tapas espanol' },
+  { id:'r003', cat:'Platos', nombre:'Chopitos fritos', kcal100:215, prot100:13, carbs100:15, fat100:11, sat100:1.6, fiber100:0.6, fe100:1, ca100:50, vd100:0.3, racion_g:120, alias:'restaurante tapas espanol' },
+  { id:'r004', cat:'Platos', nombre:'Rabas de calamar', kcal100:215, prot100:12, carbs100:17, fat100:11, sat100:1.6, fiber100:0.8, fe100:0.8, ca100:45, vd100:0.3, racion_g:120, alias:'restaurante tapas espanol' },
+  { id:'r005', cat:'Platos', nombre:'Oreja a la plancha', kcal100:230, prot100:17, carbs100:1, fat100:18, sat100:6, fiber100:0, fe100:1, ca100:20, vd100:0.2, racion_g:120, alias:'restaurante tapas espanol' },
+  { id:'r006', cat:'Platos', nombre:'Mollejas a la plancha', kcal100:195, prot100:20, carbs100:1, fat100:12, sat100:4.5, fiber100:0, fe100:2.5, ca100:15, vd100:0.3, racion_g:120, alias:'restaurante tapas espanol' },
+  { id:'r007', cat:'Platos', nombre:'Torreznos', kcal100:540, prot100:24, carbs100:0, fat100:50, sat100:18, fiber100:0, fe100:1, ca100:15, vd100:0.4, racion_g:60, alias:'restaurante tapas espanol' },
+  { id:'r008', cat:'Platos', nombre:'Patatas revolconas', kcal100:175, prot100:4, carbs100:18, fat100:9.5, sat100:3, fiber100:2.2, fe100:0.8, ca100:20, vd100:0.2, racion_g:200, alias:'restaurante tapas espanol' },
+  { id:'r009', cat:'Platos', nombre:'Morcilla de Burgos', kcal100:320, prot100:12, carbs100:14, fat100:24, sat100:9, fiber100:2, fe100:6, ca100:30, vd100:0.3, racion_g:100, alias:'restaurante tapas espanol' },
+  { id:'r010', cat:'Platos', nombre:'Tabla de embutidos', kcal100:380, prot100:22, carbs100:1.5, fat100:32, sat100:12, fiber100:0, fe100:1.8, ca100:25, vd100:0.6, racion_g:100, alias:'restaurante tapas espanol' },
+  { id:'r011', cat:'Platos', nombre:'Tabla de quesos', kcal100:370, prot100:24, carbs100:2, fat100:30, sat100:19, fiber100:0, fe100:0.4, ca100:700, vd100:0.4, racion_g:100, alias:'restaurante tapas espanol' },
+  { id:'r012', cat:'Platos', nombre:'Banderillas (encurtidos)', kcal100:30, prot100:1, carbs100:3, fat100:1.5, sat100:0.2, fiber100:1.8, fe100:1, ca100:35, vd100:0, racion_g:50, alias:'restaurante tapas espanol' },
+  { id:'r013', cat:'Platos', nombre:'Tortillitas de camarones', kcal100:280, prot100:11, carbs100:28, fat100:14, sat100:2, fiber100:1.4, fe100:1.6, ca100:90, vd100:0.4, racion_g:100, alias:'restaurante tapas espanol' },
+  { id:'r014', cat:'Platos', nombre:'Cazón en adobo', kcal100:215, prot100:17, carbs100:12, fat100:11, sat100:1.8, fiber100:0.5, fe100:0.8, ca100:35, vd100:1, racion_g:150, alias:'restaurante tapas espanol' },
+  { id:'r015', cat:'Platos', nombre:'Salpicón de marisco', kcal100:110, prot100:14, carbs100:4, fat100:4.5, sat100:0.8, fiber100:0.8, fe100:1.6, ca100:55, vd100:0.4, racion_g:200, alias:'restaurante tapas espanol' },
+  { id:'r016', cat:'Platos', nombre:'Gambas a la gabardina', kcal100:245, prot100:14, carbs100:18, fat100:13, sat100:1.8, fiber100:0.7, fe100:1.4, ca100:60, vd100:0.3, racion_g:120, alias:'restaurante tapas espanol' },
+  { id:'r017', cat:'Platos', nombre:'Croquetas de bacalao', kcal100:230, prot100:8, carbs100:22, fat100:12, sat100:3.6, fiber100:1, fe100:0.7, ca100:75, vd100:0.4, racion_g:75, alias:'restaurante tapas espanol' },
+  { id:'r018', cat:'Platos', nombre:'Montadito de lomo', kcal100:255, prot100:15, carbs100:28, fat100:9, sat100:2.6, fiber100:1.6, fe100:1.6, ca100:40, vd100:0.3, racion_g:120, alias:'restaurante tapas espanol' },
+  { id:'r019', cat:'Platos', nombre:'Sepia a la plancha', kcal100:95, prot100:16, carbs100:1, fat100:3, sat100:0.6, fiber100:0, fe100:1.2, ca100:35, vd100:0.3, racion_g:180, alias:'restaurante tapas espanol' },
+  { id:'r020', cat:'Platos', nombre:'Secreto ibérico a la brasa', kcal100:275, prot100:20, carbs100:0, fat100:22, sat100:7.5, fiber100:0, fe100:1.2, ca100:12, vd100:0.5, racion_g:180, alias:'restaurante tapas espanol' },
+  { id:'r021', cat:'Platos', nombre:'Presa ibérica', kcal100:245, prot100:21, carbs100:0, fat100:18, sat100:6.2, fiber100:0, fe100:1.3, ca100:12, vd100:0.5, racion_g:180, alias:'restaurante tapas espanol' },
+  { id:'r022', cat:'Platos', nombre:'Pluma ibérica', kcal100:230, prot100:21, carbs100:0, fat100:16, sat100:5.6, fiber100:0, fe100:1.3, ca100:12, vd100:0.5, racion_g:180, alias:'restaurante tapas espanol' },
+  { id:'r023', cat:'Platos', nombre:'Chuletón de ternera', kcal100:265, prot100:24, carbs100:0, fat100:19, sat100:8, fiber100:0, fe100:2.6, ca100:12, vd100:0.3, racion_g:300, alias:'restaurante tapas espanol' },
+  { id:'r024', cat:'Platos', nombre:'Entrecot a la parrilla', kcal100:245, prot100:25, carbs100:0, fat100:16, sat100:6.8, fiber100:0, fe100:2.4, ca100:12, vd100:0.3, racion_g:250, alias:'restaurante tapas espanol' },
+  { id:'r025', cat:'Platos', nombre:'Solomillo al whisky', kcal100:215, prot100:22, carbs100:3, fat100:12, sat100:4.4, fiber100:0, fe100:1.5, ca100:15, vd100:0.3, racion_g:200, alias:'restaurante tapas espanol' },
+  { id:'r026', cat:'Platos', nombre:'Chuletillas de cordero', kcal100:290, prot100:21, carbs100:0, fat100:23, sat100:10, fiber100:0, fe100:1.7, ca100:15, vd100:0.2, racion_g:200, alias:'restaurante tapas espanol' },
+  { id:'r027', cat:'Platos', nombre:'Cochinillo asado', kcal100:340, prot100:21, carbs100:0, fat100:28, sat100:10, fiber100:0, fe100:1.2, ca100:15, vd100:0.4, racion_g:220, alias:'restaurante tapas espanol' },
+  { id:'r028', cat:'Platos', nombre:'Bacalao a la vizcaína', kcal100:165, prot100:18, carbs100:6, fat100:8, sat100:1.3, fiber100:1.2, fe100:0.9, ca100:45, vd100:1.1, racion_g:220, alias:'restaurante tapas espanol' },
+  { id:'r029', cat:'Platos', nombre:'Merluza a la vasca', kcal100:135, prot100:17, carbs100:4, fat100:5.5, sat100:1, fiber100:0.6, fe100:0.8, ca100:40, vd100:1, racion_g:220, alias:'restaurante tapas espanol' },
+  { id:'r030', cat:'Platos', nombre:'Kokotxas al pil-pil', kcal100:195, prot100:16, carbs100:1, fat100:14, sat100:2.2, fiber100:0, fe100:0.6, ca100:40, vd100:1, racion_g:150, alias:'restaurante tapas espanol' },
+  { id:'r031', cat:'Platos', nombre:'Txangurro', kcal100:150, prot100:14, carbs100:5, fat100:8, sat100:2.4, fiber100:0.6, fe100:1.4, ca100:70, vd100:0.4, racion_g:180, alias:'restaurante tapas espanol' },
+  { id:'r032', cat:'Platos', nombre:'Marmitako', kcal100:115, prot100:12, carbs100:9, fat100:3.5, sat100:0.7, fiber100:1.2, fe100:1, ca100:25, vd100:1.4, racion_g:300, alias:'restaurante tapas espanol' },
+  { id:'r033', cat:'Platos', nombre:'Arroz caldoso de bogavante', kcal100:120, prot100:8, carbs100:16, fat100:2.8, sat100:0.6, fiber100:0.7, fe100:1.2, ca100:35, vd100:0.3, racion_g:350, alias:'restaurante tapas espanol' },
+  { id:'r034', cat:'Platos', nombre:'Arroz a banda', kcal100:150, prot100:8, carbs100:21, fat100:3.8, sat100:0.8, fiber100:0.8, fe100:1, ca100:30, vd100:0.3, racion_g:300, alias:'restaurante tapas espanol' },
+  { id:'r035', cat:'Platos', nombre:'Arroz del senyoret', kcal100:145, prot100:9, carbs100:19, fat100:4, sat100:0.8, fiber100:0.8, fe100:1.1, ca100:32, vd100:0.3, racion_g:300, alias:'restaurante tapas espanol' },
+  { id:'r036', cat:'Platos', nombre:'Bruschetta', kcal100:210, prot100:5.5, carbs100:27, fat100:9, sat100:1.5, fiber100:2.2, fe100:1.4, ca100:40, vd100:0, racion_g:100, alias:'restaurante italiano' },
+  { id:'r037', cat:'Platos', nombre:'Carpaccio de ternera', kcal100:165, prot100:20, carbs100:1, fat100:9, sat100:3, fiber100:0, fe100:2.4, ca100:60, vd100:0.3, racion_g:120, alias:'restaurante italiano' },
+  { id:'r038', cat:'Platos', nombre:'Vitello tonnato', kcal100:215, prot100:21, carbs100:2, fat100:14, sat100:3, fiber100:0, fe100:2, ca100:30, vd100:0.5, racion_g:150, alias:'restaurante italiano' },
+  { id:'r039', cat:'Platos', nombre:'Pasta a la amatriciana', kcal100:180, prot100:8, carbs100:23, fat100:6, sat100:2.2, fiber100:1.8, fe100:1.2, ca100:60, vd100:0.2, racion_g:300, alias:'restaurante italiano' },
+  { id:'r040', cat:'Platos', nombre:'Pasta cacio e pepe', kcal100:245, prot100:11, carbs100:26, fat100:11, sat100:6, fiber100:1.2, fe100:0.9, ca100:220, vd100:0.2, racion_g:280, alias:'restaurante italiano' },
+  { id:'r041', cat:'Platos', nombre:'Pasta cuatro quesos', kcal100:235, prot100:11, carbs100:22, fat100:12, sat100:7, fiber100:1, fe100:0.8, ca100:260, vd100:0.3, racion_g:280, alias:'restaurante italiano' },
+  { id:'r042', cat:'Platos', nombre:'Ravioli de ricotta y espinacas', kcal100:175, prot100:8, carbs100:24, fat100:5, sat100:2.4, fiber100:1.8, fe100:1.4, ca100:110, vd100:0.2, racion_g:250, alias:'restaurante italiano' },
+  { id:'r043', cat:'Platos', nombre:'Tortellini', kcal100:185, prot100:9, carbs100:25, fat100:5.5, sat100:2.6, fiber100:1.6, fe100:1.5, ca100:100, vd100:0.2, racion_g:250, alias:'restaurante italiano' },
+  { id:'r044', cat:'Platos', nombre:'Ossobuco', kcal100:185, prot100:19, carbs100:4, fat100:10, sat100:3.6, fiber100:0.6, fe100:2.4, ca100:30, vd100:0.2, racion_g:250, alias:'restaurante italiano' },
+  { id:'r045', cat:'Platos', nombre:'Saltimbocca alla romana', kcal100:205, prot100:24, carbs100:1, fat100:11, sat100:4.4, fiber100:0, fe100:1.6, ca100:60, vd100:0.4, racion_g:200, alias:'restaurante italiano' },
+  { id:'r046', cat:'Platos', nombre:'Parmigiana de berenjena', kcal100:150, prot100:7, carbs100:8, fat100:10, sat100:4.6, fiber100:2.4, fe100:0.9, ca100:190, vd100:0.2, racion_g:250, alias:'restaurante italiano' },
+  { id:'r047', cat:'Platos', nombre:'Calzone', kcal100:265, prot100:12, carbs100:30, fat100:11, sat100:5, fiber100:2, fe100:1.4, ca100:200, vd100:0.3, racion_g:300, alias:'restaurante italiano' },
+  { id:'r048', cat:'Platos', nombre:'Nigiri de salmón', kcal100:145, prot100:9, carbs100:20, fat100:3, sat100:0.6, fiber100:0.5, fe100:0.5, ca100:10, vd100:2.4, racion_g:180, alias:'restaurante japones' },
+  { id:'r049', cat:'Platos', nombre:'Sashimi de salmón', kcal100:180, prot100:22, carbs100:0, fat100:10, sat100:2.2, fiber100:0, fe100:0.4, ca100:12, vd100:9, racion_g:120, alias:'restaurante japones' },
+  { id:'r050', cat:'Platos', nombre:'Uramaki California', kcal100:160, prot100:6, carbs100:26, fat100:3.5, sat100:0.8, fiber100:1, fe100:0.6, ca100:20, vd100:0.4, racion_g:200, alias:'restaurante japones' },
+  { id:'r051', cat:'Platos', nombre:'Gyoza', kcal100:215, prot100:10, carbs100:24, fat100:8.5, sat100:2.4, fiber100:1.6, fe100:1.4, ca100:30, vd100:0.2, racion_g:150, alias:'restaurante japones' },
+  { id:'r052', cat:'Platos', nombre:'Tempura de verduras', kcal100:210, prot100:4, carbs100:24, fat100:11, sat100:1.2, fiber100:2.2, fe100:1, ca100:40, vd100:0, racion_g:150, alias:'restaurante japones' },
+  { id:'r053', cat:'Platos', nombre:'Ramen', kcal100:110, prot100:6.5, carbs100:13, fat100:3.6, sat100:1.2, fiber100:0.8, fe100:1, ca100:25, vd100:0.2, racion_g:500, alias:'restaurante japones' },
+  { id:'r054', cat:'Platos', nombre:'Yakisoba', kcal100:150, prot100:7, carbs100:21, fat100:4.5, sat100:0.9, fiber100:1.6, fe100:1.2, ca100:30, vd100:0.1, racion_g:350, alias:'restaurante japones' },
+  { id:'r055', cat:'Platos', nombre:'Sopa de miso', kcal100:35, prot100:2.6, carbs100:3, fat100:1.2, sat100:0.2, fiber100:0.6, fe100:0.6, ca100:30, vd100:0, racion_g:250, alias:'restaurante japones' },
+  { id:'r056', cat:'Platos', nombre:'Katsu curry', kcal100:185, prot100:11, carbs100:22, fat100:6.5, sat100:1.8, fiber100:1.4, fe100:1.2, ca100:30, vd100:0.2, racion_g:350, alias:'restaurante japones' },
+  { id:'r057', cat:'Platos', nombre:'Tataki de atún', kcal100:155, prot100:24, carbs100:2, fat100:5.5, sat100:1.2, fiber100:0.2, fe100:1.2, ca100:20, vd100:4, racion_g:150, alias:'restaurante japones' },
+  { id:'r058', cat:'Platos', nombre:'Chirashi', kcal100:150, prot100:9, carbs100:22, fat100:3.2, sat100:0.7, fiber100:0.6, fe100:0.6, ca100:15, vd100:2, racion_g:300, alias:'restaurante japones' },
+  { id:'r059', cat:'Platos', nombre:'Rollito de primavera', kcal100:235, prot100:6, carbs100:26, fat100:12, sat100:2.2, fiber100:2, fe100:1.2, ca100:35, vd100:0.1, racion_g:120, alias:'restaurante chino' },
+  { id:'r060', cat:'Platos', nombre:'Pollo agridulce', kcal100:190, prot100:13, carbs100:21, fat100:6, sat100:1.2, fiber100:0.8, fe100:0.9, ca100:25, vd100:0.1, racion_g:300, alias:'restaurante chino' },
+  { id:'r061', cat:'Platos', nombre:'Ternera con salsa de ostras', kcal100:160, prot100:17, carbs100:7, fat100:7, sat100:2.4, fiber100:0.8, fe100:2.2, ca100:30, vd100:0.2, racion_g:280, alias:'restaurante chino' },
+  { id:'r062', cat:'Platos', nombre:'Chow mein', kcal100:155, prot100:7, carbs100:21, fat100:5, sat100:1, fiber100:1.6, fe100:1.3, ca100:30, vd100:0.1, racion_g:350, alias:'restaurante chino' },
+  { id:'r063', cat:'Platos', nombre:'Dim sum al vapor', kcal100:175, prot100:10, carbs100:20, fat100:6, sat100:2, fiber100:1.2, fe100:1.2, ca100:30, vd100:0.2, racion_g:180, alias:'restaurante chino' },
+  { id:'r064', cat:'Platos', nombre:'Bao de cerdo', kcal100:230, prot100:9, carbs100:32, fat100:7.5, sat100:2.6, fiber100:1.4, fe100:1.4, ca100:40, vd100:0.2, racion_g:120, alias:'restaurante chino' },
+  { id:'r065', cat:'Platos', nombre:'Pato laqueado', kcal100:285, prot100:19, carbs100:6, fat100:21, sat100:6.5, fiber100:0.3, fe100:2.4, ca100:15, vd100:0.3, racion_g:200, alias:'restaurante chino' },
+  { id:'r066', cat:'Platos', nombre:'Wantán frito', kcal100:290, prot100:8, carbs100:28, fat100:16, sat100:3, fiber100:1.4, fe100:1.3, ca100:30, vd100:0.2, racion_g:120, alias:'restaurante chino' },
+  { id:'r067', cat:'Platos', nombre:'Pollo tikka masala', kcal100:170, prot100:14, carbs100:7, fat100:10, sat100:4, fiber100:1, fe100:1.2, ca100:60, vd100:0.2, racion_g:300, alias:'restaurante indio tailandes' },
+  { id:'r068', cat:'Platos', nombre:'Dal de lentejas', kcal100:110, prot100:6, carbs100:14, fat100:3.2, sat100:0.9, fiber100:4, fe100:2.4, ca100:35, vd100:0, racion_g:300, alias:'restaurante indio tailandes' },
+  { id:'r069', cat:'Platos', nombre:'Naan', kcal100:310, prot100:9, carbs100:50, fat100:8, sat100:2.4, fiber100:2.2, fe100:2.6, ca100:80, vd100:0.2, racion_g:90, alias:'restaurante indio tailandes' },
+  { id:'r070', cat:'Platos', nombre:'Samosa', kcal100:300, prot100:6, carbs100:32, fat100:16, sat100:3, fiber100:2.6, fe100:1.6, ca100:30, vd100:0, racion_g:100, alias:'restaurante indio tailandes' },
+  { id:'r071', cat:'Platos', nombre:'Biryani de pollo', kcal100:175, prot100:10, carbs100:22, fat100:5.5, sat100:1.6, fiber100:1.2, fe100:1.2, ca100:30, vd100:0.2, racion_g:350, alias:'restaurante indio tailandes' },
+  { id:'r072', cat:'Platos', nombre:'Pad thai', kcal100:185, prot100:9, carbs100:24, fat100:6, sat100:1.2, fiber100:1.6, fe100:1.4, ca100:50, vd100:0.2, racion_g:350, alias:'restaurante indio tailandes' },
+  { id:'r073', cat:'Platos', nombre:'Curry verde tailandés', kcal100:145, prot100:9, carbs100:8, fat100:9, sat100:5.5, fiber100:1.4, fe100:1.2, ca100:35, vd100:0.1, racion_g:320, alias:'restaurante indio tailandes' },
+  { id:'r074', cat:'Platos', nombre:'Curry rojo tailandés', kcal100:150, prot100:9, carbs100:9, fat100:9, sat100:5.5, fiber100:1.4, fe100:1.2, ca100:35, vd100:0.1, racion_g:320, alias:'restaurante indio tailandes' },
+  { id:'r075', cat:'Platos', nombre:'Satay de pollo', kcal100:210, prot100:19, carbs100:6, fat100:12, sat100:3.4, fiber100:1.2, fe100:1.2, ca100:30, vd100:0.2, racion_g:180, alias:'restaurante indio tailandes' },
+  { id:'r076', cat:'Platos', nombre:'Sopa tom yum', kcal100:50, prot100:5, carbs100:4, fat100:1.8, sat100:0.6, fiber100:0.5, fe100:0.6, ca100:25, vd100:0.1, racion_g:300, alias:'restaurante indio tailandes' },
+  { id:'r077', cat:'Platos', nombre:'Guacamole de restaurante', kcal100:165, prot100:2, carbs100:8, fat100:14, sat100:2, fiber100:6, fe100:0.6, ca100:15, vd100:0, racion_g:100, alias:'restaurante mexicano latino' },
+  { id:'r078', cat:'Platos', nombre:'Quesadilla de queso', kcal100:295, prot100:13, carbs100:28, fat100:15, sat100:8, fiber100:2, fe100:1.6, ca100:320, vd100:0.3, racion_g:180, alias:'restaurante mexicano latino' },
+  { id:'r079', cat:'Platos', nombre:'Fajitas de pollo', kcal100:185, prot100:14, carbs100:18, fat100:6, sat100:1.8, fiber100:2.2, fe100:1.4, ca100:70, vd100:0.1, racion_g:300, alias:'restaurante mexicano latino' },
+  { id:'r080', cat:'Platos', nombre:'Enchiladas', kcal100:200, prot100:10, carbs100:21, fat100:8.5, sat100:3.4, fiber100:2.4, fe100:1.5, ca100:120, vd100:0.2, racion_g:300, alias:'restaurante mexicano latino' },
+  { id:'r081', cat:'Platos', nombre:'Chilaquiles', kcal100:230, prot100:8, carbs100:26, fat100:10, sat100:3.6, fiber100:2.6, fe100:1.4, ca100:130, vd100:0.3, racion_g:250, alias:'restaurante mexicano latino' },
+  { id:'r082', cat:'Platos', nombre:'Taco al pastor', kcal100:215, prot100:13, carbs100:20, fat100:9, sat100:3, fiber100:2, fe100:1.5, ca100:70, vd100:0.2, racion_g:150, alias:'restaurante mexicano latino' },
+  { id:'r083', cat:'Platos', nombre:'Ceviche', kcal100:105, prot100:16, carbs100:6, fat100:1.8, sat100:0.4, fiber100:0.7, fe100:0.7, ca100:30, vd100:1, racion_g:200, alias:'restaurante mexicano latino' },
+  { id:'r084', cat:'Platos', nombre:'Tiradito', kcal100:115, prot100:17, carbs100:4, fat100:3.5, sat100:0.6, fiber100:0.4, fe100:0.7, ca100:25, vd100:1.2, racion_g:180, alias:'restaurante mexicano latino' },
+  { id:'r085', cat:'Platos', nombre:'Empanada argentina', kcal100:265, prot100:10, carbs100:27, fat100:13, sat100:4.5, fiber100:1.6, fe100:1.5, ca100:40, vd100:0.4, racion_g:120, alias:'restaurante mexicano latino' },
+  { id:'r086', cat:'Platos', nombre:'Asado de tira', kcal100:285, prot100:22, carbs100:0, fat100:22, sat100:9, fiber100:0, fe100:2.4, ca100:15, vd100:0.3, racion_g:250, alias:'restaurante mexicano latino' },
+  { id:'r087', cat:'Platos', nombre:'Provoleta', kcal100:345, prot100:25, carbs100:2, fat100:27, sat100:17, fiber100:0, fe100:0.5, ca100:750, vd100:0.5, racion_g:100, alias:'restaurante mexicano latino' },
+  { id:'r088', cat:'Platos', nombre:'Arepa', kcal100:240, prot100:5, carbs100:42, fat100:6, sat100:1.6, fiber100:2.4, fe100:1.4, ca100:70, vd100:0, racion_g:150, alias:'restaurante mexicano latino' },
+  { id:'r089', cat:'Platos', nombre:'Feijoada', kcal100:165, prot100:12, carbs100:12, fat100:7.5, sat100:2.6, fiber100:4, fe100:2.4, ca100:50, vd100:0.2, racion_g:300, alias:'restaurante mexicano latino' },
+  { id:'r090', cat:'Platos', nombre:'Souvlaki', kcal100:215, prot100:22, carbs100:3, fat100:12, sat100:3.6, fiber100:0.4, fe100:1.4, ca100:30, vd100:0.3, racion_g:200, alias:'restaurante griego turco libanes' },
+  { id:'r091', cat:'Platos', nombre:'Gyros', kcal100:230, prot100:16, carbs100:18, fat100:11, sat100:3.6, fiber100:1.4, fe100:1.8, ca100:60, vd100:0.2, racion_g:250, alias:'restaurante griego turco libanes' },
+  { id:'r092', cat:'Platos', nombre:'Dolmades', kcal100:150, prot100:3, carbs100:18, fat100:7.5, sat100:1.2, fiber100:2.6, fe100:1.4, ca100:40, vd100:0, racion_g:150, alias:'restaurante griego turco libanes' },
+  { id:'r093', cat:'Platos', nombre:'Baba ganoush', kcal100:155, prot100:3, carbs100:9, fat100:12, sat100:1.7, fiber100:4, fe100:1.2, ca100:60, vd100:0, racion_g:100, alias:'restaurante griego turco libanes' },
+  { id:'r094', cat:'Platos', nombre:'Baklava', kcal100:430, prot100:6, carbs100:48, fat100:24, sat100:6, fiber100:2.6, fe100:1.6, ca100:60, vd100:0.1, racion_g:60, alias:'restaurante griego turco libanes' },
+  { id:'r095', cat:'Platos', nombre:'Ensalada griega', kcal100:125, prot100:4.5, carbs100:5, fat100:10, sat100:4, fiber100:1.6, fe100:0.8, ca100:150, vd100:0.2, racion_g:250, alias:'restaurante griego turco libanes' },
+  { id:'r096', cat:'Platos', nombre:'Steak tartar', kcal100:190, prot100:20, carbs100:2, fat100:11, sat100:4, fiber100:0.3, fe100:2.6, ca100:25, vd100:0.4, racion_g:180, alias:'restaurante frances europeo' },
+  { id:'r097', cat:'Platos', nombre:'Confit de pato', kcal100:290, prot100:25, carbs100:0, fat100:21, sat100:7, fiber100:0, fe100:2.8, ca100:15, vd100:0.3, racion_g:200, alias:'restaurante frances europeo' },
+  { id:'r098', cat:'Platos', nombre:'Magret de pato', kcal100:215, prot100:24, carbs100:0, fat100:13, sat100:4.4, fiber100:0, fe100:3, ca100:12, vd100:0.4, racion_g:180, alias:'restaurante frances europeo' },
+  { id:'r099', cat:'Platos', nombre:'Ratatouille', kcal100:75, prot100:1.6, carbs100:6, fat100:5, sat100:0.8, fiber100:2.4, fe100:0.7, ca100:25, vd100:0, racion_g:250, alias:'restaurante frances europeo' },
+  { id:'r100', cat:'Platos', nombre:'Coq au vin', kcal100:165, prot100:18, carbs100:4, fat100:8, sat100:2.6, fiber100:0.8, fe100:1.6, ca100:25, vd100:0.2, racion_g:300, alias:'restaurante frances europeo' },
+  { id:'r101', cat:'Platos', nombre:'Bouillabaisse', kcal100:95, prot100:11, carbs100:5, fat100:3.4, sat100:0.7, fiber100:0.8, fe100:1, ca100:45, vd100:1.2, racion_g:350, alias:'restaurante frances europeo' },
+  { id:'r102', cat:'Platos', nombre:'Croque monsieur', kcal100:285, prot100:15, carbs100:25, fat100:14, sat100:7.5, fiber100:1.4, fe100:1.4, ca100:250, vd100:0.4, racion_g:200, alias:'restaurante frances europeo' },
+  { id:'r103', cat:'Platos', nombre:'Cordon bleu', kcal100:265, prot100:17, carbs100:15, fat100:15, sat100:5.5, fiber100:0.9, fe100:1.1, ca100:140, vd100:0.4, racion_g:200, alias:'restaurante frances europeo' },
+  { id:'r104', cat:'Platos', nombre:'Sopa de cebolla gratinada', kcal100:105, prot100:4.5, carbs100:9, fat100:5.5, sat100:3, fiber100:1.2, fe100:0.6, ca100:110, vd100:0.2, racion_g:300, alias:'restaurante frances europeo' },
+  { id:'r105', cat:'Platos', nombre:'Currywurst', kcal100:265, prot100:11, carbs100:9, fat100:21, sat100:7.5, fiber100:1, fe100:1.2, ca100:25, vd100:0.5, racion_g:200, alias:'restaurante frances europeo' },
+  { id:'r106', cat:'Platos', nombre:'Bratwurst', kcal100:320, prot100:13, carbs100:2, fat100:29, sat100:10, fiber100:0, fe100:1.1, ca100:20, vd100:0.5, racion_g:150, alias:'restaurante frances europeo' },
+  { id:'r107', cat:'Platos', nombre:'Spätzle', kcal100:215, prot100:7, carbs100:33, fat100:6, sat100:2.4, fiber100:1.6, fe100:1.4, ca100:40, vd100:0.3, racion_g:250, alias:'restaurante frances europeo' },
+  { id:'r108', cat:'Platos', nombre:'Pierogi', kcal100:205, prot100:6, carbs100:30, fat100:6.5, sat100:2.6, fiber100:1.6, fe100:1.2, ca100:35, vd100:0.2, racion_g:250, alias:'restaurante frances europeo' },
+  { id:'r109', cat:'Platos', nombre:'Club sándwich', kcal100:255, prot100:14, carbs100:24, fat100:11, sat100:3.4, fiber100:1.6, fe100:1.5, ca100:90, vd100:0.3, racion_g:250, alias:'restaurante brunch americano' },
+  { id:'r110', cat:'Platos', nombre:'Wrap césar de pollo', kcal100:215, prot100:14, carbs100:21, fat100:8.5, sat100:2.6, fiber100:1.8, fe100:1.4, ca100:90, vd100:0.2, racion_g:250, alias:'restaurante brunch americano' },
+  { id:'r111', cat:'Platos', nombre:'Buddha bowl', kcal100:140, prot100:6.5, carbs100:17, fat100:5.5, sat100:0.9, fiber100:4, fe100:1.8, ca100:60, vd100:0, racion_g:350, alias:'restaurante brunch americano' },
+  { id:'r112', cat:'Platos', nombre:'Huevos benedict', kcal100:235, prot100:12, carbs100:13, fat100:15, sat100:6, fiber100:0.8, fe100:1.6, ca100:70, vd100:1.2, racion_g:200, alias:'restaurante brunch americano' },
+  { id:'r113', cat:'Platos', nombre:'Tostada de aguacate', kcal100:215, prot100:6, carbs100:22, fat100:11, sat100:2, fiber100:4.5, fe100:1.6, ca100:40, vd100:0, racion_g:150, alias:'restaurante brunch americano' },
+  { id:'r114', cat:'Platos', nombre:'Bagel con salmón y queso crema', kcal100:255, prot100:13, carbs100:30, fat100:9, sat100:4, fiber100:1.6, fe100:2, ca100:70, vd100:2.6, racion_g:180, alias:'restaurante brunch americano' },
+  { id:'r115', cat:'Platos', nombre:'Costillas a la barbacoa', kcal100:305, prot100:19, carbs100:10, fat100:21, sat100:7.5, fiber100:0.4, fe100:1.6, ca100:30, vd100:0.4, racion_g:300, alias:'restaurante brunch americano' },
+  { id:'r116', cat:'Platos', nombre:'Alitas de pollo picantes', kcal100:255, prot100:21, carbs100:4, fat100:17, sat100:4.8, fiber100:0.3, fe100:1.1, ca100:25, vd100:0.2, racion_g:200, alias:'restaurante brunch americano' },
+  { id:'r117', cat:'Platos', nombre:'Macarrones con queso', kcal100:225, prot100:10, carbs100:24, fat100:10, sat100:5.8, fiber100:1, fe100:0.9, ca100:210, vd100:0.2, racion_g:300, alias:'restaurante brunch americano' },
+  { id:'r118', cat:'Platos', nombre:'Coleslaw', kcal100:145, prot100:1.2, carbs100:9, fat100:12, sat100:1.8, fiber100:1.8, fe100:0.4, ca100:35, vd100:0, racion_g:100, alias:'restaurante brunch americano' },
+  { id:'r119', cat:'Platos', nombre:'Aros de cebolla', kcal100:280, prot100:4, carbs100:32, fat100:15, sat100:2.2, fiber100:1.8, fe100:0.9, ca100:50, vd100:0, racion_g:120, alias:'restaurante brunch americano' },
+  { id:'r120', cat:'Platos', nombre:'Batido de chocolate (milkshake)', kcal100:115, prot100:3.4, carbs100:16, fat100:4.2, sat100:2.6, fiber100:0.4, fe100:0.3, ca100:120, vd100:0.2, racion_g:300, unit:'ml', alias:'restaurante brunch americano' },
+  { id:'r121', cat:'Platos', nombre:'Coulant de chocolate', kcal100:420, prot100:6, carbs100:42, fat100:25, sat100:14, fiber100:3, fe100:2.6, ca100:80, vd100:0.4, racion_g:90, alias:'restaurante postre restaurante' },
+  { id:'r122', cat:'Platos', nombre:'Tarta de zanahoria', kcal100:380, prot100:4.5, carbs100:44, fat100:21, sat100:4, fiber100:1.8, fe100:1.2, ca100:50, vd100:0.2, racion_g:100, alias:'restaurante postre restaurante' },
+  { id:'r123', cat:'Platos', nombre:'Sorbete de limón', kcal100:130, prot100:0.3, carbs100:32, fat100:0.2, sat100:0, fiber100:0.2, fe100:0.1, ca100:5, vd100:0, racion_g:120, alias:'restaurante postre restaurante' },
+  { id:'r124', cat:'Platos', nombre:'Leche frita', kcal100:265, prot100:6, carbs100:32, fat100:12, sat100:4, fiber100:0.6, fe100:0.6, ca100:130, vd100:0.4, racion_g:100, alias:'restaurante postre restaurante' },
+  { id:'r125', cat:'Platos', nombre:'Café bombón', kcal100:185, prot100:3.5, carbs100:30, fat100:5.5, sat100:3.4, fiber100:0, fe100:0.2, ca100:120, vd100:0.1, racion_g:80, unit:'ml', alias:'restaurante postre restaurante' },
+  { id:'r126', cat:'Platos', nombre:'Carajillo', kcal100:95, prot100:0.6, carbs100:6, fat100:0.5, sat100:0.3, fiber100:0, fe100:0.1, ca100:15, vd100:0, racion_g:60, unit:'ml', alias:'restaurante postre restaurante' },
+  { id:'r127', cat:'Platos', nombre:'Tinto de verano', kcal100:60, prot100:0.1, carbs100:6, fat100:0, sat100:0, fiber100:0, fe100:0.3, ca100:8, vd100:0, racion_g:250, unit:'ml', alias:'restaurante bebida restaurante' },
+  { id:'r128', cat:'Platos', nombre:'Clara (cerveza con limón)', kcal100:42, prot100:0.3, carbs100:5, fat100:0, sat100:0, fiber100:0, fe100:0.2, ca100:6, vd100:0, racion_g:330, unit:'ml', alias:'restaurante bebida restaurante' },
+  { id:'r129', cat:'Platos', nombre:'Mojito', kcal100:120, prot100:0.1, carbs100:12, fat100:0, sat100:0, fiber100:0, fe100:0.2, ca100:6, vd100:0, racion_g:250, unit:'ml', alias:'restaurante bebida restaurante' },
+  { id:'r130', cat:'Platos', nombre:'Gin-tonic', kcal100:110, prot100:0, carbs100:6, fat100:0, sat100:0, fiber100:0, fe100:0.1, ca100:4, vd100:0, racion_g:250, unit:'ml', alias:'restaurante bebida restaurante' },
+  { id:'r131', cat:'Platos', nombre:'Agua mineral', kcal100:0, prot100:0, carbs100:0, fat100:0, sat100:0, fiber100:0, fe100:0, ca100:30, vd100:0, racion_g:500, unit:'ml', alias:'restaurante bebida restaurante' },
 ];
 
 /* ---- Recetas de partida ---- */
@@ -3311,6 +3455,17 @@ function defaultPurchase(f) {
    precio solo lo sé de una parte del catálogo, así que la lista
    dice siempre sobre cuántos productos está hecha la cuenta.
    ============================================================ */
+/* La lista de la compra se calcula sola, así que quitar algo no es
+   borrarlo: es decir «esta semana no». Se guarda por semana, para que la
+   siguiente vuelva a proponerlo si sigue haciendo falta. */
+function hiddenShop(ws) { return DB.get('shopx_' + ws, []); }
+function hideShopLine(ws, id) {
+  const l = hiddenShop(ws);
+  if (l.indexOf(id) < 0) l.push(id);
+  DB.set('shopx_' + ws, l);
+}
+function clearHiddenShop(ws) { DB.set('shopx_' + ws, []); }
+
 function priceOverrides() { return DB.get('precios', {}); }
 
 /* Precio y tamaño de envase: lo que ella haya apuntado manda sobre lo
@@ -3671,6 +3826,7 @@ let shoppingDraft = null;            // líneas de la compra pendientes de revis
 let shopStore = 'todos';             // filtro de supermercado en la lista
 let loadStore = null;                // tienda de la compra que se está cargando
 
+let lastTab = null;
 function render() {
   const view = document.getElementById('view');
   if (tab === 'recetas')      view.innerHTML = viewRecetas();
@@ -3686,7 +3842,9 @@ function render() {
   when.textContent = tab === 'hoy'
     ? (curDate === today() ? 'hoy' : shortDate(curDate))
     : '';
-  window.scrollTo(0, 0);
+  // Solo se vuelve arriba al cambiar de pestaña. Repintar por marcar algo
+  // de la lista o tocar un +100 tiene que dejarte donde estabas.
+  if (tab !== lastTab) { window.scrollTo(0, 0); lastTab = tab; }
 }
 
 /* ============================================================
@@ -3988,6 +4146,7 @@ function viewCompra() {
   const menu = getMenu(ws);
   const lista = shoppingList(menu);
   const checked = DB.get('shop_' + ws, []);
+  const fuera = hiddenShop(ws);
   const estado = pantryStatus();
   const acabando = estado.filter(x => x.seAcaba);
   const faltanHabituales = habitualesSinStock();
@@ -4063,6 +4222,7 @@ function viewCompra() {
   const todas = Object.keys(lineas).map(id => {
     const l = lineas[id];
     if (!l.food) return null;
+    if (fuera.indexOf(id) >= 0) return null;   // la has quitado tú
     return Object.assign({ id: id, tienda: storeOf(l.food) || SIN_TIENDA }, l);
   }).filter(Boolean);
 
@@ -4100,6 +4260,8 @@ function viewCompra() {
       '<button class="tienda-btn" data-act="set-store" data-id="' + l.food.id +
         '" aria-label="Supermercado y precio de ' + esc(shortName(l.food)) + '">' +
         (l.tienda === SIN_TIENDA ? '+ súper' : esc(shortStore(l.tienda))) + '</button>' +
+      '<button class="x" data-act="shop-del" data-id="' + l.id +
+        '" aria-label="Quitar ' + esc(shortName(l.food)) + ' de la lista">✕</button>' +
     '</div>';
   };
 
@@ -4150,7 +4312,12 @@ function viewCompra() {
 
     '<div id="shop"><div class="section-head"><h2>Lista de la compra</h2>' +
       (total ? '<span class="rest">' + (shopStore === 'todos' ? total : visibles.length + ' de ' + total) + '</span>' : '') + '</div>' +
-      '<div class="card shop-list" style="margin-top:9px">' + shopHtml + '</div>' + costeHtml + '</div>' +
+      '<div class="card shop-list" style="margin-top:9px">' + shopHtml + '</div>' + costeHtml +
+      (fuera.length
+        ? '<p class="hint" style="margin:7px 0 0">Has quitado ' + fuera.length +
+            (fuera.length === 1 ? ' producto' : ' productos') + ' de esta semana. ' +
+            '<button class="link-btn" style="display:inline;padding:0" data-act="shop-restore">Volver a ponerlos</button></p>'
+        : '') + '</div>' +
 
     '<div><div class="section-head"><h2>Mi despensa</h2>' +
       '<span class="rest">' + items.length + '</span></div>' +
@@ -4711,11 +4878,11 @@ function paintComposer() {
         'Lo que fijes entra en la receta sí o sí, con esos gramos exactos.</p></div>'
       : '') +
 
-    '<div class="field"><label for="cp-q">Buscar otro ingrediente</label>' +
+    '<div class="field sticky-search"><label for="cp-q">Buscar otro ingrediente</label>' +
       '<input class="input" id="cp-q" type="search" placeholder="Buscar en los ' + allFoods().length + ' alimentos" ' +
         'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">' +
-      '<div id="cp-res"></div>' +
     '</div>' +
+    '<div id="cp-res"></div>' +
 
     '<div class="field"><label>Qué quieres alcanzar</label><div class="grid3">' +
       '<label class="tiny-field"><span>Proteína g</span><input class="input numeric" id="cp-prot" type="number" inputmode="numeric" value="' + (composer.targets.prot || '') + '"></label>' +
@@ -4919,7 +5086,7 @@ function bindComposerResults() {
 /* ---- Selector de alimentos: ordenado por proteína/caloría ---- */
 function sheetPicker(title, onPick) {
   const body =
-    '<div class="field"><input class="input" id="pk-q" type="search" placeholder="Buscar alimento" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>' +
+    '<div class="field sticky-search"><input class="input" id="pk-q" type="search" placeholder="Buscar alimento" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>' +
     '<div id="pk-list"></div>';
   openSheet(title, body, scrim => {
     const q = scrim.querySelector('#pk-q');
@@ -4961,7 +5128,7 @@ let builder = null;
 function sheetBuilder(mealKey) {
   builder = { meal: mealKey, items: [] };
   const body =
-    '<div class="field">' +
+    '<div class="field sticky-search">' +
       '<input class="input" id="bd-q" type="search" placeholder="Buscar alimento y tocar para añadir" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">' +
     '</div>' +
     '<div id="bd-results"></div>' +
@@ -5378,6 +5545,20 @@ document.getElementById('view').addEventListener('click', ev => {
   }
   if (act === 'load-shopping') { sheetLoadShopping(); return; }
   if (act === 'shop-store') { shopStore = d.s; render(); return; }
+  if (act === 'shop-del') {
+    const ws = menuWeek || weekStartOf(today());
+    const f = foodById(d.id);
+    hideShopLine(ws, d.id);
+    render();
+    toast((f ? shortName(f) : 'Producto') + ' fuera de la lista');
+    return;
+  }
+  if (act === 'shop-restore') {
+    clearHiddenShop(menuWeek || weekStartOf(today()));
+    render();
+    toast('Lista completa otra vez');
+    return;
+  }
   if (act === 'set-store') { sheetStorePicker(d.id); return; }
   if (act === 'pantry-meal') { nutMealForPantry = d.meal; render(); return; }
   if (act === 'log-pantry-recipe') {

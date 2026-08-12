@@ -147,6 +147,13 @@ pedido real—, así que **la cifra dice siempre sobre cuántos está hecha**: �
 producto, donde se apunta su precio; los precios propios se guardan aparte (`precios`) y
 mandan sobre los del catálogo, igual que pasa con las tiendas.
 
+## Quitar cosas de la lista de la compra
+
+La lista se calcula sola —del menú, de lo que se acaba, de los habituales sin stock—, así
+que quitar una línea no es borrarla: es decir «esta semana no». Se guarda por semana
+(`shopx_<semana>`), y la siguiente vuelve a proponerla si sigue haciendo falta. Debajo de
+la lista se ve cuántas has quitado, con un enlace para volver a ponerlas todas.
+
 ## Consumo y reposición
 
 Cada comida que se registra **descuenta de la despensa**. Con eso y el histórico se
@@ -162,7 +169,7 @@ tienen que aparecer en el nombre; el orden da igual. Ordena por parecido con lo 
 (coincidencia exacta, luego principio de nombre, luego principio de palabra), y la
 densidad proteica solo desempata.
 
-Unos 730 alimentos. No es el surtido completo de ninguna cadena —eso son miles de
+Unos 861 alimentos. No es el surtido completo de ninguna cadena —eso son miles de
 referencias— sino la cesta habitual, con marcas propias de Mercadona, Ametller Origen,
 Carrefour y Jespac donde aportan algo. Lo que falte se crea en Ajustes → Alimentos
 propios y queda guardado.
@@ -174,6 +181,13 @@ bocadillo, la lasaña del domingo. La categoría **Platos** (unos 114) recoge co
 aquí y de Europa ya hecha —pizzas, arroces, platos de cuchara, tapas, guisos, moussaka,
 quiche, sushi, kebab— más bollería, quesos y charcutería europea repartidos por sus
 categorías.
+
+**Comer fuera también es comer**, así que hay 131 platos de restaurante: tapas y raciones
+(pan con tomate, torreznos, chopitos, secreto ibérico, chuletón, kokotxas, marmitako),
+arroces, y las cocinas que se comen aquí — italiana, japonesa, china, india, tailandesa,
+mexicana, griega, francesa, brunch. Cada uno lleva en `alias` su tipo de cocina, así que
+se encuentran buscando «restaurante», «japonés», «tapas» o «italiano», no solo por su
+nombre.
 
 Un plato ya hecho **se registra pero no se usa como ingrediente**: `foodRoles` devuelve
 lista vacía para toda la categoría, así que el compositor no puede proponerte unas
