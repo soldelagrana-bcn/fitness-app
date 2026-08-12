@@ -7,19 +7,20 @@ No tiene nada de entrenamiento: ni rutinas, ni fases, ni cargas, ni Garmin.
 
 ## Qué hace
 
-- **Hoy** — el número grande es lo que **falta** para cerrar el día, no lo consumido.
-  Debajo, proteína, carbos, grasa y saturadas contra el objetivo.
-- **Qué como para cerrar el día** — propone recetas para la comida que elijas,
-  con la **porción ya ajustada** al hueco que queda, y un atajo para cerrar el
-  hueco de proteína con un solo ingrediente.
-- **Recetas** — 23 de partida (desayunos dulces y salados), editables, más las tuyas.
-  Y **«Proponme una receta»**: eliges entre tus ingredientes favoritos, dices qué
-  macros quieres alcanzar (por ejemplo 35 g de proteína, 70 de carbos y 10 de fibra)
-  y calcula los gramos de cada cosa, con tres propuestas distintas. Si con lo elegido
-  no se llega, recomienda qué ingrediente añadir; y te dice qué falta en la despensa.
-- **Menú** — semana completa cuadrada con los objetivos; cambia o fija cada comida.
-- **Compra** — despensa, recetas que puedes hacer con lo que hay, y lista que
-  resta lo que ya tienes.
+Cuatro pestañas, cada una con un trabajo:
+
+| Pestaña | Para qué |
+|---|---|
+| **Hoy** | Registrar lo que comes y seguir macros y micronutrientes del día |
+| **Recetas** | Proponer recetas a partir de los ingredientes que elijas y los macros que quieras alcanzar |
+| **Menú** | Menú semanal calculado con lo que tienes en casa y tus preferencias |
+| **Compra** | Seguir lo que consumes y montar la lista de la compra |
+
+**Hoy no sugiere nada.** Es un cuadro de mandos y un registro: el número grande es lo que
+falta de calorías, y debajo hay ocho baldosas —proteína, carbos, grasa, saturadas, fibra,
+hierro, calcio y vitamina D— con su número, su objetivo y su barra. Cada comida tiene un
+único botón: registrar. Proponer es trabajo de Recetas y de Menú, y tenerlo también aquí
+llenaba la pantalla de cosas que no eran el registro.
 
 ## Objetivos
 
@@ -149,10 +150,28 @@ mandan sobre los del catálogo, igual que pasa con las tiendas.
 
 ## Quitar cosas de la lista de la compra
 
-La lista se calcula sola —del menú, de lo que se acaba, de los habituales sin stock—, así
-que quitar una línea no es borrarla: es decir «esta semana no». Se guarda por semana
+La lista se calcula sola —del menú, de lo que se acaba, de los habituales sin stock— pero
+hay cosas que solo sabe ella, así que **+ Añadir producto** mete lo que quiera, con el
+motivo «lo has puesto tú».
+
+Quitar una línea calculada no es borrarla: es decir «esta semana no». Se guarda por semana
 (`shopx_<semana>`), y la siguiente vuelve a proponerla si sigue haciendo falta. Debajo de
 la lista se ve cuántas has quitado, con un enlace para volver a ponerlas todas.
+
+## El menú tira de la despensa
+
+Un menú que te manda al súper cada día no lo sigue nadie. Al generarlo, cada receta suma
+puntos por la parte de sus ingredientes que ya está en casa (`pantryCoverage`, en gramos,
+no en número de ingredientes) y por los favoritos que uses de esa comida. Dos modos:
+
+- **Prioriza lo que tengo** — la despensa suma 18 puntos como mucho: desempata entre
+  recetas parecidas, pero no sacrifica los objetivos del día.
+- **Lo que menos falte** — manda cuántos ingredientes faltan y los macros desempatan.
+
+Ninguno de los dos deja huecos. La primera versión filtraba a recetas con todo en casa y
+salía un menú vacío: con una compra normal ninguna receta está completa, porque la miel,
+la bebida de almendras o la proteína en polvo no vienen en el pedido. Es más útil poner el
+plato y etiquetarlo: cada comida dice «en casa» o «faltan 2».
 
 ## Consumo y reposición
 

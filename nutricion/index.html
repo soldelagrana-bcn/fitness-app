@@ -444,6 +444,8 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 .slot-body { flex: 1; min-width: 0; min-height: 44px; border: 0; background: none; text-align: left; padding: 0; display: flex; flex-direction: column; justify-content: center; }
 .slot-name { display: block; font-size: 12.5px; font-weight: 560; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .slot-macros { display: block; font-family: var(--mono); font-size: 10px; color: var(--ink-faint); }
+.slot-macros .falta { color: var(--warn); font-weight: 620; }
+.slot-macros .tengo { color: var(--good); font-weight: 620; }
 .lock { border: 0; background: none; font-size: 14px; min-width: 44px; min-height: 44px; padding: 0; opacity: .3; }
 .lock[aria-pressed="true"] { opacity: 1; }
 
@@ -569,6 +571,44 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
   pointer-events: none; max-width: 88vw; text-align: center;
 }
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---- Panel de macros: la pantalla es un cuadro de mandos ---- */
+.dash { display: flex; flex-direction: column; }
+.dash-figure { display: flex; align-items: baseline; gap: 9px; margin: 3px 0 0; }
+.dash-figure .big {
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+  font-size: 56px; font-weight: 550; letter-spacing: -.04em; line-height: 1;
+  color: var(--accent);
+}
+.dash-figure .unit { font-size: 13px; color: var(--ink-faint); font-weight: 600; }
+.dash-figure .of { margin-left: auto; font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint); }
+.dash.over .big { color: var(--crit); }
+.dash.done .big { color: var(--good); }
+.dash-track { height: 7px; background: var(--sunken); border-radius: 4px; overflow: hidden; margin: 13px 0 15px; }
+.dash-track > i { display: block; height: 100%; background: var(--accent); border-radius: 4px; transition: width .45s ease; }
+.dash.over .dash-track > i { background: var(--crit); }
+.dash.done .dash-track > i { background: var(--good); }
+
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tile { background: var(--sunken); border-radius: var(--r-md); padding: 11px 12px 12px; }
+.tile .tk { font-size: 10px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--ink-faint); }
+.tile .tv { display: flex; align-items: baseline; gap: 4px; margin: 5px 0 8px; }
+.tile .tv b {
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+  font-size: 25px; font-weight: 600; letter-spacing: -.025em; line-height: 1;
+}
+.tile .tv small { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+.tile .rail { background: color-mix(in srgb, var(--ink) 12%, transparent); }
+.tile.good .tv b { color: var(--good); }
+.tile.warn .tv b { color: var(--warn); }
+.tile.crit .tv b { color: var(--crit); }
+.dash-split {
+  display: flex; align-items: center; gap: 10px;
+  margin: 15px 0 11px;
+  font-size: 10px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--ink-faint);
+}
+.dash-split::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 
 /* ---- Micronutrientes del día ---- */
 .micros {
@@ -2472,6 +2512,35 @@ function scoreRecipe(recipe, gap, ctx) {
   return { raw: score, why: why, careful: careful };
 }
 
+/* Qué parte de una receta ya está en casa, en gramos. Es lo que hace
+   que el menú se apoye en la despensa en vez de mandarte al súper. */
+function pantryCoverage(recipe, factor) {
+  const ing = recipe.ingredients || [];
+  if (!ing.length) return 0;
+  let total = 0, hay = 0;
+  ing.forEach(i => {
+    const g = (i.amount_g || 0) * (factor || 1);
+    if (g <= 0) return;
+    total += g;
+    hay += Math.min(g, pantryQty(i.ingredient_id));
+  });
+  return total > 0 ? hay / total : 0;
+}
+
+/* Cuántos ingredientes de la receta no están en casa. */
+function missingCount(recipe, factor) {
+  return (recipe.ingredients || []).filter(i =>
+    pantryQty(i.ingredient_id) < (i.amount_g || 0) * (factor || 1)).length;
+}
+
+/* Preferencias: los ingredientes que ella ha marcado como favoritos de
+   esa comida. Una receta que los use se parece más a lo que come. */
+function favoriteHits(recipe, mealKey) {
+  const favs = favorites(mealKey);
+  if (!favs.length) return 0;
+  return (recipe.ingredients || []).filter(i => favs.indexOf(i.ingredient_id) >= 0).length;
+}
+
 function recentRecipeIds(fecha, days) {
   const ids = [];
   for (let i = 1; i <= (days || 3); i++) {
@@ -2479,48 +2548,6 @@ function recentRecipeIds(fecha, days) {
     dayLog(d).entries.forEach(e => { if (e.recipe_id) ids.push(e.recipe_id); });
   }
   return ids;
-}
-
-/* LA función: qué comer en esta comida para cerrar el día. */
-function suggestFor(mealKey, fecha, limit) {
-  const gap = shareForMeal(fecha, mealKey);
-  const tot = dayTotals(fecha), rem = remaining(fecha);
-  const ctx = { satSoFar: tot.sat, fatLeft: rem.fat, satShare: gap.share, recent: recentRecipeIds(fecha, 3) };
-
-  const scored = recipesFor(mealKey)
-    .filter(r => postWorkoutOk(r, fecha))
-    .map(r => {
-      // Se ajusta la porción al hueco y se puntúa lo que de verdad se comerá.
-      const factor = fitFactor(r, gap);
-      const adj = scaleRecipe(r, factor);
-      const s = scoreRecipe(adj, gap, ctx);
-      return { recipe: r, adjusted: adj, factor: factor, macros: adj.macros, raw: s.raw, why: s.why, careful: s.careful };
-    })
-    .sort((a, b) => b.raw - a.raw);
-
-  // Encaje relativo al mejor: con los bonus, varios saturarían en 100.
-  const best = scored.length ? Math.max(scored[0].raw, 1) : 1;
-  scored.forEach(s => { s.fit = Math.max(1, Math.round((s.raw / best) * 100)); });
-  return { gap: gap, remaining: rem, list: scored.slice(0, limit || 3) };
-}
-
-/* Cerrar el hueco de proteína con un solo ingrediente. */
-function suggestIngredients(fecha, limit) {
-  const rem = remaining(fecha);
-  if (rem.prot <= 3 || rem.kcal <= 0) return [];
-  const satLeft = Math.max(0, satLimit() - dayTotals(fecha).sat);
-  const trained = trainedOn(fecha);
-  return allFoods()
-    .filter(f => f.kcal100 > 0 && f.prot100 >= 10)
-    .filter(f => !foodHasTag(f, 'post_entreno') || trained)
-    .filter(f => !foodHasTag(f, 'solo_recetas'))
-    .map(f => {
-      const grams = Math.min(400, Math.max(15, Math.round(((rem.prot / f.prot100) * 100) / 5) * 5));
-      return { food: f, grams: grams, macros: macrosOf(f, grams), dens: density(f) };
-    })
-    .filter(x => x.macros.kcal <= rem.kcal * 1.1 && x.macros.sat <= satLeft + 0.5)
-    .sort((a, b) => b.dens - a.dens)
-    .slice(0, limit || 3);
 }
 
 /* ============================================================
@@ -3272,10 +3299,18 @@ function slotGap(day, mealKey) {
 
 /* Genera 7 días cuadrando cada uno con los objetivos. Escala las
    porciones: sin eso el menú se queda muy por debajo de las kcal. */
-function generateMenu(ws) {
+/* Cuánto pesa la despensa frente al encaje de macros. 18 puntos es
+   suficiente para desempatar entre recetas parecidas, pero no tanto como
+   para sacrificar los objetivos del día. */
+const PESO_DESPENSA = 18;
+
+function generateMenu(ws, opts) {
   const prev = getMenu(ws);
   const t = targets();
-  const history = [];
+  const soloDespensa = !!(opts && opts.soloDespensa);
+  // Lo comido estos días atrás cuenta como repetición: si cenaste eso
+  // anteayer, no te lo vuelvo a poner.
+  const history = recentRecipeIds(ws, 3).map(id => ({ date: ws, id: id }));
   const days = weekDates(ws).map(date => {
     const prevDay = prev && prev.days.find(d => d.date === date);
     const slots = [];
@@ -3312,8 +3347,19 @@ function generateMenu(ws) {
         const factor = fitFactor(r, gap);
         const adj = scaleRecipe(r, factor);
         const s = scoreRecipe(adj, gap, { satSoFar: satSoFar, fatLeft: left.fat, satShare: share, recent: recent });
-        return { r: r, factor: factor, adj: adj, raw: s.raw };
-      }).sort((a, b) => b.raw - a.raw);
+        // Lo que ya está en casa cuenta, y mucho: un menú que te manda al
+        // súper cada día no lo sigue nadie. Y lo que ella marcó como
+        // favorito de esa comida pesa también.
+        const cobertura = pantryCoverage(r, factor);
+        const bonus = cobertura * PESO_DESPENSA + Math.min(3, favoriteHits(r, meal.key)) * 4;
+        return { r: r, factor: factor, adj: adj, faltan: missingCount(r, factor), raw: s.raw + bonus };
+      })
+        // En modo despensa manda cuánto te falta y los macros desempatan.
+        // No se deja el hueco vacío: un menú con huecos no lo sigue nadie,
+        // y la etiqueta «faltan 2» ya te dice a qué atenerte.
+        .sort((a, b) => soloDespensa
+          ? (a.faltan - b.faltan) || (b.raw - a.raw)
+          : (b.raw - a.raw));
 
       const best = ranked[0];
       const m = best.adj.macros;
@@ -3324,7 +3370,11 @@ function generateMenu(ws) {
     });
     return { date: date, meal_slots: slots };
   });
-  const menu = { week_start: ws, days: days, generated_at: new Date().toISOString() };
+  const menu = {
+    week_start: ws, days: days,
+    generated_at: new Date().toISOString(),
+    solo_despensa: soloDespensa,
+  };
   setMenu(menu);
   return menu;
 }
@@ -3458,6 +3508,23 @@ function defaultPurchase(f) {
 /* La lista de la compra se calcula sola, así que quitar algo no es
    borrarlo: es decir «esta semana no». Se guarda por semana, para que la
    siguiente vuelva a proponerlo si sigue haciendo falta. */
+/* Productos que ella añade a mano. La lista se calcula sola, pero hay
+   cosas que solo sabe ella: que viene gente el sábado, que se ha
+   quedado sin papel de horno. */
+function extraShop(ws) { return DB.get('shopadd_' + ws, []); }
+function addShopLine(ws, foodId, gramos) {
+  const l = extraShop(ws);
+  const ya = l.find(x => x.id === foodId);
+  if (ya) ya.g = (ya.g || 0) + gramos;
+  else l.push({ id: foodId, g: gramos });
+  DB.set('shopadd_' + ws, l);
+  // Si lo habías quitado antes, ponerlo a mano es desdecirse: vuelve.
+  DB.set('shopx_' + ws, hiddenShop(ws).filter(id => id !== foodId));
+}
+function removeShopExtra(ws, foodId) {
+  DB.set('shopadd_' + ws, extraShop(ws).filter(x => x.id !== foodId));
+}
+
 function hiddenShop(ws) { return DB.get('shopx_' + ws, []); }
 function hideShopLine(ws, id) {
   const l = hiddenShop(ws);
@@ -3817,9 +3884,9 @@ function toast(msg) {
    ============================================================ */
 let tab = 'hoy';
 let curDate = today();
-let suggestMeal = null;
 let recipeFilter = 'todas';
 let menuWeek = null;
+let menuSoloDespensa = false;
 let draft = null;
 let nutMealForPantry = 'almuerzo';   // comida para la que se proponen platos con la despensa
 let shoppingDraft = null;            // líneas de la compra pendientes de revisar
@@ -3861,36 +3928,47 @@ function viewHoy() {
   const over = rem.kcal < 0;
   const done = rem.kcal <= 25 && rem.prot <= 0;
 
-  const bar = (val, max, tone) => {
+  /* Cada macro es una baldosa: número grande, objetivo pequeño y barra.
+     Se lee de un vistazo, que es de lo que se trata. */
+  const tile = (label, val, max, unit, tone, dec) => {
     const pct = Math.min(100, (val / (max || 1)) * 100);
-    return '<div class="rail"><i class="' + tone + '" style="width:' + pct.toFixed(1) + '%"></i></div>';
-  };
-  const row = (label, val, max, unit, tone) =>
-    '<div class="ledger-row">' +
-      '<span class="k">' + label + '</span>' +
-      bar(val, max, tone) +
-      '<span class="v num">' + Math.round(val) + ' <small>/ ' + max + ' ' + unit + '</small></span>' +
+    return '<div class="tile' + (tone ? ' ' + tone : '') + '">' +
+      '<span class="tk">' + label + '</span>' +
+      '<div class="tv"><b>' + (dec ? fmt1(val) : Math.round(val)) + '</b>' +
+        '<small>/ ' + max + ' ' + unit + '</small></div>' +
+      '<div class="rail"><i class="' + (tone || '') + '" style="width:' + pct.toFixed(1) + '%"></i></div>' +
     '</div>';
+  };
 
   const headWord = done ? 'Día cerrado' : over ? 'Te has pasado' : 'Te falta hoy';
   const bigNum = done ? Math.round(tot.kcal) : Math.abs(Math.round(rem.kcal));
-  const bigUnit = done ? 'kcal en total' : 'kcal';
+  const pctDia = Math.min(100, (tot.kcal / (t.kcal || 1)) * 100);
 
-  const readout =
-    '<div class="card readout' + (over ? ' over' : done ? ' done' : '') + '">' +
+  const dash =
+    '<div class="card dash' + (over ? ' over' : done ? ' done' : '') + '">' +
       '<span class="eyebrow">' + headWord + '</span>' +
-      '<div class="readout-figure"><span class="big">' + bigNum + '</span><span class="unit">' + bigUnit + '</span></div>' +
-      '<div class="ledger">' +
-        row('proteína', tot.prot, t.protein, 'g', tot.prot >= t.protein ? 'good' : '') +
-        row('carbos', tot.carbs, t.carbs, 'g', '') +
-        row('grasa', tot.fat, t.fat, 'g', '') +
-        '<div class="ledger-row">' +
-          '<span class="k">saturadas</span>' +
-          bar(tot.sat, lim, tot.sat > lim ? 'crit' : 'warn') +
-          '<span class="v num">' + fmt1(tot.sat) + ' <small>/ ' + lim + ' g</small></span>' +
-        '</div>' +
+      '<div class="dash-figure">' +
+        '<span class="big">' + bigNum + '</span>' +
+        '<span class="unit">' + (done ? 'kcal en total' : 'kcal') + '</span>' +
+        '<span class="of">' + Math.round(tot.kcal) + ' de ' + t.kcal + '</span>' +
       '</div>' +
-      microLedger(tot) +
+      '<div class="dash-track"><i style="width:' + pctDia.toFixed(1) + '%"></i></div>' +
+
+      '<div class="tiles">' +
+        tile('Proteína', tot.prot, t.protein, 'g', tot.prot >= t.protein ? 'good' : '', false) +
+        tile('Carbos', tot.carbs, t.carbs, 'g', '', false) +
+        tile('Grasa', tot.fat, t.fat, 'g', tot.fat > t.fat ? 'warn' : '', false) +
+        tile('Saturadas', tot.sat, lim, 'g', tot.sat > lim ? 'crit' : 'warn', true) +
+      '</div>' +
+
+      '<div class="dash-split">Micronutrientes</div>' +
+      '<div class="tiles">' +
+        tile('Fibra', tot.fiber, MICRO_TARGETS.fiber, 'g', tot.fiber >= MICRO_TARGETS.fiber ? 'good' : '', true) +
+        tile('Hierro', tot.fe, MICRO_TARGETS.fe, 'mg', tot.fe >= MICRO_TARGETS.fe ? 'good' : '', true) +
+        tile('Calcio', tot.ca, MICRO_TARGETS.ca, 'mg', tot.ca >= MICRO_TARGETS.ca ? 'good' : '', false) +
+        tile('Vitamina D', tot.vd, MICRO_TARGETS.vd, 'µg', tot.vd >= MICRO_TARGETS.vd ? 'good' : '', true) +
+      '</div>' +
+
       (isToday ?
         '<div class="trained"><span>¿Entrenaste hoy?</span>' +
         '<button class="switch" id="trained-toggle" aria-pressed="' + (trainedOn(curDate) ? 'true' : 'false') +
@@ -3912,91 +3990,7 @@ function viewHoy() {
         ' aria-label="Día siguiente">›</button>' +
     '</div>';
 
-  return dateNav + readout + notes + closeDayCard() + mealsSection();
-}
-
-/* Micronutrientes del día. Contexto informativo, no una regla:
-   la fibra importa por el colesterol, y hierro, calcio y vitamina D
-   son los que la usuaria quiere vigilar. */
-function microLedger(tot) {
-  const cell = (label, val, target, unit, dec) => {
-    const pct = Math.min(100, (val / target) * 100);
-    const shown = dec ? fmt1(val) : Math.round(val);
-    return '<div class="micro"><div class="micro-top"><span class="mk">' + label + '</span>' +
-      '<span class="mv num">' + shown + '<small> / ' + target + ' ' + unit + '</small></span></div>' +
-      '<div class="rail"><i class="' + (pct >= 100 ? 'good' : '') + '" style="width:' + pct.toFixed(1) + '%"></i></div></div>';
-  };
-  return '<div class="micros">' +
-    cell('Fibra', tot.fiber, MICRO_TARGETS.fiber, 'g', true) +
-    cell('Hierro', tot.fe, MICRO_TARGETS.fe, 'mg', true) +
-    cell('Calcio', tot.ca, MICRO_TARGETS.ca, 'mg', false) +
-    cell('Vit. D', tot.vd, MICRO_TARGETS.vd, 'µg', true) +
-  '</div>';
-}
-
-/* ---- Tarjeta central: qué comer para cerrar el día ---- */
-function closeDayCard() {
-  const rem = remaining(curDate);
-  if (rem.kcal <= 25 && rem.prot <= 0) {
-    return '<div class="card"><span class="eyebrow">Cerrado</span>' +
-      '<p class="muted" style="margin:8px 0 0;font-size:13px">Has llegado a los objetivos del día. ' +
-      'Proteína ' + Math.round(targets().protein - rem.prot) + ' g sobre un piso de ' + targets().protein + ' g.</p></div>';
-  }
-  const pending = pendingMeals(curDate);
-  const key = suggestMeal || pending[0] || 'cena';
-  const res = suggestFor(key, curDate, 3);
-
-  const chips = '<div class="chips">' + MEALS.map(m =>
-    '<button class="chip" data-act="suggest" data-meal="' + m.key + '" aria-pressed="' +
-    (m.key === key ? 'true' : 'false') + '">' + m.name + '</button>').join('') + '</div>';
-
-  const list = res.list.length ? res.list.map(s =>
-    '<div class="sug">' +
-      '<div class="sug-top">' +
-        '<span class="sug-name">' + esc(s.recipe.name) + '</span>' +
-        '<span class="fit" title="Encaje con lo que te falta">' + s.fit + '</span>' +
-      '</div>' +
-      '<div class="macro-row"><b>' + s.macros.kcal + ' kcal</b>' +
-        '<span>P ' + fmt1(s.macros.prot) + '</span>' +
-        '<span>C ' + fmt1(s.macros.carbs) + '</span>' +
-        '<span>G ' + fmt1(s.macros.fat) + '</span>' +
-        (s.factor !== 1 ? '<span class="pill">×' + s.factor + '</span>' : '') +
-      '</div>' +
-      (s.why.length ? '<div class="why">' + esc(s.why[0]) + '</div>' : '') +
-      (s.careful.length ? '<div class="careful">' + esc(s.careful[0]) + '</div>' : '') +
-      '<div class="sug-actions">' +
-        '<button class="btn grow" data-act="recipe" data-id="' + s.recipe.id + '">Ver</button>' +
-        '<button class="btn primary grow" data-act="log-sug" data-id="' + s.recipe.id +
-          '" data-f="' + s.factor + '" data-meal="' + key + '">Registrar</button>' +
-      '</div>' +
-    '</div>').join('')
-    : '<p class="empty">No hay recetas de ' + mealName(key).toLowerCase() +
-      '. Crea una en la pestaña Recetas.</p>';
-
-  const ings = suggestIngredients(curDate, 3);
-  const ingBlock = ings.length
-    ? '<div class="ing-close"><span class="eyebrow">O cierra con un ingrediente</span>' +
-      ings.map(o =>
-        '<button class="ing-row" data-act="log-ing" data-id="' + o.food.id + '" data-g="' + o.grams + '">' +
-          '<span class="n">' + esc(o.food.nombre) + '</span>' +
-          '<span class="g">' + o.grams + ' ' + (o.food.unit || 'g') + '</span>' +
-          '<span class="m">' + Math.round(o.macros.kcal) + ' kcal · P' + Math.round(o.macros.prot) + '</span>' +
-        '</button>').join('') + '</div>'
-    : '';
-
-  return '<div class="card">' +
-    '<span class="eyebrow">¿Qué como para cerrar el día?</span>' +
-    '<div style="margin-top:9px">' + chips + '</div>' +
-    '<p class="hint">Para ' + mealName(key).toLowerCase() + ' te tocan ' +
-      '<span class="num">' + Math.max(0, Math.round(res.gap.kcal)) + '</span> kcal y ' +
-      '<span class="num">' + Math.max(0, Math.round(res.gap.prot)) + '</span> g de proteína' +
-      (res.gap.isLast ? ', y es la última comida del día' : '') + '.</p>' +
-    '<button class="btn primary wide" data-act="add-food" data-meal="' + key + '">' +
-      'Montar mi ' + mealName(key).toLowerCase() + ' con mis ingredientes</button>' +
-    '<div class="or-line"><span>o elige una de estas</span></div>' +
-    '<div class="sugs">' + list + '</div>' +
-    ingBlock +
-  '</div>';
+  return dateNav + dash + notes + mealsSection();
 }
 
 /* ---- Comidas registradas ---- */
@@ -4019,12 +4013,12 @@ function mealsSection() {
       '</div>' +
       (rows ? '<div class="entries">' + rows + '</div>' : '') +
       '<div class="meal-foot">' +
-        '<button class="btn grow" data-act="add-food" data-meal="' + m.key + '">Poner mis ingredientes</button>' +
-        '<button class="btn" data-act="suggest" data-meal="' + m.key + '" aria-label="Ver sugerencias para ' + m.name + '">✦</button>' +
+        '<button class="btn grow" data-act="add-food" data-meal="' + m.key + '">Registrar ' + m.name.toLowerCase() + '</button>' +
       '</div>' +
     '</div>';
   }).join('');
-  return '<div><div class="section-head"><h2>Lo que has comido</h2></div>' +
+  return '<div><div class="section-head"><h2>Lo que has comido</h2>' +
+    '<span class="rest">' + entries.length + (entries.length === 1 ? ' registro' : ' registros') + '</span></div>' +
     '<div style="margin-top:9px">' + blocks + '</div></div>';
 }
 
@@ -4089,11 +4083,23 @@ function viewMenu() {
     '<button class="btn small" data-act="week" data-d="7" aria-label="Semana siguiente">›</button>' +
   '</div>';
 
+  const enCasa = pantry().filter(p => (p.estimated_quantity || 0) > 0).length;
+  const modo =
+    '<div class="chips" style="margin-bottom:2px">' +
+      '<button class="chip" data-act="menu-modo" data-m="mixto" aria-pressed="' +
+        (menuSoloDespensa ? 'false' : 'true') + '">Prioriza lo que tengo</button>' +
+      '<button class="chip" data-act="menu-modo" data-m="solo" aria-pressed="' +
+        (menuSoloDespensa ? 'true' : 'false') + '">Lo que menos falte</button>' +
+    '</div>';
+
   if (!menu) {
-    return nav + '<div class="card"><span class="eyebrow">Sin menú</span>' +
+    return nav + modo + '<div class="card"><span class="eyebrow">Sin menú</span>' +
       '<p class="muted" style="margin:8px 0 12px;font-size:13px">Se generará ajustando las porciones para ' +
       'cuadrar <span class="num">' + t.kcal + '</span> kcal y <span class="num">' + t.protein +
-      '</span> g de proteína cada día, sin repetir receta en días seguidos.</p>' +
+      '</span> g de proteína cada día, sin repetir receta en días seguidos, tirando de ' +
+      (enCasa ? 'los <span class="num">' + enCasa + '</span> productos que tienes en casa'
+              : 'tu despensa (ahora vacía: cárgala en Compra)') +
+      ' y de tus ingredientes favoritos.</p>' +
       '<button class="btn primary wide" data-act="gen-menu">Generar menú de la semana</button></div>';
   }
 
@@ -4107,12 +4113,17 @@ function viewMenu() {
       const slot = (day.meal_slots || []).find(s => s.meal_type === m.key);
       const r = slot ? slotRecipe(slot) : null;
       const locked = !!(slot && slot.is_locked);
+      const base = slot && slot.recipe_id ? recipeById(slot.recipe_id) : null;
+      const faltan = base ? missingCount(base, slot.factor || 1) : 0;
       return '<div class="slot">' +
         '<span class="slot-key">' + m.short + '</span>' +
         '<button class="slot-body" data-act="swap" data-date="' + day.date + '" data-meal="' + m.key + '">' +
           '<span class="slot-name">' + (r ? esc(r.name) : '<span class="faint">— vacío —</span>') + '</span>' +
           (r ? '<span class="slot-macros">' + r.macros.kcal + ' kcal · P' + Math.round(r.macros.prot) +
-               (slot.factor && slot.factor !== 1 ? ' · ×' + slot.factor : '') + '</span>' : '') +
+               (slot.factor && slot.factor !== 1 ? ' · ×' + slot.factor : '') +
+               (base ? (faltan
+                  ? ' · <span class="falta">faltan ' + faltan + '</span>'
+                  : ' · <span class="tengo">en casa</span>') : '') + '</span>' : '') +
         '</button>' +
         '<button class="lock" data-act="lock" data-date="' + day.date + '" data-meal="' + m.key +
           '" aria-pressed="' + (locked ? 'true' : 'false') +
@@ -4129,12 +4140,14 @@ function viewMenu() {
       '</div>' + slots + '</div>';
   }).join('');
 
-  return nav +
+  return nav + modo +
     '<div style="display:flex;gap:8px">' +
       '<button class="btn grow" data-act="gen-menu">Regenerar</button>' +
       '<button class="btn primary grow" data-act="go-shop">Lista de la compra</button>' +
     '</div>' +
-    '<p class="hint" style="margin:0">Toca una comida para cambiarla. El candado la fija para que no se mueva al regenerar.</p>' +
+    '<p class="hint" style="margin:0">Toca una comida para cambiarla. El candado la fija para que no se mueva al ' +
+      'regenerar. «En casa» quiere decir que tienes todos los ingredientes; «faltan 2», que hay que comprar dos ' +
+      'cosas. Con <em>lo que menos falte</em> manda la despensa y los macros desempatan.</p>' +
     '<div>' + days + '</div>';
 }
 
@@ -4212,6 +4225,12 @@ function viewCompra() {
     if (falta <= 0) return;
     if (lineas[x.food.id]) lineas[x.food.id].motivo += ' y se acaba';
     else lineas[x.food.id] = { food: x.food, cantidad: Math.round(falta), motivo: x.cantidad <= 0 ? 'se ha terminado' : 'te queda poco' };
+  });
+  extraShop(ws).forEach(x => {
+    const f = foodById(x.id);
+    if (!f) return;
+    if (lineas[x.id]) { lineas[x.id].cantidad = Math.max(lineas[x.id].cantidad, x.g); lineas[x.id].manual = true; }
+    else lineas[x.id] = { food: f, cantidad: x.g, motivo: 'lo has puesto tú', manual: true };
   });
   faltanHabituales.forEach(x => {
     if (lineas[x.food.id]) return;
@@ -4311,6 +4330,7 @@ function viewCompra() {
       '<div class="card" style="margin-top:9px">' + cocinarHtml + '</div></div>' +
 
     '<div id="shop"><div class="section-head"><h2>Lista de la compra</h2>' +
+      '<button class="link-btn" style="margin-left:auto;padding:0" data-act="shop-add">+ Añadir producto</button>' +
       (total ? '<span class="rest">' + (shopStore === 'todos' ? total : visibles.length + ' de ' + total) + '</span>' : '') + '</div>' +
       '<div class="card shop-list" style="margin-top:9px">' + shopHtml + '</div>' + costeHtml +
       (fuera.length
@@ -4651,7 +4671,6 @@ function logRecipe(recipe, factor, mealKey) {
   bumpUsage(recipe.id);
   consumeFromPantry(scaled);
   closeSheet();
-  suggestMeal = null;
   render();
   toast(recipe.name + ' registrado');
 }
@@ -5457,7 +5476,6 @@ document.getElementById('tabs').addEventListener('click', ev => {
   const b = ev.target.closest('.tab');
   if (!b) return;
   tab = b.dataset.tab;
-  suggestMeal = null;
   render();
 });
 document.getElementById('gear').addEventListener('click', sheetSettings);
@@ -5479,35 +5497,10 @@ document.getElementById('view').addEventListener('click', ev => {
 
   if (act === 'day') {
     const next = shiftDate(curDate, parseInt(d.d, 10));
-    if (next <= today()) { curDate = next; suggestMeal = null; render(); }
+    if (next <= today()) { curDate = next; render(); }
     return;
   }
-  if (act === 'suggest') { tab = 'hoy'; suggestMeal = d.meal; render(); return; }
   if (act === 'recipe') { sheetRecipe(d.id); return; }
-  if (act === 'log-sug') {
-    const r = recipeById(d.id);
-    if (r) logRecipe(r, parseFloat(d.f) || 1, d.meal);
-    return;
-  }
-  if (act === 'log-ing') {
-    const food = foodById(d.id);
-    if (!food) return;
-    const grams = parseInt(d.g, 10) || 100;
-    const m = macrosOf(food, grams);
-    const meal = suggestMeal || pendingMeals(curDate)[0] || 'cena';
-    addEntry(curDate, {
-      id: 'e' + Date.now(), meal: meal, nombre: food.nombre,
-      qty: grams, unit: food.unit || 'g',
-      kcal: Math.round(m.kcal), prot: round1(m.prot), carbs: round1(m.carbs),
-      fat: round1(m.fat), sat: round1(m.sat), fiber: round1(m.fiber),
-      fe: round1(m.fe), ca: Math.round(m.ca), vd: round1(m.vd),
-      food_id: food.id,
-    });
-    consumeFood(food.id, grams);
-    render();
-    toast(grams + ' ' + (food.unit || 'g') + ' de ' + food.nombre);
-    return;
-  }
   if (act === 'add-food') { sheetBuilder(d.meal); return; }
   if (act === 'del-entry') { removeEntry(curDate, d.id); render(); return; }
   if (act === 'rfilter') { recipeFilter = d.f; render(); return; }
@@ -5519,11 +5512,23 @@ document.getElementById('view').addEventListener('click', ev => {
     render();
     return;
   }
+  if (act === 'menu-modo') {
+    menuSoloDespensa = d.m === 'solo';
+    render();
+    return;
+  }
   if (act === 'gen-menu') {
     const ws = menuWeek || weekStartOf(today());
-    generateMenu(ws);
+    const menu = generateMenu(ws, { soloDespensa: menuSoloDespensa });
+    const completas = menu.days.reduce((n, day) =>
+      n + (day.meal_slots || []).filter(sl => {
+        const r = sl.recipe_id && recipeById(sl.recipe_id);
+        return r && missingCount(r, sl.factor || 1) === 0;
+      }).length, 0);
     render();
-    toast('Menú de 7 días listo');
+    toast(completas
+      ? 'Menú listo · ' + completas + ' comidas ya las tienes en casa'
+      : 'Menú de 7 días listo');
     return;
   }
   if (act === 'swap') { sheetSwap(d.date, d.meal); return; }
@@ -5548,9 +5553,19 @@ document.getElementById('view').addEventListener('click', ev => {
   if (act === 'shop-del') {
     const ws = menuWeek || weekStartOf(today());
     const f = foodById(d.id);
-    hideShopLine(ws, d.id);
+    removeShopExtra(ws, d.id);   // si la habías puesto tú, se borra
+    hideShopLine(ws, d.id);      // si la calculó la app, se esconde
     render();
     toast((f ? shortName(f) : 'Producto') + ' fuera de la lista');
+    return;
+  }
+  if (act === 'shop-add') {
+    const ws = menuWeek || weekStartOf(today());
+    sheetPicker('Añadir a la lista', food => {
+      addShopLine(ws, food.id, defaultPurchase(food));
+      render();
+      toast(shortName(food) + ' en la lista');
+    });
     return;
   }
   if (act === 'shop-restore') {
