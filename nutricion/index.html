@@ -380,6 +380,28 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 }
 .x:active { color: var(--crit); }
 
+/* ---- Comida fuera ---- */
+.fuera-btn {
+  display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
+  min-height: 44px; padding: 11px 13px;
+  border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--surface); color: var(--ink);
+}
+.fuera-btn .ico { font-size: 19px; line-height: 1; flex: 0 0 auto; filter: grayscale(1); opacity: .5; }
+.fuera-btn .txt { flex: 1; min-width: 0; }
+.fuera-btn .txt b { display: block; font-size: 13px; font-weight: 620; }
+.fuera-btn .txt small { display: block; font-size: 10.5px; color: var(--ink-faint); line-height: 1.35; margin-top: 1px; }
+.fuera-btn .mark {
+  flex: 0 0 20px; width: 20px; height: 20px; border-radius: 6px;
+  border: 1.5px solid var(--line); display: grid; place-items: center;
+}
+.fuera-btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-wash); }
+.fuera-btn[aria-pressed="true"] .ico { filter: none; opacity: 1; }
+.fuera-btn[aria-pressed="true"] .mark { background: var(--accent); border-color: var(--accent); }
+.fuera-btn[aria-pressed="true"] .mark::after { content: "✓"; color: var(--accent-ink); font-size: 12px; font-weight: 700; }
+.fuera-ico { font-size: 11px; filter: grayscale(1); opacity: .8; }
+.tag.fuera { background: var(--accent-wash); color: var(--accent); text-transform: none; letter-spacing: 0; font-size: 10px; }
+
 /* ---- Recetas ---- */
 .rec { width: 100%; text-align: left; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); padding: 12px; }
 .rec + .rec { margin-top: 8px; }
@@ -2520,7 +2542,7 @@ function recentRecipeIds(fecha, days) {
   const ids = [];
   for (let i = 1; i <= (days || 3); i++) {
     const d = shiftDate(fecha, -i);
-    dayLog(d).entries.forEach(e => { if (e.recipe_id) ids.push(e.recipe_id); });
+    dayLog(d).entries.forEach(e => { if (e.recipe_id && !e.fuera) ids.push(e.recipe_id); });
   }
   return ids;
 }
@@ -3750,7 +3772,7 @@ function consumptionRate(foodId, dias) {
     const log = dayLog(f);
     if (!log.entries.length) continue;
     diasConDatos++;
-    log.entries.forEach(e => { if (e.food_id === foodId) total += (e.qty || 0); });
+    log.entries.forEach(e => { if (e.food_id === foodId && !e.fuera) total += (e.qty || 0); });
   }
   if (!diasConDatos) return 0;
   return total / diasConDatos;
@@ -3996,13 +4018,17 @@ function mealsSection() {
     const prot = mine.reduce((a, e) => a + (e.prot || 0), 0);
     const rows = mine.map(e =>
       '<div class="entry"><div class="info">' +
-        '<span class="nm">' + esc(e.nombre) + '</span>' +
+        '<span class="nm">' + (e.fuera ? '<span class="fuera-ico" title="Comida fuera">🍽</span> ' : '') +
+          esc(e.nombre) + '</span>' +
         '<span class="qt">' + e.qty + ' ' + e.unit + ' · P' + fmt1(e.prot) + ' C' + fmt1(e.carbs) + ' G' + fmt1(e.fat) + '</span>' +
       '</div><span class="kc num">' + Math.round(e.kcal) + '</span>' +
       '<button class="x" data-act="del-entry" data-id="' + e.id + '" aria-label="Quitar ' + esc(e.nombre) + '">✕</button></div>').join('');
+    const todoFuera = mine.length > 0 && mine.every(e => e.fuera);
+    const algoFuera = mine.some(e => e.fuera);
     return '<div class="meal">' +
       '<div class="meal-head">' +
         '<span class="meal-name">' + m.name + '</span>' +
+        (algoFuera ? '<span class="tag fuera">🍽 ' + (todoFuera ? 'fuera' : 'parte fuera') + '</span>' : '') +
         '<span class="meal-kcal">' + (kcal ? Math.round(kcal) + ' kcal · P' + Math.round(prot) : '—') + '</span>' +
       '</div>' +
       (rows ? '<div class="entries">' + rows + '</div>' : '') +
@@ -5140,8 +5166,14 @@ function sheetPicker(title, onPick) {
 let builder = null;
 
 function sheetBuilder(mealKey) {
-  builder = { meal: mealKey, items: [] };
+  builder = { meal: mealKey, items: [], fuera: false };
   const body =
+    '<button class="fuera-btn" id="bd-fuera" aria-pressed="false">' +
+      '<span class="ico">🍽</span>' +
+      '<span class="txt"><b>Comida fuera</b>' +
+      '<small>Cuenta para tus macros, pero no gasta despensa ni entra en la compra</small></span>' +
+      '<span class="mark"></span>' +
+    '</button>' +
     '<div class="field sticky-search">' +
       '<input class="input" id="bd-q" type="search" placeholder="Buscar alimento y tocar para añadir" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">' +
     '</div>' +
@@ -5155,6 +5187,14 @@ function sheetBuilder(mealKey) {
   openSheet('Montar ' + mealName(mealKey).toLowerCase(), body, scrim => {
     const q = scrim.querySelector('#bd-q');
     q.addEventListener('input', () => builderResults(q.value.trim()));
+    const fb = scrim.querySelector('#bd-fuera');
+    fb.onclick = () => {
+      builder.fuera = !builder.fuera;
+      fb.setAttribute('aria-pressed', builder.fuera ? 'true' : 'false');
+      // Guardar como receta lo de un restaurante no tiene sentido
+      const nm = scrim.querySelector('#bd-name');
+      if (nm) nm.closest('.field').style.display = builder.fuera ? 'none' : '';
+    };
     scrim.querySelector('#bd-save').onclick = builderCommit;
     builderResults('');
     builderItems();
@@ -5269,12 +5309,14 @@ function builderCommit() {
       kcal: Math.round(m.kcal), prot: round1(m.prot), carbs: round1(m.carbs),
       fat: round1(m.fat), sat: round1(m.sat), fiber: round1(m.fiber),
       fe: round1(m.fe), ca: Math.round(m.ca), vd: round1(m.vd),
-      food_id: f.id,
+      food_id: f.id, fuera: builder.fuera || undefined,
     });
-    consumeFood(f.id, it.grams);
+    // Lo que comes fuera no sale de tu despensa, así que no la descuenta
+    // ni cuenta como consumo tuyo para reponer.
+    if (!builder.fuera) consumeFood(f.id, it.grams);
   });
 
-  const nameEl = document.getElementById('bd-name');
+  const nameEl = builder.fuera ? null : document.getElementById('bd-name');
   const name = nameEl ? nameEl.value.trim() : '';
   if (name) {
     saveRecipe({

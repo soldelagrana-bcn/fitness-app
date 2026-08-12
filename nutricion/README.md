@@ -160,6 +160,22 @@ pedido real—, así que **la cifra dice siempre sobre cuántos está hecha**: �
 producto, donde se apunta su precio; los precios propios se guardan aparte (`precios`) y
 mandan sobre los del catálogo, igual que pasa con las tiendas.
 
+## Comer fuera
+
+Al montar una comida hay un interruptor **🍽 Comida fuera**. Lo que se registra con él
+marcado cuenta para los macros y los micros del día —te lo has comido— pero queda fuera de
+todo lo demás:
+
+- **No descuenta de la despensa.** Esa pizza no salió de tu cocina.
+- **No cuenta como consumo tuyo**, así que no infla el ritmo con el que `consumptionRate`
+  calcula la reposición ni te mete el producto en la lista de la compra.
+- **No cuenta como receta repetida** al proponer el menú: cenar pasta en un restaurante no
+  es motivo para que la app no te la ponga esta semana.
+- **No se puede guardar como receta**: el campo desaparece al marcarlo.
+
+En Hoy se ve con un 🍽 en cada línea y una etiqueta en la comida —«fuera» si toda ella lo
+fue, «parte fuera» si solo una parte—.
+
 ## Quitar cosas de la lista de la compra
 
 La lista se calcula sola —del menú, de lo que se acaba, de los habituales sin stock— pero
