@@ -19,9 +19,15 @@ Cuatro pestañas, cada una con un trabajo:
 **Hoy no sugiere nada.** Es un cuadro de mandos y un registro: el número grande es lo que
 falta de calorías, debajo cuatro baldosas de macros —proteína, carbos, grasa, saturadas—
 con su número, su objetivo y su barra, y al pie una tira pequeña con fibra, hierro, calcio
-y vitamina D. Los micros son contexto, no el objetivo del día, y se ven como tal. Cada
-comida tiene un único botón: registrar. Proponer es trabajo de Recetas y de Menú, y
-tenerlo también aquí llenaba la pantalla de cosas que no eran el registro.
+y vitamina D. Los micros son contexto, no el objetivo del día, y se ven como tal.
+
+Justo debajo del panel están los cuatro botones de registrar —desayuno, almuerzo, merienda
+y cena—, que es la acción principal de la pestaña y tiene que caer donde está el pulgar al
+terminar de mirar los números. Más abajo, cada comida repite su botón como atajo, y dice
+«añadir más» si ya tiene algo registrado.
+
+Proponer es trabajo de Recetas y de Menú: tenerlo también aquí llenaba la pantalla de
+cosas que no eran el registro.
 
 ## Objetivos
 
