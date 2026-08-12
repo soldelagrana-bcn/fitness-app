@@ -162,10 +162,21 @@ tienen que aparecer en el nombre; el orden da igual. Ordena por parecido con lo 
 (coincidencia exacta, luego principio de nombre, luego principio de palabra), y la
 densidad proteica solo desempata.
 
-Unos 425 alimentos. No es el surtido completo de ninguna cadena —eso son miles de
+Unos 439 alimentos. No es el surtido completo de ninguna cadena —eso son miles de
 referencias— sino la cesta habitual, con marcas propias de Mercadona, Ametller Origen,
 Carrefour y Jespac donde aportan algo. Lo que falte se crea en Ajustes → Alimentos
 propios y queda guardado.
+
+**Los nombres están en castellano**, incluidos los que el súper vende en inglés: la
+proteína es «de suero», no *whey*; el queso es «ligero», no *light*; las tortillas de
+trigo no son *wraps*. Las marcas no se traducen, que son nombres propios (Hacendado,
+MyProtein, Garden of Life).
+
+Para que traducirlos no esconda nada, un alimento puede llevar `alias`: palabras por las
+que también se encuentra pero que no se enseñan en ninguna pantalla. Así «whey» sigue
+llevando a la proteína de suero, «light» al queso ligero y «kale» a la col rizada. Un
+acierto por alias puntúa algo por debajo de uno por nombre, para que el nombre real gane
+siempre que compitan.
 
 ## Unidades
 
