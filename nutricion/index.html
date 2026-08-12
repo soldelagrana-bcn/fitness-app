@@ -373,6 +373,10 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 .entry .nm { display: block; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .entry .qt { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); }
 .entry .kc { font-family: var(--mono); font-size: 12px; font-weight: 620; }
+.entry-main {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px;
+  border: 0; background: none; padding: 0; text-align: left; min-height: 44px;
+}
 .x {
   border: 0; background: none; color: var(--ink-faint);
   font-size: 15px; line-height: 1;
@@ -4017,11 +4021,16 @@ function mealsSection() {
     const kcal = mine.reduce((a, e) => a + (e.kcal || 0), 0);
     const prot = mine.reduce((a, e) => a + (e.prot || 0), 0);
     const rows = mine.map(e =>
-      '<div class="entry"><div class="info">' +
-        '<span class="nm">' + (e.fuera ? '<span class="fuera-ico" title="Comida fuera">🍽</span> ' : '') +
-          esc(e.nombre) + '</span>' +
-        '<span class="qt">' + e.qty + ' ' + e.unit + ' · P' + fmt1(e.prot) + ' C' + fmt1(e.carbs) + ' G' + fmt1(e.fat) + '</span>' +
-      '</div><span class="kc num">' + Math.round(e.kcal) + '</span>' +
+      '<div class="entry">' +
+        '<button class="entry-main" data-act="edit-entry" data-id="' + e.id +
+          '" aria-label="Editar ' + esc(e.nombre) + '">' +
+          '<span class="info">' +
+            '<span class="nm">' + (e.fuera ? '<span class="fuera-ico" title="Comida fuera">🍽</span> ' : '') +
+              esc(e.nombre) + '</span>' +
+            '<span class="qt">' + e.qty + ' ' + e.unit + ' · P' + fmt1(e.prot) + ' C' + fmt1(e.carbs) + ' G' + fmt1(e.fat) + '</span>' +
+          '</span>' +
+          '<span class="kc num">' + Math.round(e.kcal) + '</span>' +
+        '</button>' +
       '<button class="x" data-act="del-entry" data-id="' + e.id + '" aria-label="Quitar ' + esc(e.nombre) + '">✕</button></div>').join('');
     const todoFuera = mine.length > 0 && mine.every(e => e.fuera);
     const algoFuera = mine.some(e => e.fuera);
@@ -4694,6 +4703,136 @@ function logRecipe(recipe, factor, mealKey) {
   closeSheet();
   render();
   toast(recipe.name + ' registrado');
+}
+
+/* ============================================================
+   EDITAR UN REGISTRO
+   Uno se equivoca al pesar, o cambia de idea sobre si aquello fue
+   comida fuera. Se pueden tocar los gramos, la comida a la que va
+   y la marca de fuera; los macros se recalculan del alimento, y si
+   ya no está en el catálogo se escalan de lo que se guardó.
+   ============================================================ */
+function entryById(fecha, id) {
+  return dayLog(fecha).entries.find(e => e.id === id) || null;
+}
+
+function replaceEntry(fecha, id, nueva) {
+  const log = dayLog(fecha);
+  const i = log.entries.findIndex(e => e.id === id);
+  if (i < 0) return;
+  log.entries[i] = nueva;
+  saveDayLog(fecha, log);
+}
+
+/* Devolver a la despensa lo que se había descontado de más, o
+   descontar lo que falte. Editar no puede desajustar el stock. */
+function reconcilePantry(foodId, antes, ahora) {
+  if (!foodId) return;
+  const dif = ahora - antes;
+  if (dif > 0) { consumeFood(foodId, dif); return; }
+  if (dif >= 0) return;
+  // Solo se devuelve a lo que ya estaba en la despensa: si el alimento no
+  // estaba, `consumeFood` no descontó nada y devolverlo inventaría stock.
+  const tiene = pantry().some(p => p.ingredient_id === foodId);
+  if (tiene) savePantry({ ingredient_id: foodId, estimated_quantity: pantryQty(foodId) - dif });
+}
+
+function sheetEditEntry(id) {
+  const e = entryById(curDate, id);
+  if (!e) return;
+  const food = e.food_id ? foodById(e.food_id) : null;
+  const unit = e.unit || 'g';
+
+  const body =
+    '<div class="field"><label>Alimento</label>' +
+      '<p class="muted" style="margin:0;font-size:13.5px;font-weight:560">' + esc(e.nombre) + '</p>' +
+      (food ? '' : '<p class="hint" style="margin:3px 0 0">Ya no está en el catálogo: los macros se ajustan ' +
+        'en proporción a lo que se registró.</p>') + '</div>' +
+
+    '<div class="field"><label for="ee-g">Cantidad en ' + unit + '</label>' +
+      '<input class="input numeric" id="ee-g" type="number" inputmode="numeric" value="' + e.qty + '"></div>' +
+    '<div class="preview" id="ee-prev"></div>' +
+
+    '<div class="field"><label>¿En qué comida?</label><div class="chips">' +
+      MEALS.map(m => '<button class="chip" data-ee-meal="' + m.key + '" aria-pressed="' +
+        (e.meal === m.key ? 'true' : 'false') + '">' + m.name + '</button>').join('') +
+    '</div></div>' +
+
+    '<button class="fuera-btn" id="ee-fuera" aria-pressed="' + (e.fuera ? 'true' : 'false') + '">' +
+      '<span class="ico">🍽</span>' +
+      '<span class="txt"><b>Comida fuera</b>' +
+      '<small>No gasta despensa ni entra en la compra</small></span>' +
+      '<span class="mark"></span>' +
+    '</button>' +
+
+    '<div style="display:flex;flex-direction:column;gap:7px">' +
+      '<button class="btn primary wide" id="ee-save">Guardar cambios</button>' +
+      '<button class="btn wide danger" id="ee-del">Quitar del registro</button>' +
+    '</div>';
+
+  openSheet('Editar registro', body, scrim => {
+    const gEl = scrim.querySelector('#ee-g');
+    const prev = scrim.querySelector('#ee-prev');
+    let meal = e.meal;
+    let fuera = !!e.fuera;
+
+    const macrosPara = g => food
+      ? macrosOf(food, g)
+      : {  // sin alimento en el catálogo, se escala lo guardado
+          kcal: (e.kcal || 0) * g / (e.qty || 1), prot: (e.prot || 0) * g / (e.qty || 1),
+          carbs: (e.carbs || 0) * g / (e.qty || 1), fat: (e.fat || 0) * g / (e.qty || 1),
+          sat: (e.sat || 0) * g / (e.qty || 1), fiber: (e.fiber || 0) * g / (e.qty || 1),
+          fe: (e.fe || 0) * g / (e.qty || 1), ca: (e.ca || 0) * g / (e.qty || 1),
+          vd: (e.vd || 0) * g / (e.qty || 1),
+        };
+
+    const pinta = () => {
+      const g = Math.max(0, parseInt(gEl.value, 10) || 0);
+      const m = macrosPara(g);
+      prev.innerHTML = '<b>' + Math.round(m.kcal) + '</b> kcal' +
+        '<span>P ' + fmt1(m.prot) + '</span><span>C ' + fmt1(m.carbs) + '</span>' +
+        '<span>G ' + fmt1(m.fat) + '</span><span>sat ' + fmt1(m.sat) + '</span>';
+    };
+    gEl.addEventListener('input', pinta);
+    pinta();
+
+    scrim.querySelectorAll('[data-ee-meal]').forEach(b => b.onclick = () => {
+      meal = b.dataset.eeMeal;
+      scrim.querySelectorAll('[data-ee-meal]').forEach(x =>
+        x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+    });
+
+    const fb = scrim.querySelector('#ee-fuera');
+    fb.onclick = () => {
+      fuera = !fuera;
+      fb.setAttribute('aria-pressed', fuera ? 'true' : 'false');
+    };
+
+    scrim.querySelector('#ee-save').onclick = () => {
+      const g = Math.max(0, parseInt(gEl.value, 10) || 0);
+      if (!g) { toast('Pon una cantidad'); return; }
+      const m = macrosPara(g);
+      reconcilePantry(e.food_id, e.fuera ? 0 : (e.qty || 0), fuera ? 0 : g);
+      replaceEntry(curDate, id, Object.assign({}, e, {
+        meal: meal, qty: g,
+        kcal: Math.round(m.kcal), prot: round1(m.prot), carbs: round1(m.carbs),
+        fat: round1(m.fat), sat: round1(m.sat), fiber: round1(m.fiber),
+        fe: round1(m.fe), ca: Math.round(m.ca), vd: round1(m.vd),
+        fuera: fuera || undefined,
+      }));
+      closeSheet();
+      render();
+      toast(shortName(food || { nombre: e.nombre }) + ' · ' + g + ' ' + unit);
+    };
+
+    scrim.querySelector('#ee-del').onclick = () => {
+      reconcilePantry(e.food_id, e.fuera ? 0 : (e.qty || 0), 0);
+      removeEntry(curDate, id);
+      closeSheet();
+      render();
+      toast('Quitado del registro');
+    };
+  });
 }
 
 /* ---- Ficha de receta ---- */
@@ -5530,7 +5669,15 @@ document.getElementById('view').addEventListener('click', ev => {
   }
   if (act === 'recipe') { sheetRecipe(d.id); return; }
   if (act === 'add-food') { sheetBuilder(d.meal); return; }
-  if (act === 'del-entry') { removeEntry(curDate, d.id); render(); return; }
+  if (act === 'edit-entry') { sheetEditEntry(d.id); return; }
+  if (act === 'del-entry') {
+    // Quitar un registro devuelve a la despensa lo que había descontado
+    const e = entryById(curDate, d.id);
+    if (e) reconcilePantry(e.food_id, e.fuera ? 0 : (e.qty || 0), 0);
+    removeEntry(curDate, d.id);
+    render();
+    return;
+  }
   if (act === 'rfilter') { recipeFilter = d.f; render(); return; }
   if (act === 'new-recipe') { sheetEditor(null); return; }
   if (act === 'composer') { sheetComposer(recipeFilter === 'todas' ? 'desayuno' : recipeFilter); return; }
