@@ -790,6 +790,11 @@ input[type="file"] { padding: 12px; font-size: 14px; }
    PERFIL Y OBJETIVOS — única fuente de verdad
    Objetivos FIJOS: no varían por tipo de día.
    ============================================================ */
+/* Sello de versión: sirve para saber si el móvil está sirviendo una copia
+   guardada en vez de la última. Se ve en Ajustes. */
+const VERSION = 'v14';
+const FECHA_VERSION = '12 ago 2026';
+
 const DEFAULT_TARGETS = { kcal: 1600, protein: 115, carbs: 165, fat: 55 };
 
 const RULES = {
@@ -5615,6 +5620,11 @@ function sheetSettings() {
       '<button class="btn wide" data-tg-bal>Recalcular carbos y grasa</button>' +
       (targetsAreCustom() ? '<button class="btn wide" data-tg-reset>Volver a los originales</button>' : '') +
     '</div></div>' +
+
+    '<div><span class="eyebrow">Versión</span>' +
+      '<p class="hint" style="margin:6px 0 0">' + VERSION + ' · ' + FECHA_VERSION + '. ' +
+        'Si algo que te he dicho que está hecho no lo ves, mira esta fecha: el móvil puede ' +
+        'estar sirviéndote una copia guardada. Cierra la pestaña y vuelve a abrirla.</p></div>' +
 
     '<div><span class="eyebrow">Aspecto</span>' +
       '<label class="checkline" style="margin-top:8px"><input type="checkbox" id="dark-toggle"' +
