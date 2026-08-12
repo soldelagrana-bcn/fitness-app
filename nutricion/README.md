@@ -16,6 +16,9 @@ Cuatro pestañas, cada una con un trabajo:
 | **Menú** | Menú semanal calculado con lo que tienes en casa y tus preferencias |
 | **Compra** | Seguir lo que consumes y montar la lista de la compra |
 
+Proponer platos con lo que hay en casa era antes también trabajo de Compra. Ya no: eso lo
+hacen Menú —que genera la semana tirando de la despensa— y Recetas.
+
 **Hoy no sugiere nada.** Es un cuadro de mandos y un registro: el número grande es lo que
 falta de calorías, debajo cuatro baldosas de macros —proteína, carbos, grasa, saturadas—
 con su número, su objetivo y su barra, y al pie una tira pequeña con fibra, hierro, calcio
@@ -190,6 +193,21 @@ todo lo demás:
 
 En Hoy se ve con un 🍽 en cada línea y una etiqueta en la comida —«fuera» si toda ella lo
 fue, «parte fuera» si solo una parte—.
+
+## Lo comprado, en la lista
+
+Los productos del último pedido de Mercadona entran solos la primera vez que se abre la
+app: a la despensa y **a la lista de la compra, ya marcados**. Un pedido no es solo stock,
+es la prueba de lo que sí compraste, y verlo tachado al lado de lo que falta es la mitad
+de para qué sirve la lista. La siembra corre una sola vez (`seed_compra`), para no
+resucitar el pedido cada vez que se borre.
+
+Lo pendiente sale siempre antes que lo comprado dentro de cada grupo —una lista encabezada
+por cuarenta tachones no dice qué hay que hacer—, el contador del título dice «12 de 56 ✓»
+y el coste estimado suma **solo lo que queda por comprar**: lo marcado está pagado.
+
+Volver a añadir a mano algo ya comprado lo desmarca. Añadirlo es decir «lo necesito», y da
+igual que lo compraras el martes.
 
 ## Quitar cosas de la lista de la compra
 
