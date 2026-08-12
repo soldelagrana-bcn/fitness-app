@@ -166,8 +166,13 @@ mandan sobre los del catálogo, igual que pasa con las tiendas.
 
 ## Editar un registro
 
-Tocar una línea de «Lo que has comido» la abre: se cambian los gramos —con los macros
-recalculándose mientras escribes—, la comida a la que va y la marca de comida fuera.
+«Lo que has comido» tiene su botón **Editar**, el mismo patrón que Compra. En edición cada
+línea se toca: los gramos se escriben en el sitio, tocar el nombre abre la ficha completa
+—comida a la que va, marca de comida fuera— y la ✕ la quita. Mientras editas se esconden
+los botones de añadir, que ahí lo que estás haciendo es corregir.
+
+En la ficha completa se cambian los gramos con los macros recalculándose mientras
+escribes, la comida a la que va y la marca de comida fuera.
 
 Lo delicado es la despensa, y por eso hay un `reconcilePantry`: subir de 120 a 200 g
 descuenta 80 más, bajar a 60 devuelve 140, y marcar una línea como comida fuera devuelve
