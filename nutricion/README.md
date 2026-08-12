@@ -160,6 +160,20 @@ pedido real—, así que **la cifra dice siempre sobre cuántos está hecha**: �
 producto, donde se apunta su precio; los precios propios se guardan aparte (`precios`) y
 mandan sobre los del catálogo, igual que pasa con las tiendas.
 
+## Editar un registro
+
+Tocar una línea de «Lo que has comido» la abre: se cambian los gramos —con los macros
+recalculándose mientras escribes—, la comida a la que va y la marca de comida fuera.
+
+Lo delicado es la despensa, y por eso hay un `reconcilePantry`: subir de 120 a 200 g
+descuenta 80 más, bajar a 60 devuelve 140, y marcar una línea como comida fuera devuelve
+todo lo que había descontado. Quitar un registro también devuelve lo suyo, cosa que antes
+no hacía. Solo se devuelve a lo que ya estaba en la despensa: si el alimento no estaba,
+`consumeFood` no descontó nada y devolverlo inventaría stock.
+
+Si el alimento ya no está en el catálogo, los macros se escalan en proporción a lo que se
+guardó en su día, que es mejor que no dejar editar.
+
 ## Comer fuera
 
 Al montar una comida hay un interruptor **🍽 Comida fuera**. Lo que se registra con él
