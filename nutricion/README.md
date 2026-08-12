@@ -106,6 +106,13 @@ Tres vías, porque ninguna sirve siempre:
   puede leer: la app funciona sin conexión y no lleva reconocimiento de imagen.
 - **Escribir** — pegar el ticket o la lista.
 
+**No se trocea por puntuación.** Al dictar en español no salen comas: «almejas lomos de
+bacalao lomos de salmón y gambas» llega de una pieza. El lector va reconociendo
+productos del catálogo y toma en cada punto la secuencia más larga que case, con una
+regla que evita comerse el principio del siguiente: una secuencia no puede terminar en
+conector ni en palabra de formato, así que «almejas lomos» se descarta y «lomos de
+bacalao» queda entero para el bacalao.
+
 Se interpretan cantidades en cifra y en palabra, unidades de peso, volumen, unidades,
 docenas y formatos de venta («2 latas de atún» = dos botes, no dos gramos). Interpretar
 es adivinar, así que **siempre hay pantalla de revisión**: se ve qué ha entendido de
