@@ -194,6 +194,21 @@ todo lo demás:
 En Hoy se ve con un 🍽 en cada línea y una etiqueta en la comida —«fuera» si toda ella lo
 fue, «parte fuera» si solo una parte—.
 
+## Compra: tres secciones y un botón de editar
+
+La pestaña tenía tres bloques largos uno detrás de otro y para ver la despensa había que
+bajar por todo lo demás. Ahora son tres secciones con su botón arriba —**Lista**, **Mi
+despensa**, **Se acaba**—, con el número de cada una, y se ve la que toques.
+
+Un único botón **Editar** pone en modo edición la sección que estés viendo. Ahí cada línea
+deja de ser un texto y pasa a ser tres cosas: los gramos se escriben, tocar el nombre abre
+el buscador para cambiar de producto conservando la cantidad, y la ✕ lo quita. Es el caso
+de «esto no era eso, y de aquello había 400 g no 800», que antes obligaba a borrar y
+volver a añadir.
+
+Las cantidades se guardan al salir del campo, no en cada tecla: repintar mientras escribes
+te roba el cursor.
+
 ## Lo comprado, en la lista
 
 Los productos del último pedido de Mercadona entran solos la primera vez que se abre la
