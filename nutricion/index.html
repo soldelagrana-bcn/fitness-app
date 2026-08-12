@@ -792,7 +792,7 @@ input[type="file"] { padding: 12px; font-size: 14px; }
    ============================================================ */
 /* Sello de versión: sirve para saber si el móvil está sirviendo una copia
    guardada en vez de la última. Se ve en Ajustes. */
-const VERSION = 'v14';
+const VERSION = 'v15';
 const FECHA_VERSION = '12 ago 2026';
 
 const DEFAULT_TARGETS = { kcal: 1600, protein: 115, carbs: 165, fat: 55 };
@@ -3907,7 +3907,7 @@ let tab = 'hoy';
 let curDate = today();
 let recipeFilter = 'todas';
 let menuWeek = null;
-let hoyEdit = false;       // modo edición de lo registrado hoy
+let hoyEditMeal = null;    // qué comida se está editando en Hoy, si alguna
 let compraSec = 'lista';   // qué sección de Compra se está mirando
 let compraEdit = false;    // modo edición de la lista y la despensa
 let menuSoloDespensa = false;
@@ -4042,10 +4042,11 @@ function mealsSection() {
     const mine = entries.filter(e => e.meal === m.key);
     const kcal = mine.reduce((a, e) => a + (e.kcal || 0), 0);
     const prot = mine.reduce((a, e) => a + (e.prot || 0), 0);
-    // En edición cada línea se toca: los gramos se escriben, el nombre abre
-    // la ficha completa (comida, comida fuera) y la ✕ la quita.
+    // Se edita comida a comida: al corregir la cena no tiene por qué
+    // desordenarse el desayuno.
+    const edit = hoyEditMeal === m.key;
     const rows = mine.map(e => {
-      if (hoyEdit) {
+      if (edit) {
         return '<div class="erow">' +
           '<button class="erow-nm" data-act="edit-entry" data-id="' + e.id + '">' +
             (e.fuera ? '<span class="fuera-ico">🍽</span> ' : '') + esc(e.nombre) +
@@ -4072,21 +4073,21 @@ function mealsSection() {
         '<span class="meal-kcal">' + (kcal ? Math.round(kcal) + ' kcal · P' + Math.round(prot) : '—') + '</span>' +
       '</div>' +
       (rows ? '<div class="entries">' + rows + '</div>' : '') +
-      (hoyEdit ? '' :
-        '<div class="meal-foot">' +
-          '<button class="btn grow" data-act="add-food" data-meal="' + m.key + '">' +
-            (mine.length ? 'Añadir más a ' : 'Registrar ') + m.name.toLowerCase() + '</button>' +
-        '</div>') +
+      (edit
+        ? '<p class="hint" style="padding:0 12px 10px;margin:0">Cambia los gramos, toca el nombre para ' +
+            'cambiar de comida o marcarla como comida fuera, o quítala con la ✕.</p>'
+        : '') +
+      '<div class="meal-foot">' +
+        (mine.length
+          ? '<button class="btn grow" data-act="hoy-edit" data-meal="' + m.key + '">' +
+              (edit ? 'Listo' : 'Editar') + '</button>'
+          : '<button class="btn grow" data-act="add-food" data-meal="' + m.key + '">Registrar ' +
+              m.name.toLowerCase() + '</button>') +
+      '</div>' +
     '</div>';
   }).join('');
   return '<div><div class="section-head"><h2>Lo que has comido</h2>' +
-    (entries.length
-      ? '<button class="link-btn" style="margin-left:auto;padding:0" data-act="hoy-edit">' +
-          (hoyEdit ? 'Listo' : 'Editar') + '</button>'
-      : '') +
     '<span class="rest">' + entries.length + (entries.length === 1 ? ' registro' : ' registros') + '</span></div>' +
-    (hoyEdit ? '<p class="hint" style="margin:6px 0 0">Cambia los gramos, toca el nombre para ' +
-      'cambiar de comida o marcarla como comida fuera, o quítala con la ✕.</p>' : '') +
     '<div style="margin-top:9px">' + blocks + '</div></div>';
 }
 
@@ -5736,7 +5737,7 @@ document.getElementById('tabs').addEventListener('click', ev => {
   const b = ev.target.closest('.tab');
   if (!b) return;
   tab = b.dataset.tab;
-  hoyEdit = false;      // el modo edición no sobrevive a cambiar de pestaña
+  hoyEditMeal = null;   // el modo edición no sobrevive a cambiar de pestaña
   compraEdit = false;
   render();
 });
@@ -5750,14 +5751,18 @@ document.getElementById('view').addEventListener('click', ev => {
   const d = el.dataset;
 
   if (act === 'day') {
-    hoyEdit = false;
+    hoyEditMeal = null;
     const next = shiftDate(curDate, parseInt(d.d, 10));
     if (next <= today()) { curDate = next; render(); }
     return;
   }
   if (act === 'recipe') { sheetRecipe(d.id); return; }
   if (act === 'add-food') { sheetBuilder(d.meal); return; }
-  if (act === 'hoy-edit') { hoyEdit = !hoyEdit; render(); return; }
+  if (act === 'hoy-edit') {
+    hoyEditMeal = hoyEditMeal === d.meal ? null : d.meal;
+    render();
+    return;
+  }
   if (act === 'edit-entry') { sheetEditEntry(d.id); return; }
   if (act === 'del-entry') {
     // Quitar un registro devuelve a la despensa lo que había descontado

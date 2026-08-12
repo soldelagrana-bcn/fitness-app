@@ -26,8 +26,8 @@ y vitamina D. Los micros son contexto, no el objetivo del día, y se ven como ta
 
 Justo debajo del panel están los cuatro botones de registrar —desayuno, almuerzo, merienda
 y cena—, que es la acción principal de la pestaña y tiene que caer donde está el pulgar al
-terminar de mirar los números. Más abajo, cada comida repite su botón como atajo, y dice
-«añadir más» si ya tiene algo registrado.
+terminar de mirar los números. Más abajo, cada comida tiene en su pie el botón que le
+toca: «Registrar cena» si está vacía, «Editar» si ya tiene algo.
 
 Proponer es trabajo de Recetas y de Menú: tenerlo también aquí llenaba la pantalla de
 cosas que no eran el registro.
@@ -166,10 +166,14 @@ mandan sobre los del catálogo, igual que pasa con las tiendas.
 
 ## Editar un registro
 
-«Lo que has comido» tiene su botón **Editar**, el mismo patrón que Compra. En edición cada
+Cada comida tiene su propio botón **Editar**, en el pie de su tarjeta. Se edita comida a
+comida: al corregir la cena no tiene por qué desordenarse el desayuno. En edición cada
 línea se toca: los gramos se escriben en el sitio, tocar el nombre abre la ficha completa
-—comida a la que va, marca de comida fuera— y la ✕ la quita. Mientras editas se esconden
-los botones de añadir, que ahí lo que estás haciendo es corregir.
+—comida a la que va, marca de comida fuera— y la ✕ la quita.
+
+Una comida vacía no tiene nada que editar, así que su botón dice «Registrar cena». Añadir
+a una comida que ya tiene algo se hace desde los cuatro botones de arriba, que es donde
+está la acción principal.
 
 En la ficha completa se cambian los gramos con los macros recalculándose mientras
 escribes, la comida a la que va y la marca de comida fuera.
