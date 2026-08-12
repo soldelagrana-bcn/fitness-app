@@ -3972,7 +3972,19 @@ function viewHoy() {
         ' aria-label="Día siguiente">›</button>' +
     '</div>';
 
-  return dateNav + dash + notes + mealsSection();
+  // Los cuatro botones justo debajo del panel: es la acción principal de
+  // la pestaña y tiene que estar donde cae el pulgar al terminar de mirar
+  // los números, no al final de la lista.
+  const registrar =
+    '<div class="card">' +
+      '<span class="eyebrow">Registrar una comida</span>' +
+      '<div class="chips" style="margin-top:9px">' +
+        MEALS.map(m => '<button class="chip" data-act="add-food" data-meal="' + m.key + '">' +
+          m.name + '</button>').join('') +
+      '</div>' +
+    '</div>';
+
+  return dateNav + dash + registrar + notes + mealsSection();
 }
 
 /* ---- Comidas registradas ---- */
@@ -3995,7 +4007,8 @@ function mealsSection() {
       '</div>' +
       (rows ? '<div class="entries">' + rows + '</div>' : '') +
       '<div class="meal-foot">' +
-        '<button class="btn grow" data-act="add-food" data-meal="' + m.key + '">Registrar ' + m.name.toLowerCase() + '</button>' +
+        '<button class="btn grow" data-act="add-food" data-meal="' + m.key + '">' +
+          (mine.length ? 'Añadir más a ' : 'Registrar ') + m.name.toLowerCase() + '</button>' +
       '</div>' +
     '</div>';
   }).join('');
