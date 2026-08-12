@@ -792,7 +792,7 @@ input[type="file"] { padding: 12px; font-size: 14px; }
    ============================================================ */
 /* Sello de versión: sirve para saber si el móvil está sirviendo una copia
    guardada en vez de la última. Se ve en Ajustes. */
-const VERSION = 'v16';
+const VERSION = 'v17';
 const FECHA_VERSION = '12 ago 2026';
 
 const DEFAULT_TARGETS = { kcal: 1600, protein: 115, carbs: 165, fat: 55 };
@@ -3929,9 +3929,10 @@ function render() {
     else b.removeAttribute('aria-current');
   });
   const when = document.getElementById('when');
-  when.textContent = tab === 'hoy'
-    ? (curDate === today() ? 'hoy' : shortDate(curDate))
-    : '';
+  const dia = tab === 'hoy' ? (curDate === today() ? 'hoy' : shortDate(curDate)) : '';
+  // La versión se ve siempre, sin entrar en Ajustes: si algo que está hecho
+  // no aparece, lo primero que hay que saber es qué copia está abierta.
+  when.textContent = dia ? dia + ' · ' + VERSION : VERSION;
   // Solo se vuelve arriba al cambiar de pestaña. Repintar por marcar algo
   // de la lista o tocar un +100 tiene que dejarte donde estabas.
   if (tab !== lastTab) { window.scrollTo(0, 0); lastTab = tab; }

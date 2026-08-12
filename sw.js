@@ -1,16 +1,9 @@
-const CACHE = 'sol-fitness-v9';
+/* El HTML nunca se sirve de caché: una app de un solo archivo que se
+   actualiza a diario no puede quedarse pegada a una copia vieja. La caché
+   queda para los iconos y el manifiesto, que sí son estables. */
+const CACHE = 'sol-fitness-v10';
 const BASE = '/fitness-app';
 const ASSETS = [
-  BASE + '/',
-  BASE + '/index.html',
-  BASE + '/css/app.css',
-  BASE + '/js/data.js',
-  BASE + '/js/nutrition-config.js',
-  BASE + '/js/foods.js',
-  BASE + '/js/store.js',
-  BASE + '/js/recipes.js',
-  BASE + '/js/planner.js',
-  BASE + '/js/app.js',
   BASE + '/manifest.json',
   BASE + '/icons/icon-180.png',
   BASE + '/icons/icon-192.png',
@@ -18,9 +11,7 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE).then(cache => cache.addAll(ASSETS))
-  );
+  e.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
   self.skipWaiting();
 });
 
@@ -36,13 +27,16 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   if (!e.request.url.startsWith(self.location.origin)) return;
   const url = new URL(e.request.url);
-  // JS y CSS siempre desde red (actualizaciones inmediatas)
-  if (url.pathname.endsWith('.js') || url.pathname.endsWith('.css')) {
-    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+  const esHtml = e.request.mode === 'navigate' ||
+    url.pathname.endsWith('/') || url.pathname.endsWith('.html');
+
+  // HTML, JS y CSS: siempre de la red, con la caché solo como red de
+  // seguridad si no hay conexión.
+  if (esHtml || url.pathname.endsWith('.js') || url.pathname.endsWith('.css')) {
+    e.respondWith(
+      fetch(e.request, { cache: 'no-store' }).catch(() => caches.match(e.request))
+    );
     return;
   }
-  // El resto: caché primero
-  e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
-  );
+  e.respondWith(caches.match(e.request).then(cached => cached || fetch(e.request)));
 });
