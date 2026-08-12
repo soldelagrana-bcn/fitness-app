@@ -98,8 +98,10 @@ y pegarlos para restaurarlos, que es también la forma de pasarlos a otro dispos
 
 ## Cargar la compra
 
-Tres vías, porque ninguna sirve siempre:
+Cuatro vías, porque ninguna sirve siempre:
 
+- **Mi último pedido** — el pedido de Mercadona de agosto (44 productos) entero de un
+  toque, con sus cantidades. Se suma a lo que ya haya en la despensa, no lo reemplaza.
 - **Dictar** — al volver del súper, del tirón: «dos kilos de pechuga de pollo, media
   docena de huevos, un litro de leche». Usa el reconocimiento de voz del navegador.
 - **Archivo** — un `.txt` o `.csv` con un producto por línea. De un PDF o una foto no
@@ -132,6 +134,18 @@ productos, así que la próxima lista ya sale ordenada sola.
 La lista se filtra por súper. Con «Todos» se agrupa por supermercado, que es como se
 compra; dentro de un súper concreto se agrupa por categoría, que es como está puesta la
 tienda.
+
+## Coste estimado
+
+Un producto se compra por envases, no por gramos: si hacen falta 520 g de algo que viene
+en botes de 400, se pagan dos botes. Por eso cada alimento puede llevar `precio` (euros
+por envase) y `env_g` (lo que trae ese envase), y la lista redondea hacia arriba.
+
+El catálogo solo trae precio de una parte de los productos —los que se leyeron de un
+pedido real—, así que **la cifra dice siempre sobre cuántos está hecha**: «Coste estimado
+14,20 € · sobre 8 de 23». Tocando el súper de cualquier línea se abre la ficha del
+producto, donde se apunta su precio; los precios propios se guardan aparte (`precios`) y
+mandan sobre los del catálogo, igual que pasa con las tiendas.
 
 ## Consumo y reposición
 
