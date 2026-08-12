@@ -96,6 +96,19 @@ filtran: la crema de cacahuete o los frutos secos siguen ahí, en dosis pequeña
 Todo local, sin cuentas ni servidor. En Ajustes puedes copiar tus datos como texto
 y pegarlos para restaurarlos, que es también la forma de pasarlos a otro dispositivo.
 
+## Buscador
+
+Busca **por palabras sueltas, no como frase literal**: «pan integral» encuentra «Pan de
+molde integral» aunque las palabras no vayan seguidas. Todas las palabras escritas
+tienen que aparecer en el nombre; el orden da igual. Ordena por parecido con lo escrito
+(coincidencia exacta, luego principio de nombre, luego principio de palabra), y la
+densidad proteica solo desempata.
+
+Unos 425 alimentos. No es el surtido completo de ninguna cadena —eso son miles de
+referencias— sino la cesta habitual, con marcas propias de Mercadona, Ametller Origen,
+Carrefour y Jespac donde aportan algo. Lo que falte se crea en Ajustes → Alimentos
+propios y queda guardado.
+
 ## Unidades
 
 Gramos y mililitros, siempre.
