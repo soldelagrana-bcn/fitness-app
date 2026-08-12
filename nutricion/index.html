@@ -702,6 +702,28 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 .cook-recipe .sub { font-size: 11.5px; color: var(--ink-soft); display: block; margin-bottom: 7px; }
 .motivo { color: var(--ink-faint); font-size: 10.5px; font-weight: 500; }
 input[type="file"] { padding: 12px; font-size: 14px; }
+
+/* ---- Supermercados ---- */
+.shop-line { display: flex; align-items: center; gap: 6px; border-bottom: 1px solid var(--line-soft); }
+.shop-line:last-child { border-bottom: 0; }
+.shop-line .shop { border-bottom: 0; flex: 1; min-width: 0; }
+.tienda-btn {
+  flex: 0 0 auto; min-height: 44px; padding: 4px 9px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); color: var(--ink-soft);
+  font-size: 10.5px; font-weight: 660; white-space: nowrap;
+}
+.tienda-btn:active { background: var(--sunken); }
+.store-list { display: flex; flex-direction: column; gap: 7px; }
+.store-opt {
+  width: 100%; min-height: 48px; text-align: left;
+  border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--surface); color: var(--ink);
+  padding: 12px 14px; font-size: 14px; font-weight: 560;
+}
+.store-opt[aria-pressed="true"] {
+  background: var(--accent); border-color: var(--accent); color: var(--accent-ink);
+}
 </style>
 
 <div class="app">
@@ -2882,6 +2904,46 @@ function consumeFromPantry(recipe) {
 }
 
 /* ============================================================
+   SUPERMERCADOS
+   Dónde compras cada cosa es una costumbre tuya, no una propiedad
+   del alimento, así que se guarda aparte y se puede cambiar.
+   ============================================================ */
+const STORES = ['Mercadona', 'La Sirena', 'Ametller Origen', 'Carrefour', 'Jespac', 'Otro'];
+
+/* De la marca del producto se deduce la tienda por defecto. */
+function tiendaPorNombre(f) {
+  const n = norm(f.nombre);
+  if (/la sirena/.test(n)) return 'La Sirena';
+  if (/hacendado/.test(n)) return 'Mercadona';
+  if (/ametller/.test(n)) return 'Ametller Origen';
+  if (/carrefour/.test(n)) return 'Carrefour';
+  if (/alteza|selex|fresc de mercat/.test(n)) return 'Jespac';
+  return null;
+}
+/* Los nombres guardados en el catálogo son abreviados; se normalizan al
+   nombre del filtro o los productos desaparecerían de la lista. */
+const ALIAS_TIENDA = { 'Ametller': 'Ametller Origen', 'Sirena': 'La Sirena', 'Mercadona': 'Mercadona' };
+function normalizaTienda(t) { return t ? (ALIAS_TIENDA[t] || t) : null; }
+/* Etiqueta corta para el botón: cortar por el primer espacio convertía
+   "La Sirena" en "La". */
+const CORTO_TIENDA = { 'Ametller Origen': 'Ametller', 'La Sirena': 'Sirena' };
+function shortStore(t) { return CORTO_TIENDA[t] || t; }
+
+function storeOverrides() { return DB.get('tiendas', {}); }
+function storeOf(food) {
+  if (!food) return null;
+  const ov = storeOverrides();
+  if (ov[food.id]) return normalizaTienda(ov[food.id]);
+  return normalizaTienda(food.tienda || tiendaPorNombre(food)) || null;
+}
+function setStore(foodId, tienda) {
+  const ov = storeOverrides();
+  if (!tienda) delete ov[foodId]; else ov[foodId] = tienda;
+  DB.set('tiendas', ov);
+}
+const SIN_TIENDA = 'Sin asignar';
+
+/* ============================================================
    LA COMPRA: LEERLA DE UN TEXTO Y SEGUIR EL CONSUMO
    ============================================================ */
 
@@ -3148,6 +3210,8 @@ let menuWeek = null;
 let draft = null;
 let nutMealForPantry = 'almuerzo';   // comida para la que se proponen platos con la despensa
 let shoppingDraft = null;            // líneas de la compra pendientes de revisar
+let shopStore = 'todos';             // filtro de supermercado en la lista
+let loadStore = null;                // tienda de la compra que se está cargando
 
 function render() {
   const view = document.getElementById('view');
@@ -3537,25 +3601,70 @@ function viewCompra() {
     lineas[x.food.id] = { food: x.food, cantidad: defaultPurchase(x.food), motivo: 'lo usas y no te queda' };
   });
 
-  const porCat = {};
-  Object.keys(lineas).forEach(id => {
+  // Cada línea con su supermercado, para poder filtrar y agrupar
+  const todas = Object.keys(lineas).map(id => {
     const l = lineas[id];
-    if (!l.food) return;
-    (porCat[l.food.cat || 'Otros'] = porCat[l.food.cat || 'Otros'] || []).push(Object.assign({ id: id }, l));
-  });
-  const total = Object.keys(lineas).length;
-  const shopHtml = total
-    ? Object.keys(porCat).sort().map(cat =>
-        '<div class="shop-group"><div class="shop-cat">' + esc(cat) + '</div>' +
-        porCat[cat].sort((a, b) => a.food.nombre.localeCompare(b.food.nombre)).map(l => {
-          const on = checked.indexOf(l.id) >= 0;
-          return '<button class="shop" data-act="check" data-id="' + l.id + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
-            '<span class="box">' + (on ? '✓' : '') + '</span>' +
-            '<span class="nm">' + esc(shortName(l.food)) +
-              '<span class="motivo"> · ' + esc(l.motivo) + '</span></span>' +
-            '<span class="qt">' + Math.round(l.cantidad) + ' ' + (l.food.unit || 'g') + '</span></button>';
-        }).join('') + '</div>').join('')
-    : '<p class="empty">Nada que comprar por ahora. Aparecerá aquí lo que necesite el menú y lo que se te vaya acabando.</p>';
+    if (!l.food) return null;
+    return Object.assign({ id: id, tienda: storeOf(l.food) || SIN_TIENDA }, l);
+  }).filter(Boolean);
+
+  const cuentaPorTienda = {};
+  todas.forEach(l => { cuentaPorTienda[l.tienda] = (cuentaPorTienda[l.tienda] || 0) + 1; });
+  const orden = STORES.concat(
+    Object.keys(cuentaPorTienda).filter(t => STORES.indexOf(t) < 0 && t !== SIN_TIENDA).sort()
+  ).concat([SIN_TIENDA]);
+  const tiendasConCosas = orden.filter(t => cuentaPorTienda[t]);
+
+  const visibles = shopStore === 'todos' ? todas : todas.filter(l => l.tienda === shopStore);
+  const total = todas.length;
+
+  const filtro = tiendasConCosas.length > 1
+    ? '<div class="chips scroll" style="margin-bottom:10px">' +
+        '<button class="chip" data-act="shop-store" data-s="todos" aria-pressed="' +
+          (shopStore === 'todos' ? 'true' : 'false') + '">Todos · ' + total + '</button>' +
+        tiendasConCosas.map(t =>
+          '<button class="chip" data-act="shop-store" data-s="' + esc(t) + '" aria-pressed="' +
+          (shopStore === t ? 'true' : 'false') + '">' + esc(t) + ' · ' + cuentaPorTienda[t] + '</button>').join('') +
+      '</div>'
+    : '';
+
+  const filaCompra = l => {
+    const on = checked.indexOf(l.id) >= 0;
+    return '<div class="shop-line">' +
+      '<button class="shop" data-act="check" data-id="' + l.id + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
+        '<span class="box">' + (on ? '✓' : '') + '</span>' +
+        '<span class="nm">' + esc(shortName(l.food)) +
+          '<span class="motivo"> · ' + esc(l.motivo) + '</span></span>' +
+        '<span class="qt">' + Math.round(l.cantidad) + ' ' + (l.food.unit || 'g') + '</span></button>' +
+      '<button class="tienda-btn" data-act="set-store" data-id="' + l.food.id +
+        '" aria-label="Cambiar supermercado">' +
+        (l.tienda === SIN_TIENDA ? '+ súper' : esc(shortStore(l.tienda))) + '</button>' +
+    '</div>';
+  };
+
+  // Con "Todos" se agrupa por súper, que es como se compra. Dentro de un
+  // súper concreto se agrupa por categoría, que es como está la tienda.
+  let shopHtml;
+  if (!total) {
+    shopHtml = '<p class="empty">Nada que comprar por ahora. Aparecerá aquí lo que necesite el menú y lo que se te vaya acabando.</p>';
+  } else if (!visibles.length) {
+    shopHtml = '<p class="empty">Nada pendiente en ' + esc(shopStore) + '.</p>';
+  } else if (shopStore === 'todos') {
+    const porTienda = {};
+    visibles.forEach(l => { (porTienda[l.tienda] = porTienda[l.tienda] || []).push(l); });
+    shopHtml = orden.filter(t => porTienda[t]).map(t =>
+      '<div class="shop-group"><div class="shop-cat">' + esc(t) + '</div>' +
+      porTienda[t].sort((a, b) => a.food.nombre.localeCompare(b.food.nombre)).map(filaCompra).join('') +
+      '</div>').join('');
+  } else {
+    const porCat = {};
+    visibles.forEach(l => { (porCat[l.food.cat || 'Otros'] = porCat[l.food.cat || 'Otros'] || []).push(l); });
+    shopHtml = Object.keys(porCat).sort().map(cat =>
+      '<div class="shop-group"><div class="shop-cat">' + esc(cat) + '</div>' +
+      porCat[cat].sort((a, b) => a.food.nombre.localeCompare(b.food.nombre)).map(filaCompra).join('') +
+      '</div>').join('');
+  }
+  shopHtml = filtro + shopHtml;
 
   return '<button class="btn primary wide" data-act="load-shopping">Cargar la compra</button>' +
     '<p class="hint" style="margin:-4px 0 0">Dicta lo que has comprado, sube un archivo o pega el ticket.</p>' +
@@ -3568,13 +3677,34 @@ function viewCompra() {
       '<div class="card" style="margin-top:9px">' + cocinarHtml + '</div></div>' +
 
     '<div id="shop"><div class="section-head"><h2>Lista de la compra</h2>' +
-      (total ? '<span class="rest">' + total + '</span>' : '') + '</div>' +
+      (total ? '<span class="rest">' + (shopStore === 'todos' ? total : visibles.length + ' de ' + total) + '</span>' : '') + '</div>' +
       '<div class="card shop-list" style="margin-top:9px">' + shopHtml + '</div></div>' +
 
     '<div><div class="section-head"><h2>Mi despensa</h2>' +
       '<span class="rest">' + items.length + '</span></div>' +
       '<button class="btn wide" style="margin:9px 0" data-act="pan-add">Añadir un alimento suelto</button>' +
       '<div class="card">' + pantryHtml + '</div></div>';
+}
+
+/* Elegir en qué súper se compra un producto. */
+function sheetStorePicker(foodId) {
+  const f = foodById(foodId);
+  if (!f) return;
+  const actual = storeOf(f);
+  const body =
+    '<p class="hint" style="margin:0 0 10px">¿Dónde compras <strong>' + esc(f.nombre) + '</strong>?</p>' +
+    '<div class="store-list">' +
+      STORES.map(t => '<button class="store-opt" data-s="' + esc(t) + '" aria-pressed="' +
+        (actual === t ? 'true' : 'false') + '">' + esc(t) + '</button>').join('') +
+      '<button class="store-opt" data-s="" aria-pressed="' + (actual ? 'false' : 'true') + '">Sin asignar</button>' +
+    '</div>';
+  openSheet('Supermercado', body, scrim => {
+    scrim.querySelectorAll('[data-s]').forEach(b => b.onclick = () => {
+      setStore(foodId, b.dataset.s || null);
+      closeSheet(); render();
+      toast(b.dataset.s ? shortName(f) + ' → ' + b.dataset.s : 'Sin supermercado asignado');
+    });
+  });
 }
 
 /* ============================================================
@@ -3727,6 +3857,11 @@ function paintReview() {
 
   box.innerHTML =
     '<div class="or-line"><span>' + reconocidos + ' de ' + shoppingDraft.length + ' reconocidos</span></div>' +
+    '<p class="hint" style="margin:0 0 8px">¿De qué súper es esta compra? Se guarda para la próxima lista.</p>' +
+    '<div class="chips scroll" style="margin-bottom:12px">' +
+      STORES.map(t => '<button class="chip" data-tienda="' + esc(t) + '" aria-pressed="' +
+        (loadStore === t ? 'true' : 'false') + '">' + esc(t) + '</button>').join('') +
+    '</div>' +
     shoppingDraft.map((l, i) => {
       if (!l.food) {
         return '<div class="rev-row rev-no"><div class="info">' +
@@ -3745,6 +3880,10 @@ function paintReview() {
     }).join('') +
     '<button class="btn primary wide" style="margin-top:12px" data-guardar>Añadir ' + reconocidos + ' a la despensa</button>';
 
+  box.querySelectorAll('[data-tienda]').forEach(b => b.onclick = () => {
+    loadStore = loadStore === b.dataset.tienda ? null : b.dataset.tienda;
+    paintReview();
+  });
   box.querySelectorAll('[data-g]').forEach(inp => inp.oninput = () => {
     const v = parseInt(inp.value, 10);
     if (!isNaN(v) && v > 0) shoppingDraft[+inp.dataset.g].gramos = v;
@@ -3771,8 +3910,10 @@ function paintReview() {
         estimated_quantity: pantryQty(l.food.id) + l.gramos,
         last_purchased: today(),
       });
+      if (loadStore) setStore(l.food.id, loadStore);
       n++;
     });
+    loadStore = null;
     shoppingDraft = null;
     closeSheet();
     tab = 'compra'; render();
@@ -4722,6 +4863,8 @@ document.getElementById('view').addEventListener('click', ev => {
     return;
   }
   if (act === 'load-shopping') { sheetLoadShopping(); return; }
+  if (act === 'shop-store') { shopStore = d.s; render(); return; }
+  if (act === 'set-store') { sheetStorePicker(d.id); return; }
   if (act === 'pantry-meal') { nutMealForPantry = d.meal; render(); return; }
   if (act === 'log-pantry-recipe') {
     const r = pantryRecipes[+d.i];

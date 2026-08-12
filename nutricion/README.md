@@ -119,6 +119,20 @@ es adivinar, así que **siempre hay pantalla de revisión**: se ve qué ha enten
 cada línea, se pueden cambiar el producto y los gramos, y solo entonces entra en la
 despensa.
 
+## Supermercados
+
+Dónde compras cada cosa es una costumbre tuya, no una propiedad del alimento, así que
+se guarda aparte (`tiendas`) y se puede cambiar desde la propia lista. Por defecto se
+deduce de la marca del producto: Hacendado → Mercadona, La Sirena → La Sirena, Alteza,
+Selex o Fresc de Mercat → Jespac.
+
+Al cargar una compra se puede marcar de qué súper viene y queda asignada para todos sus
+productos, así que la próxima lista ya sale ordenada sola.
+
+La lista se filtra por súper. Con «Todos» se agrupa por supermercado, que es como se
+compra; dentro de un súper concreto se agrupa por categoría, que es como está puesta la
+tienda.
+
 ## Consumo y reposición
 
 Cada comida que se registra **descuenta de la despensa**. Con eso y el histórico se
