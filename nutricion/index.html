@@ -373,39 +373,6 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 .entry .nm { display: block; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .entry .qt { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); }
 .entry .kc { font-family: var(--mono); font-size: 12px; font-weight: 620; }
-.entry-main {
-  flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px;
-  border: 0; background: none; padding: 0; text-align: left; min-height: 44px;
-}
-.x {
-  border: 0; background: none; color: var(--ink-faint);
-  font-size: 15px; line-height: 1;
-  min-width: 44px; min-height: 44px; padding: 0;
-}
-.x:active { color: var(--crit); }
-
-/* ---- Comida fuera ---- */
-.fuera-btn {
-  display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
-  min-height: 44px; padding: 11px 13px;
-  border: 1px solid var(--line); border-radius: var(--r-md);
-  background: var(--surface); color: var(--ink);
-}
-.fuera-btn .ico { font-size: 19px; line-height: 1; flex: 0 0 auto; filter: grayscale(1); opacity: .5; }
-.fuera-btn .txt { flex: 1; min-width: 0; }
-.fuera-btn .txt b { display: block; font-size: 13px; font-weight: 620; }
-.fuera-btn .txt small { display: block; font-size: 10.5px; color: var(--ink-faint); line-height: 1.35; margin-top: 1px; }
-.fuera-btn .mark {
-  flex: 0 0 20px; width: 20px; height: 20px; border-radius: 6px;
-  border: 1.5px solid var(--line); display: grid; place-items: center;
-}
-.fuera-btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-wash); }
-.fuera-btn[aria-pressed="true"] .ico { filter: none; opacity: 1; }
-.fuera-btn[aria-pressed="true"] .mark { background: var(--accent); border-color: var(--accent); }
-.fuera-btn[aria-pressed="true"] .mark::after { content: "✓"; color: var(--accent-ink); font-size: 12px; font-weight: 700; }
-.fuera-ico { font-size: 11px; filter: grayscale(1); opacity: .8; }
-.tag.fuera { background: var(--accent-wash); color: var(--accent); text-transform: none; letter-spacing: 0; font-size: 10px; }
-
 /* ---- Recetas ---- */
 .rec { width: 100%; text-align: left; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); padding: 12px; }
 .rec + .rec { margin-top: 8px; }
@@ -3935,6 +3902,7 @@ let tab = 'hoy';
 let curDate = today();
 let recipeFilter = 'todas';
 let menuWeek = null;
+let hoyEdit = false;       // modo edición de lo registrado hoy
 let compraSec = 'lista';   // qué sección de Compra se está mirando
 let compraEdit = false;    // modo edición de la lista y la despensa
 let menuSoloDespensa = false;
@@ -4069,18 +4037,27 @@ function mealsSection() {
     const mine = entries.filter(e => e.meal === m.key);
     const kcal = mine.reduce((a, e) => a + (e.kcal || 0), 0);
     const prot = mine.reduce((a, e) => a + (e.prot || 0), 0);
-    const rows = mine.map(e =>
-      '<div class="entry">' +
-        '<button class="entry-main" data-act="edit-entry" data-id="' + e.id +
-          '" aria-label="Editar ' + esc(e.nombre) + '">' +
-          '<span class="info">' +
-            '<span class="nm">' + (e.fuera ? '<span class="fuera-ico" title="Comida fuera">🍽</span> ' : '') +
-              esc(e.nombre) + '</span>' +
-            '<span class="qt">' + e.qty + ' ' + e.unit + ' · P' + fmt1(e.prot) + ' C' + fmt1(e.carbs) + ' G' + fmt1(e.fat) + '</span>' +
-          '</span>' +
-          '<span class="kc num">' + Math.round(e.kcal) + '</span>' +
-        '</button>' +
-      '<button class="x" data-act="del-entry" data-id="' + e.id + '" aria-label="Quitar ' + esc(e.nombre) + '">✕</button></div>').join('');
+    // En edición cada línea se toca: los gramos se escriben, el nombre abre
+    // la ficha completa (comida, comida fuera) y la ✕ la quita.
+    const rows = mine.map(e => {
+      if (hoyEdit) {
+        return '<div class="erow">' +
+          '<button class="erow-nm" data-act="edit-entry" data-id="' + e.id + '">' +
+            (e.fuera ? '<span class="fuera-ico">🍽</span> ' : '') + esc(e.nombre) +
+            '<span class="cambiar-ico">›</span></button>' +
+          '<input class="erow-g" type="number" inputmode="numeric" value="' + e.qty +
+            '" data-entry-g="' + e.id + '" aria-label="Cantidad de ' + esc(e.nombre) + '">' +
+          '<span class="erow-u">' + e.unit + '</span>' +
+          '<button class="x" data-act="del-entry" data-id="' + e.id +
+            '" aria-label="Quitar ' + esc(e.nombre) + '">✕</button>' +
+        '</div>';
+      }
+      return '<div class="entry"><div class="info">' +
+          '<span class="nm">' + (e.fuera ? '<span class="fuera-ico" title="Comida fuera">🍽</span> ' : '') +
+            esc(e.nombre) + '</span>' +
+          '<span class="qt">' + e.qty + ' ' + e.unit + ' · P' + fmt1(e.prot) + ' C' + fmt1(e.carbs) + ' G' + fmt1(e.fat) + '</span>' +
+        '</div><span class="kc num">' + Math.round(e.kcal) + '</span></div>';
+    }).join('');
     const todoFuera = mine.length > 0 && mine.every(e => e.fuera);
     const algoFuera = mine.some(e => e.fuera);
     return '<div class="meal">' +
@@ -4090,14 +4067,21 @@ function mealsSection() {
         '<span class="meal-kcal">' + (kcal ? Math.round(kcal) + ' kcal · P' + Math.round(prot) : '—') + '</span>' +
       '</div>' +
       (rows ? '<div class="entries">' + rows + '</div>' : '') +
-      '<div class="meal-foot">' +
-        '<button class="btn grow" data-act="add-food" data-meal="' + m.key + '">' +
-          (mine.length ? 'Añadir más a ' : 'Registrar ') + m.name.toLowerCase() + '</button>' +
-      '</div>' +
+      (hoyEdit ? '' :
+        '<div class="meal-foot">' +
+          '<button class="btn grow" data-act="add-food" data-meal="' + m.key + '">' +
+            (mine.length ? 'Añadir más a ' : 'Registrar ') + m.name.toLowerCase() + '</button>' +
+        '</div>') +
     '</div>';
   }).join('');
   return '<div><div class="section-head"><h2>Lo que has comido</h2>' +
+    (entries.length
+      ? '<button class="link-btn" style="margin-left:auto;padding:0" data-act="hoy-edit">' +
+          (hoyEdit ? 'Listo' : 'Editar') + '</button>'
+      : '') +
     '<span class="rest">' + entries.length + (entries.length === 1 ? ' registro' : ' registros') + '</span></div>' +
+    (hoyEdit ? '<p class="hint" style="margin:6px 0 0">Cambia los gramos, toca el nombre para ' +
+      'cambiar de comida o marcarla como comida fuera, o quítala con la ✕.</p>' : '') +
     '<div style="margin-top:9px">' + blocks + '</div></div>';
 }
 
@@ -5742,6 +5726,8 @@ document.getElementById('tabs').addEventListener('click', ev => {
   const b = ev.target.closest('.tab');
   if (!b) return;
   tab = b.dataset.tab;
+  hoyEdit = false;      // el modo edición no sobrevive a cambiar de pestaña
+  compraEdit = false;
   render();
 });
 document.getElementById('gear').addEventListener('click', sheetSettings);
@@ -5754,12 +5740,14 @@ document.getElementById('view').addEventListener('click', ev => {
   const d = el.dataset;
 
   if (act === 'day') {
+    hoyEdit = false;
     const next = shiftDate(curDate, parseInt(d.d, 10));
     if (next <= today()) { curDate = next; render(); }
     return;
   }
   if (act === 'recipe') { sheetRecipe(d.id); return; }
   if (act === 'add-food') { sheetBuilder(d.meal); return; }
+  if (act === 'hoy-edit') { hoyEdit = !hoyEdit; render(); return; }
   if (act === 'edit-entry') { sheetEditEntry(d.id); return; }
   if (act === 'del-entry') {
     // Quitar un registro devuelve a la despensa lo que había descontado
@@ -5908,6 +5896,33 @@ document.addEventListener('change', ev => {
 
   if (t.dataset.panG) {
     savePantry({ ingredient_id: t.dataset.panG, estimated_quantity: g });
+    render();
+    return;
+  }
+  if (t.dataset.entryG) {
+    const e = entryById(curDate, t.dataset.entryG);
+    if (!e) return;
+    if (g <= 0) {
+      reconcilePantry(e.food_id, e.fuera ? 0 : (e.qty || 0), 0);
+      removeEntry(curDate, e.id);
+      render();
+      return;
+    }
+    const food = e.food_id ? foodById(e.food_id) : null;
+    const m = food ? macrosOf(food, g) : {
+      kcal: (e.kcal || 0) * g / (e.qty || 1), prot: (e.prot || 0) * g / (e.qty || 1),
+      carbs: (e.carbs || 0) * g / (e.qty || 1), fat: (e.fat || 0) * g / (e.qty || 1),
+      sat: (e.sat || 0) * g / (e.qty || 1), fiber: (e.fiber || 0) * g / (e.qty || 1),
+      fe: (e.fe || 0) * g / (e.qty || 1), ca: (e.ca || 0) * g / (e.qty || 1),
+      vd: (e.vd || 0) * g / (e.qty || 1),
+    };
+    reconcilePantry(e.food_id, e.fuera ? 0 : (e.qty || 0), e.fuera ? 0 : g);
+    replaceEntry(curDate, e.id, Object.assign({}, e, {
+      qty: g,
+      kcal: Math.round(m.kcal), prot: round1(m.prot), carbs: round1(m.carbs),
+      fat: round1(m.fat), sat: round1(m.sat), fiber: round1(m.fiber),
+      fe: round1(m.fe), ca: Math.round(m.ca), vd: round1(m.vd),
+    }));
     render();
     return;
   }
