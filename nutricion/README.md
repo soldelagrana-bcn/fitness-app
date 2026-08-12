@@ -171,9 +171,10 @@ comida: al corregir la cena no tiene por qué desordenarse el desayuno. En edici
 línea se toca: los gramos se escriben en el sitio, tocar el nombre abre la ficha completa
 —comida a la que va, marca de comida fuera— y la ✕ la quita.
 
-Una comida vacía no tiene nada que editar, así que su botón dice «Registrar cena». Añadir
-a una comida que ya tiene algo se hace desde los cuatro botones de arriba, que es donde
-está la acción principal.
+Corregir suele incluir «y además me comí esto», así que en edición sale también un
+**+ Añadir** al lado de «Listo»: se añade sin salir de la edición, y lo nuevo aparece ya
+editable. Una comida vacía no tiene nada que editar, así que su botón dice «Registrar
+cena».
 
 En la ficha completa se cambian los gramos con los macros recalculándose mientras
 escribes, la comida a la que va y la marca de comida fuera.

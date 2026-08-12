@@ -792,7 +792,7 @@ input[type="file"] { padding: 12px; font-size: 14px; }
    ============================================================ */
 /* Sello de versión: sirve para saber si el móvil está sirviendo una copia
    guardada en vez de la última. Se ve en Ajustes. */
-const VERSION = 'v15';
+const VERSION = 'v16';
 const FECHA_VERSION = '12 ago 2026';
 
 const DEFAULT_TARGETS = { kcal: 1600, protein: 115, carbs: 165, fat: 55 };
@@ -4075,14 +4075,18 @@ function mealsSection() {
       (rows ? '<div class="entries">' + rows + '</div>' : '') +
       (edit
         ? '<p class="hint" style="padding:0 12px 10px;margin:0">Cambia los gramos, toca el nombre para ' +
-            'cambiar de comida o marcarla como comida fuera, o quítala con la ✕.</p>'
+            'cambiar de comida o marcarla como comida fuera, quítala con la ✕, o añade lo que falte.</p>'
         : '') +
       '<div class="meal-foot">' +
-        (mine.length
-          ? '<button class="btn grow" data-act="hoy-edit" data-meal="' + m.key + '">' +
-              (edit ? 'Listo' : 'Editar') + '</button>'
-          : '<button class="btn grow" data-act="add-food" data-meal="' + m.key + '">Registrar ' +
-              m.name.toLowerCase() + '</button>') +
+        (!mine.length
+          ? '<button class="btn grow" data-act="add-food" data-meal="' + m.key + '">Registrar ' +
+              m.name.toLowerCase() + '</button>'
+          : edit
+            // Corregir suele incluir «y además me comí esto», así que en
+            // edición se puede añadir sin salir.
+            ? '<button class="btn grow" data-act="add-food" data-meal="' + m.key + '">+ Añadir</button>' +
+              '<button class="btn primary grow" data-act="hoy-edit" data-meal="' + m.key + '">Listo</button>'
+            : '<button class="btn grow" data-act="hoy-edit" data-meal="' + m.key + '">Editar</button>') +
       '</div>' +
     '</div>';
   }).join('');
@@ -5757,7 +5761,7 @@ document.getElementById('view').addEventListener('click', ev => {
     return;
   }
   if (act === 'recipe') { sheetRecipe(d.id); return; }
-  if (act === 'add-food') { sheetBuilder(d.meal); return; }
+  if (act === 'add-food') { sheetBuilder(d.meal); return; }   // hoyEditMeal se mantiene
   if (act === 'hoy-edit') {
     hoyEditMeal = hoyEditMeal === d.meal ? null : d.meal;
     render();
