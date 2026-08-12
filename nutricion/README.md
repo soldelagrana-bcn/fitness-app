@@ -219,21 +219,19 @@ volver a añadir.
 Las cantidades se guardan al salir del campo, no en cada tecla: repintar mientras escribes
 te roba el cursor.
 
-## Lo comprado, en la lista
+## La lista es lo que falta
 
-Los productos del último pedido de Mercadona entran solos la primera vez que se abre la
-app: a la despensa y **a la lista de la compra, ya marcados**. Un pedido no es solo stock,
-es la prueba de lo que sí compraste, y verlo tachado al lado de lo que falta es la mitad
-de para qué sirve la lista. La siembra corre una sola vez (`seed_compra`), para no
-resucitar el pedido cada vez que se borre.
+En la Lista solo salen los productos **por comprar**. Marcar uno como comprado lo mete en
+la despensa con su cantidad y lo saca de la lista: ya está en casa, y su sitio es Mi
+despensa. Desmarcarlo deshace las dos cosas exactamente —se apunta cuántos gramos entraron
+por esa vía (`shopbuy_<semana>`), para poder devolver esos y no otros.
 
-Lo pendiente sale siempre antes que lo comprado dentro de cada grupo —una lista encabezada
-por cuarenta tachones no dice qué hay que hacer—, el contador del título dice «12 de 56 ✓»
-y el coste estimado suma **solo lo que queda por comprar**: lo marcado está pagado.
+Debajo queda una línea con lo comprado esta semana y un «Verlos» que los enseña tachados,
+por si hay que desmarcar un toque sin querer. Los productos del pedido de Mercadona entran
+ya marcados, así que aparecen en Mi despensa y no estorban en la lista.
 
-Volver a añadir a mano algo ya comprado lo desmarca. Añadirlo es decir «lo necesito», y da
-igual que lo compraras el martes.
-
+El contador de la cabecera dice «38 por comprar», los chips de supermercado cuentan solo lo
+pendiente, y el coste estimado también.
 ## Quitar cosas de la lista de la compra
 
 La lista se calcula sola —del menú, de lo que se acaba, de los habituales sin stock— pero
