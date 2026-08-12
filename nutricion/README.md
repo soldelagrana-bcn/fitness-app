@@ -162,10 +162,25 @@ tienen que aparecer en el nombre; el orden da igual. Ordena por parecido con lo 
 (coincidencia exacta, luego principio de nombre, luego principio de palabra), y la
 densidad proteica solo desempata.
 
-Unos 439 alimentos. No es el surtido completo de ninguna cadena —eso son miles de
+Unos 730 alimentos. No es el surtido completo de ninguna cadena —eso son miles de
 referencias— sino la cesta habitual, con marcas propias de Mercadona, Ametller Origen,
 Carrefour y Jespac donde aportan algo. Lo que falte se crea en Ajustes → Alimentos
 propios y queda guardado.
+
+## Platos, no solo ingredientes
+
+Un catálogo de ingredientes deja fuera media vida: una pizza, unas croquetas, un
+bocadillo, la lasaña del domingo. La categoría **Platos** (unos 114) recoge cocina de
+aquí y de Europa ya hecha —pizzas, arroces, platos de cuchara, tapas, guisos, moussaka,
+quiche, sushi, kebab— más bollería, quesos y charcutería europea repartidos por sus
+categorías.
+
+Un plato ya hecho **se registra pero no se usa como ingrediente**: `foodRoles` devuelve
+lista vacía para toda la categoría, así que el compositor no puede proponerte unas
+tortitas «con huevos rotos con jamón». Y como un plato no se mide en cucharadas, hay dos
+campos para las cantidades por defecto: `racion_g` (lo que se come de una vez: 75 g de
+croquetas, 2 g de sal, 150 ml de vino) y, a falta de ella, 250 g para cualquier plato.
+Comprar es otra cosa: de croquetas se trae una bolsa, no una croqueta.
 
 **Los nombres están en castellano**, incluidos los que el súper vende en inglés: la
 proteína es «de suero», no *whey*; el queso es «ligero», no *light*; las tortillas de
