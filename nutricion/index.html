@@ -782,7 +782,7 @@ const MICRO_TARGETS = { fiber: 25, fe: 18, ca: 1000, vd: 15 };
 const MEALS = [
   { key: 'desayuno', name: 'Desayuno', short: 'Des', weight: 0.25 },
   { key: 'almuerzo', name: 'Almuerzo', short: 'Alm', weight: 0.35 },
-  { key: 'snack',    name: 'Snack',    short: 'Snk', weight: 0.12 },
+  { key: 'snack',    name: 'Merienda', short: 'Mer', weight: 0.12 },
   { key: 'cena',     name: 'Cena',     short: 'Cena', weight: 0.28 },
 ];
 
@@ -796,12 +796,12 @@ const FOODS = [
   { id:'b001', cat:'Lácteos', nombre:'Yogur natural Hacendado',           kcal100:61,  prot100:3.8,  carbs100:4.7,  fat100:3.3, sat100:2.1, fiber100:0.0, fe100:0.05, ca100:120, vd100:0.1 },
   { id:'b002', cat:'Lácteos', nombre:'Yogur griego natural Hacendado',    kcal100:100, prot100:5.7,  carbs100:4.0,  fat100:7.0, sat100:4.6, fiber100:0.0, fe100:0.04, ca100:100, vd100:0.1 },
   { id:'b003', cat:'Lácteos', nombre:'Yogur griego 0% Hacendado',         kcal100:57,  prot100:9.5,  carbs100:6.0,  fat100:0.3, sat100:0.2, fiber100:0.0, fe100:0.07, ca100:110, vd100:0 },
-  { id:'b004', cat:'Lácteos', nombre:'Skyr natural Hacendado',            kcal100:63,  prot100:10.5, carbs100:4.3,  fat100:0.4, sat100:0.3, fiber100:0.0, fe100:0.05, ca100:150, vd100:0 },
+  { id:'b004', cat:'Lácteos', nombre:'Yogur skyr natural Hacendado',            kcal100:63,  prot100:10.5, carbs100:4.3,  fat100:0.4, sat100:0.3, fiber100:0.0, fe100:0.05, ca100:150, vd100:0 },
   { id:'b005', cat:'Lácteos', nombre:'Yogur proteico Hacendado',          kcal100:87,  prot100:12.0, carbs100:6.6,  fat100:1.0, sat100:0.6, fiber100:0.0, fe100:0.05, ca100:140, vd100:0 },
   { id:'b006', cat:'Lácteos', nombre:'Yogur natural Ametller Origen',     kcal100:56,  prot100:4.0,  carbs100:4.5,  fat100:2.1, sat100:1.4, fiber100:0.0, fe100:0.05, ca100:120, vd100:0.1 },
   { id:'b007', cat:'Lácteos', nombre:'Kéfir natural Hacendado',           kcal100:60,  prot100:3.3,  carbs100:4.5,  fat100:3.2, sat100:2.0, fiber100:0.0, fe100:0.05, ca100:120, vd100:0.1 },
   { id:'b008', cat:'Lácteos', nombre:'Queso fresco Hacendado',            kcal100:72,  prot100:8.5,  carbs100:1.8,  fat100:3.5, sat100:2.3, fiber100:0.0, fe100:0.1, ca100:150, vd100:0.1 },
-  { id:'b009', cat:'Lácteos', nombre:'Queso cottage Carrefour',           kcal100:98,  prot100:11.0, carbs100:3.4,  fat100:4.3, sat100:2.7, fiber100:0.0, fe100:0.07, ca100:83, vd100:0 },
+  { id:'b009', cat:'Lácteos', nombre:'Requesón Carrefour', alias:'cottage',           kcal100:98,  prot100:11.0, carbs100:3.4,  fat100:4.3, sat100:2.7, fiber100:0.0, fe100:0.07, ca100:83, vd100:0 },
   { id:'b010', cat:'Lácteos', nombre:'Requesón Hacendado',                kcal100:78,  prot100:7.1,  carbs100:4.1,  fat100:3.5, sat100:2.2, fiber100:0.0, fe100:0.1, ca100:100, vd100:0 },
   { id:'b011', cat:'Lácteos', nombre:'Leche entera Hacendado',            kcal100:65,  prot100:3.2,  carbs100:4.7,  fat100:3.6, sat100:2.3, fiber100:0.0, fe100:0.05, ca100:120, vd100:0.05 },
   { id:'b012', cat:'Lácteos', nombre:'Leche semidesnatada Hacendado',     kcal100:46,  prot100:3.3,  carbs100:4.8,  fat100:1.6, sat100:1.0, fiber100:0.0, fe100:0.05, ca100:120, vd100:0.03 },
@@ -910,7 +910,7 @@ const FOODS = [
   { id:'b128', cat:'Grasas', nombre:'Semillas de lino',               kcal100:534, prot100:18.0, carbs100:29.0, fat100:42.0, sat100:3.7, fiber100:27.3, fe100:5.7, ca100:255, vd100:0, tags:['grasa_insaturada'] },
   { id:'b129', cat:'Grasas', nombre:'Chocolate negro 85% Hacendado',  kcal100:600, prot100:9.0,  carbs100:14.0, fat100:52.0, sat100:31.0, fiber100:12.0, fe100:11.9, ca100:73, vd100:0 },
   // ── PROTEÍNA Y SUPLEMENTOS ────────────────────────────────
-  { id:'b130', cat:'Suplementos', nombre:'Proteína de suero Hacendado',  kcal100:380, prot100:72.0, carbs100:10.0, fat100:7.0, sat100:3.5, fiber100:0.5, fe100:0.5, ca100:400, vd100:0 },
+  { id:'b130', cat:'Suplementos', nombre:'Proteína de suero Hacendado', alias:'whey protein',  kcal100:380, prot100:72.0, carbs100:10.0, fat100:7.0, sat100:3.5, fiber100:0.5, fe100:0.5, ca100:400, vd100:0 },
   { id:'b131', cat:'Suplementos', nombre:'Bebida proteica Hacendado',    kcal100:60,  prot100:9.0,  carbs100:4.0,  fat100:1.2, sat100:0.8, fiber100:0.5, fe100:0.2, ca100:150, vd100:0.5 },
   // ── PREPARADOS Y OTROS ────────────────────────────────────
   { id:'b140', cat:'Otros', nombre:'Croquetas La Sirena (cong.)',         kcal100:214, prot100:7.5,  carbs100:21.0, fat100:12.0, sat100:3.5, fiber100:1.5, fe100:0.8, ca100:60, vd100:0, peso_ud_g:20 },
@@ -957,12 +957,12 @@ const FOODS = [
   { id:'b206', cat:'Otros', nombre:'Caldo de pollo (brick)',             kcal100:10,  prot100:1.0,  carbs100:1.0,  fat100:0.2, sat100:0.1, fiber100:0.0, fe100:0.1, ca100:5, vd100:0 },
   // ── SUPLEMENTOS DE SOL (uso diferenciado) ────────────────
   // Evolate whey: SOLO post-entreno. Garden of Life: SOLO recetas.
-  { id:'b210', cat:'Suplementos', nombre:'Proteína Evolate whey isolate',      kcal100:380, prot100:86.0, carbs100:3.0,  fat100:2.0, sat100:1.0, fiber100:0.0, fe100:0.5, ca100:400, vd100:0, tags:['post_entreno','whey'] },
-  { id:'b211', cat:'Suplementos', nombre:'Proteína Garden of Life plant-based', kcal100:375, prot100:70.0, carbs100:12.0, fat100:5.0, sat100:1.0, fiber100:8.0, fe100:8.0, ca100:120, vd100:0, tags:['solo_recetas','plant'] },
+  { id:'b210', cat:'Suplementos', nombre:'Proteína de suero aislada Evolate', alias:'whey isolate aislado',      kcal100:380, prot100:86.0, carbs100:3.0,  fat100:2.0, sat100:1.0, fiber100:0.0, fe100:0.5, ca100:400, vd100:0, tags:['post_entreno','whey'] },
+  { id:'b211', cat:'Suplementos', nombre:'Proteína vegetal Garden of Life', alias:'plant based vegana', kcal100:375, prot100:70.0, carbs100:12.0, fat100:5.0, sat100:1.0, fiber100:8.0, fe100:8.0, ca100:120, vd100:0, tags:['solo_recetas','plant'] },
   // ── ALTA DENSIDAD PROTEICA ───────────────────────────────
-  { id:'b212', cat:'Lácteos', nombre:'Quark 0% Hacendado',            kcal100:60,  prot100:12.0, carbs100:4.0,  fat100:0.2, sat100:0.1, fiber100:0.0, fe100:0.1, ca100:120, vd100:0 },
+  { id:'b212', cat:'Lácteos', nombre:'Queso quark 0% Hacendado',            kcal100:60,  prot100:12.0, carbs100:4.0,  fat100:0.2, sat100:0.1, fiber100:0.0, fe100:0.1, ca100:120, vd100:0 },
   { id:'b213', cat:'Lácteos', nombre:'Queso batido 0% Hacendado',     kcal100:47,  prot100:8.0,  carbs100:4.0,  fat100:0.2, sat100:0.1, fiber100:0.0, fe100:0.1, ca100:120, vd100:0 },
-  { id:'b214', cat:'Lácteos', nombre:'Skyr proteico sabores Hacendado', kcal100:65, prot100:11.0, carbs100:5.0, fat100:0.2, sat100:0.1, fiber100:0.0, fe100:0.05, ca100:140, vd100:0 },
+  { id:'b214', cat:'Lácteos', nombre:'Yogur skyr proteico de sabores Hacendado', kcal100:65, prot100:11.0, carbs100:5.0, fat100:0.2, sat100:0.1, fiber100:0.0, fe100:0.05, ca100:140, vd100:0 },
   { id:'b215', cat:'Proteínas', nombre:'Clara de huevo en polvo',      kcal100:370, prot100:80.0, carbs100:7.0,  fat100:0.5, sat100:0.2, fiber100:0.0, fe100:0.2, ca100:60, vd100:0 },
   { id:'b216', cat:'Proteínas', nombre:'Bonito del norte al natural',  kcal100:108, prot100:24.0, carbs100:0.0,  fat100:1.2, sat100:0.3, fiber100:0.0, fe100:1.0, ca100:12, vd100:2.0 },
   { id:'b217', cat:'Proteínas', nombre:'Trucha fresca',                kcal100:119, prot100:20.5, carbs100:0.0,  fat100:3.5, sat100:0.8, fiber100:0.0, fe100:0.3, ca100:43, vd100:13.6, tags:['pescado_azul'] },
@@ -981,11 +981,11 @@ const FOODS = [
   { id:'m06', cat:'Proteínas', nombre:'Bacalao desalado Hacendado',         tienda:'Mercadona', kcal100:82,  prot100:18.0, carbs100:0,   fat100:0.7, sat100:0.1, fiber100:0,   fe100:0.3, ca100:16, vd100:1.0 },
   { id:'m07', cat:'Proteínas', nombre:'Pollo asado (pechuga) Hacendado',    tienda:'Mercadona', kcal100:165, prot100:25.0, carbs100:1.0, fat100:7.0, sat100:2.0, fiber100:0,   fe100:0.8, ca100:10, vd100:0.2 },
   { id:'m08', cat:'Proteínas', nombre:'Gulas Hacendado',                    tienda:'Mercadona', kcal100:110, prot100:12.0, carbs100:8.0, fat100:3.0, sat100:0.5, fiber100:0.2, fe100:0.4, ca100:35, vd100:0.3 },
-  { id:'m09', cat:'Lácteos', nombre:'Queso havarti light Hacendado',        tienda:'Mercadona', kcal100:270, prot100:26.0, carbs100:1.0, fat100:18.0, sat100:12.0, fiber100:0, fe100:0.3, ca100:750, vd100:0.4 },
+  { id:'m09', cat:'Lácteos', nombre:'Queso havarti ligero Hacendado', alias:'light',        tienda:'Mercadona', kcal100:270, prot100:26.0, carbs100:1.0, fat100:18.0, sat100:12.0, fiber100:0, fe100:0.3, ca100:750, vd100:0.4 },
   { id:'m10', cat:'Lácteos', nombre:'Yogur skyr proteico sabores Hacendado', tienda:'Mercadona', kcal100:60, prot100:10.0, carbs100:4.5, fat100:0.2, sat100:0.1, fiber100:0,   fe100:0.05, ca100:140, vd100:0 },
   { id:'m11', cat:'Lácteos', nombre:'Bebida de coco Hacendado',             tienda:'Mercadona', kcal100:20,  prot100:0.2,  carbs100:2.5, fat100:0.9, sat100:0.8, fiber100:0.2, fe100:0.1, ca100:120, vd100:1.5 },
   { id:'m12', cat:'Carbohidratos', nombre:'Pan de cristal Hacendado',       tienda:'Mercadona', kcal100:270, prot100:8.5, carbs100:52.0, fat100:2.5, sat100:0.5, fiber100:2.8, fe100:1.6, ca100:35, vd100:0 },
-  { id:'m13', cat:'Carbohidratos', nombre:'Tortillas de trigo (wrap) Hacendado', tienda:'Mercadona', kcal100:300, prot100:8.0, carbs100:49.0, fat100:7.5, sat100:3.0, fiber100:3.0, fe100:2.0, ca100:80, vd100:0, peso_ud_g:50 },
+  { id:'m13', cat:'Carbohidratos', nombre:'Tortillas de trigo Hacendado', alias:'wrap fajita', tienda:'Mercadona', kcal100:300, prot100:8.0, carbs100:49.0, fat100:7.5, sat100:3.0, fiber100:3.0, fe100:2.0, ca100:80, vd100:0, peso_ud_g:50 },
   { id:'m14', cat:'Carbohidratos', nombre:'Copos de maíz sin azúcar Hacendado', tienda:'Mercadona', kcal100:372, prot100:7.5, carbs100:82.0, fat100:0.9, sat100:0.2, fiber100:3.0, fe100:7.9, ca100:12, vd100:2.1 },
   { id:'m15', cat:'Otros', nombre:'Tomate frito Hacendado',                 tienda:'Mercadona', kcal100:75,  prot100:1.4,  carbs100:9.0, fat100:3.5, sat100:0.5, fiber100:1.5, fe100:0.8, ca100:16, vd100:0 },
   { id:'m16', cat:'Otros', nombre:'Gazpacho Hacendado',                     tienda:'Mercadona', kcal100:38,  prot100:0.8,  carbs100:3.0, fat100:2.4, sat100:0.4, fiber100:1.0, fe100:0.3, ca100:12, vd100:0 },
@@ -1035,7 +1035,7 @@ const FOODS = [
 
   // ══ TUS HABITUALES ═══════════════════════════════════════
   { id:'b230', cat:'Carbohidratos', nombre:'Granola',                       kcal100:450, prot100:9.0,  carbs100:60.0, fat100:18.0, sat100:2.5, fiber100:7.0, fe100:3.0, ca100:60,  vd100:0 },
-  { id:'b231', cat:'Suplementos', nombre:'Whey vainilla MyProtein',         kcal100:400, prot100:82.0, carbs100:4.5,  fat100:7.0,  sat100:4.5, fiber100:0.5, fe100:0.6, ca100:400, vd100:0 },
+  { id:'b231', cat:'Suplementos', nombre:'Proteína de suero de vainilla MyProtein', alias:'whey protein vainilla',         kcal100:400, prot100:82.0, carbs100:4.5,  fat100:7.0,  sat100:4.5, fiber100:0.5, fe100:0.6, ca100:400, vd100:0 },
 
   // ══ AMPLIACIÓN DEL CATÁLOGO ═══════════════════════════════
   // ── Frutas ──
@@ -1073,7 +1073,7 @@ const FOODS = [
   { id:'n031', cat:'Verduras', nombre:'Canónigos', kcal100:21, prot100:2.0, carbs100:3.6, fat100:0.4, sat100:0, fiber100:1.5, fe100:2.2, ca100:38, vd100:0 },
   { id:'n032', cat:'Verduras', nombre:'Endivia', kcal100:17, prot100:1.0, carbs100:3.4, fat100:0.1, sat100:0, fiber100:3.1, fe100:0.8, ca100:52, vd100:0 },
   { id:'n033', cat:'Verduras', nombre:'Escarola', kcal100:17, prot100:1.3, carbs100:3.4, fat100:0.2, sat100:0, fiber100:3.1, fe100:0.8, ca100:52, vd100:0 },
-  { id:'n034', cat:'Verduras', nombre:'Kale (col rizada)', kcal100:49, prot100:4.3, carbs100:9.0, fat100:0.9, sat100:0.1, fiber100:3.6, fe100:1.5, ca100:150, vd100:0 },
+  { id:'n034', cat:'Verduras', nombre:'Col rizada', alias:'kale', kcal100:49, prot100:4.3, carbs100:9.0, fat100:0.9, sat100:0.1, fiber100:3.6, fe100:1.5, ca100:150, vd100:0 },
   { id:'n035', cat:'Verduras', nombre:'Acelgas', kcal100:19, prot100:1.8, carbs100:3.7, fat100:0.2, sat100:0, fiber100:1.6, fe100:1.8, ca100:51, vd100:0 },
   { id:'n036', cat:'Verduras', nombre:'Calabaza', kcal100:26, prot100:1.0, carbs100:6.5, fat100:0.1, sat100:0, fiber100:0.5, fe100:0.8, ca100:21, vd100:0 },
   { id:'n037', cat:'Verduras', nombre:'Rabanitos', kcal100:16, prot100:0.7, carbs100:3.4, fat100:0.1, sat100:0, fiber100:1.6, fe100:0.3, ca100:25, vd100:0 },
@@ -1160,8 +1160,8 @@ const FOODS = [
   { id:'n116', cat:'Lácteos', nombre:'Queso emmental', kcal100:380, prot100:28.0, carbs100:1.5, fat100:29.0, sat100:19.0, fiber100:0, fe100:0.3, ca100:1000, vd100:0.5 },
   { id:'n117', cat:'Lácteos', nombre:'Queso gouda', kcal100:356, prot100:25.0, carbs100:2.0, fat100:27.0, sat100:18.0, fiber100:0, fe100:0.2, ca100:700, vd100:0.5 },
   { id:'n118', cat:'Lácteos', nombre:'Queso cheddar', kcal100:400, prot100:25.0, carbs100:1.3, fat100:33.0, sat100:21.0, fiber100:0, fe100:0.7, ca100:720, vd100:0.6 },
-  { id:'n119', cat:'Lácteos', nombre:'Queso crema light', kcal100:150, prot100:6.0, carbs100:4.0, fat100:12.0, sat100:8.0, fiber100:0, fe100:0.1, ca100:110, vd100:0.2 },
-  { id:'n120', cat:'Lácteos', nombre:'Queso en lonchas light', kcal100:230, prot100:25.0, carbs100:3.0, fat100:13.0, sat100:8.5, fiber100:0, fe100:0.3, ca100:600, vd100:0.3 },
+  { id:'n119', cat:'Lácteos', nombre:'Queso crema ligero', alias:'light philadelphia', kcal100:150, prot100:6.0, carbs100:4.0, fat100:12.0, sat100:8.0, fiber100:0, fe100:0.1, ca100:110, vd100:0.2 },
+  { id:'n120', cat:'Lácteos', nombre:'Queso en lonchas ligero', alias:'light', kcal100:230, prot100:25.0, carbs100:3.0, fat100:13.0, sat100:8.5, fiber100:0, fe100:0.3, ca100:600, vd100:0.3 },
   { id:'n121', cat:'Lácteos', nombre:'Nata montada', kcal100:340, prot100:2.0, carbs100:3.0, fat100:35.0, sat100:23.0, fiber100:0, fe100:0.1, ca100:70, vd100:0.6 },
   { id:'n122', cat:'Lácteos', nombre:'Leche condensada', kcal100:320, prot100:8.0, carbs100:55.0, fat100:8.0, sat100:5.0, fiber100:0, fe100:0.2, ca100:280, vd100:0.1 },
   { id:'n123', cat:'Lácteos', nombre:'Leche sin lactosa', kcal100:46, prot100:3.3, carbs100:4.8, fat100:1.6, sat100:1.0, fiber100:0, fe100:0.05, ca100:120, vd100:0.03 },
@@ -1247,7 +1247,7 @@ const FOODS = [
   { id:'n198', cat:'Otros', nombre:'Cerveza sin alcohol', kcal100:25, prot100:0.4, carbs100:5.0, fat100:0.0, sat100:0, fiber100:0, fe100:0, ca100:5, vd100:0 },
   { id:'n199', cat:'Otros', nombre:'Vino tinto', kcal100:85, prot100:0.1, carbs100:2.6, fat100:0.0, sat100:0, fiber100:0, fe100:0.5, ca100:8, vd100:0 },
   { id:'n200', cat:'Otros', nombre:'Refresco de cola', kcal100:42, prot100:0.0, carbs100:10.6, fat100:0.0, sat100:0, fiber100:0, fe100:0, ca100:2, vd100:0 },
-  { id:'n201', cat:'Otros', nombre:'Refresco zero', kcal100:1, prot100:0.0, carbs100:0.2, fat100:0.0, sat100:0, fiber100:0, fe100:0, ca100:2, vd100:0 },
+  { id:'n201', cat:'Otros', nombre:'Refresco sin azúcar', alias:'zero light cola', kcal100:1, prot100:0.0, carbs100:0.2, fat100:0.0, sat100:0, fiber100:0, fe100:0, ca100:2, vd100:0 },
   { id:'n202', cat:'Otros', nombre:'Kombucha', kcal100:30, prot100:0.0, carbs100:7.0, fat100:0.0, sat100:0, fiber100:0, fe100:0, ca100:5, vd100:0 },
   { id:'n203', cat:'Otros', nombre:'Bebida isotónica', kcal100:25, prot100:0.0, carbs100:6.0, fat100:0.0, sat100:0, fiber100:0, fe100:0, ca100:3, vd100:0 },
   { id:'n204', cat:'Otros', nombre:'Té verde', kcal100:1, prot100:0.0, carbs100:0.2, fat100:0.0, sat100:0, fiber100:0, fe100:0, ca100:1, vd100:0 },
@@ -1263,7 +1263,7 @@ const FOODS = [
   { id:'p004', cat:'Frutas', nombre:'Arándanos congelados', tienda:'Mercadona', kcal100:45, prot100:0.6, carbs100:9.5, fat100:0.3, sat100:0, fiber100:3.0, fe100:0.3, ca100:8, vd100:0, env_g:450 },
   { id:'p005', cat:'Otros', nombre:'Café en cápsulas Colombia', tienda:'Mercadona', kcal100:2, prot100:0.2, carbs100:0, fat100:0, sat100:0, fiber100:0, fe100:0, ca100:2, vd100:0, env_g:100 },
   { id:'p006', cat:'Otros', nombre:'Stevia líquida', tienda:'Mercadona', kcal100:0, prot100:0, carbs100:0, fat100:0, sat100:0, fiber100:0, fe100:0, ca100:0, vd100:0, unit:'ml', env_g:60 },
-  { id:'p007', cat:'Carbohidratos', nombre:'Tortillas de trigo integral Hacendado', tienda:'Mercadona', kcal100:290, prot100:9.0, carbs100:44.0, fat100:7.0, sat100:2.8, fiber100:6.0, fe100:2.4, ca100:80, vd100:0, peso_ud_g:40, precio:1.55, env_g:320 },
+  { id:'p007', cat:'Carbohidratos', nombre:'Tortillas de trigo integral Hacendado', alias:'wrap fajita integral', tienda:'Mercadona', kcal100:290, prot100:9.0, carbs100:44.0, fat100:7.0, sat100:2.8, fiber100:6.0, fe100:2.4, ca100:80, vd100:0, peso_ud_g:40, precio:1.55, env_g:320 },
   { id:'p008', cat:'Carbohidratos', nombre:'Tortillas de maíz Hacendado', tienda:'Mercadona', kcal100:265, prot100:6.5, carbs100:50.0, fat100:3.5, sat100:0.8, fiber100:4.5, fe100:1.5, ca100:120, vd100:0, peso_ud_g:30, precio:1.85, env_g:240 },
   { id:'p009', cat:'Verduras', nombre:'Guisantes extra finos en conserva Hacendado', tienda:'Mercadona', kcal100:70, prot100:5.0, carbs100:8.0, fat100:0.5, sat100:0.1, fiber100:5.0, fe100:1.4, ca100:24, vd100:0, precio:1.75, env_g:400 },
   { id:'p010', cat:'Verduras', nombre:'Pimientos tricolor (bandeja)', tienda:'Mercadona', kcal100:28, prot100:1.0, carbs100:4.5, fat100:0.3, sat100:0, fiber100:1.8, fe100:0.4, ca100:11, vd100:0, precio:1.54, env_g:500 },
@@ -1721,13 +1721,26 @@ function wordScore(name, w) {
   if (abre) return pos === 0 ? 45 : 35;             // empieza igual pero sigue
   return 20;                                        // dentro de otra palabra
 }
+/* Los nombres se guardan en castellano, pero se busca como se habla: la
+   proteína es «de suero» en el bote y «whey» cuando la buscas. El alias
+   solo sirve para encontrar el producto; no se enseña en ningún sitio. */
+function aliasName(f) {
+  if (!f.alias) return '';
+  if (f._alias) return f._alias;
+  const v = norm(f.alias).split(/\s+/).map(stem).join(' ');
+  try { Object.defineProperty(f, '_alias', { value: v, enumerable: false }); } catch (e) {}
+  return v;
+}
+
 function searchScore(food, palabras) {
   const name = norm(food.nombre);
   const raiz = stemmedName(food);
+  const ali = aliasName(food);
   let total = 0;
   for (const w of palabras) {
     let s = wordScore(name, w);
     if (s < 0) s = wordScore(raiz, stem(w));      // misma consideración por raíz
+    if (s < 0 && ali) s = wordScore(ali, stem(w)) - 10;  // por alias, pero detrás
     if (s < 0) return -1;             // todas las palabras deben aparecer
     total += s;
   }
@@ -1820,7 +1833,7 @@ function powderWarning(r) {
   const ids = (r.ingredients || []).map(i => i.ingredient_id);
   const post = hasTag(r, 'post_entreno');
   if (ids.indexOf(POWDER_POST) >= 0 && !post)
-    return 'La Evolate whey es solo post-entreno; en recetas usa la Garden of Life.';
+    return 'La proteína Evolate es solo post-entreno; en recetas usa la Garden of Life.';
   if (ids.indexOf(POWDER_RECIPES) >= 0 && post)
     return 'La Garden of Life es solo para recetas; post-entreno usa la Evolate.';
   return null;
