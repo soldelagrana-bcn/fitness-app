@@ -792,7 +792,7 @@ input[type="file"] { padding: 12px; font-size: 14px; }
    ============================================================ */
 /* Sello de versión: sirve para saber si el móvil está sirviendo una copia
    guardada en vez de la última. Se ve en Ajustes. */
-const VERSION = 'v17';
+const VERSION = 'v18';
 const FECHA_VERSION = '12 ago 2026';
 
 const DEFAULT_TARGETS = { kcal: 1600, protein: 115, carbs: 165, fat: 55 };
@@ -3650,6 +3650,26 @@ function cargarUltimaCompra() {
   return n;
 }
 
+/* Marcar comprado es haberlo traído a casa: entra en la despensa. Se
+   apunta cuánto se metió por esa vía, para poder deshacerlo exacto si
+   fue un toque sin querer. */
+function comprasHechas(ws) { return DB.get('shopbuy_' + ws, {}); }
+function anotarCompra(ws, id, gramos) {
+  if (!gramos) return;
+  const c = comprasHechas(ws);
+  c[id] = (c[id] || 0) + gramos;
+  DB.set('shopbuy_' + ws, c);
+  savePantry({ ingredient_id: id, estimated_quantity: pantryQty(id) + gramos, last_purchased: today() });
+}
+function devolverCompra(ws, id) {
+  const c = comprasHechas(ws);
+  const g = c[id];
+  if (!g) return;
+  delete c[id];
+  DB.set('shopbuy_' + ws, c);
+  savePantry({ ingredient_id: id, estimated_quantity: Math.max(0, pantryQty(id) - g) });
+}
+
 function markBought(ws, id) {
   const l = DB.get('shop_' + ws, []);
   if (l.indexOf(id) < 0) l.push(id);
@@ -3909,6 +3929,7 @@ let recipeFilter = 'todas';
 let menuWeek = null;
 let hoyEditMeal = null;    // qué comida se está editando en Hoy, si alguna
 let compraSec = 'lista';   // qué sección de Compra se está mirando
+let verComprados = false;  // enseñar lo ya comprado dentro de la lista
 let compraEdit = false;    // modo edición de la lista y la despensa
 let menuSoloDespensa = false;
 let draft = null;
@@ -4315,20 +4336,27 @@ function viewCompra() {
   }).filter(Boolean);
 
   const cuentaPorTienda = {};
-  todas.forEach(l => { cuentaPorTienda[l.tienda] = (cuentaPorTienda[l.tienda] || 0) + 1; });
+  todas.filter(l => checked.indexOf(l.id) < 0)
+    .forEach(l => { cuentaPorTienda[l.tienda] = (cuentaPorTienda[l.tienda] || 0) + 1; });
   const orden = STORES.concat(
     Object.keys(cuentaPorTienda).filter(t => STORES.indexOf(t) < 0 && t !== SIN_TIENDA).sort()
   ).concat([SIN_TIENDA]);
   const tiendasConCosas = orden.filter(t => cuentaPorTienda[t]);
 
-  const visibles = shopStore === 'todos' ? todas : todas.filter(l => l.tienda === shopStore);
-  const total = todas.length;
-  const comprados = todas.filter(l => checked.indexOf(l.id) >= 0).length;
+  // La lista es lo que falta por comprar. Lo comprado ya está en casa y su
+  // sitio es Mi despensa; aquí solo estorba.
+  const enTienda = shopStore === 'todos' ? todas : todas.filter(l => l.tienda === shopStore);
+  const pendientes = enTienda.filter(l => checked.indexOf(l.id) < 0);
+  const yaCompradas = enTienda.filter(l => checked.indexOf(l.id) >= 0);
+  const visibles = verComprados ? pendientes.concat(yaCompradas) : pendientes;
+  const total = pendientes.length;
+  const comprados = yaCompradas.length;
 
   const filtro = tiendasConCosas.length > 1
     ? '<div class="chips scroll" style="margin-bottom:10px">' +
         '<button class="chip" data-act="shop-store" data-s="todos" aria-pressed="' +
-          (shopStore === 'todos' ? 'true' : 'false') + '">Todos · ' + total + '</button>' +
+          (shopStore === 'todos' ? 'true' : 'false') + '">Todos · ' +
+          todas.filter(l => checked.indexOf(l.id) < 0).length + '</button>' +
         tiendasConCosas.map(t =>
           '<button class="chip" data-act="shop-store" data-s="' + esc(t) + '" aria-pressed="' +
           (shopStore === t ? 'true' : 'false') + '">' + esc(t) + ' · ' + cuentaPorTienda[t] + '</button>').join('') +
@@ -4357,7 +4385,8 @@ function viewCompra() {
       '</div>';
     }
     return '<div class="shop-line">' +
-      '<button class="shop" data-act="check" data-id="' + l.id + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
+      '<button class="shop" data-act="check" data-id="' + l.id + '" data-g="' + Math.round(l.cantidad) +
+        '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
         '<span class="box">' + (on ? '✓' : '') + '</span>' +
         '<span class="nm">' + esc(shortName(l.food)) +
           '<span class="motivo"> · ' + esc(l.motivo) + '</span></span>' +
@@ -4375,10 +4404,14 @@ function viewCompra() {
   // Con "Todos" se agrupa por súper, que es como se compra. Dentro de un
   // súper concreto se agrupa por categoría, que es como está la tienda.
   let shopHtml;
-  if (!total) {
-    shopHtml = '<p class="empty">Nada que comprar por ahora. Aparecerá aquí lo que necesite el menú y lo que se te vaya acabando.</p>';
-  } else if (!visibles.length) {
-    shopHtml = '<p class="empty">Nada pendiente en ' + esc(shopStore) + '.</p>';
+  if (!visibles.length) {
+    shopHtml = '<p class="empty">' +
+      (comprados
+        ? 'Todo comprado. Lo tienes en Mi despensa.'
+        : shopStore !== 'todos'
+          ? 'Nada pendiente en ' + esc(shopStore) + '.'
+          : 'Nada que comprar por ahora. Aparecerá aquí lo que necesite el menú y lo que se te vaya acabando.') +
+      '</p>';
   } else if (shopStore === 'todos') {
     const porTienda = {};
     visibles.forEach(l => { (porTienda[l.tienda] = porTienda[l.tienda] || []).push(l); });
@@ -4396,14 +4429,10 @@ function viewCompra() {
   }
   shopHtml = filtro + shopHtml;
 
-  // Coste estimado. Solo sé el precio de una parte del catálogo, así que
-  // la cifra dice siempre sobre cuántos productos está hecha.
-  // El coste es de lo que queda por comprar: lo ya marcado está pagado.
-  const pendientes = visibles.filter(l => checked.indexOf(l.id) < 0);
+  // Coste estimado de lo que falta. Solo sé el precio de una parte del
+  // catálogo, así que la cifra dice sobre cuántos productos está hecha.
   const costes = pendientes.map(l => lineCost(l.food, l.cantidad)).filter(Boolean);
-  const costeHtml = !visibles.length ? ''
-    : !pendientes.length
-      ? '<p class="hint" style="margin:7px 0 0">Todo comprado.</p>'
+  const costeHtml = !pendientes.length ? ''
       : costes.length
         ? '<p class="hint" style="margin:7px 0 0">Queda por comprar <strong>' +
             fmtEur(costes.reduce((s, c) => s + c.euros, 0)) + '</strong>' +
@@ -4414,7 +4443,7 @@ function viewCompra() {
   // Tres secciones, un toque cada una: la despensa estaba al final de un
   // scroll larguísimo y para verla había que pasar por todo lo demás.
   const SECS = [
-    { key: 'lista', name: 'Lista', n: total ? (total - comprados) : 0 },
+    { key: 'lista', name: 'Lista', n: todas.filter(l => checked.indexOf(l.id) < 0).length },
     { key: 'despensa', name: 'Mi despensa', n: items.length },
     { key: 'acaba', name: 'Se acaba', n: acabando.length },
   ];
@@ -4429,11 +4458,17 @@ function viewCompra() {
 
   const secLista =
     '<div id="shop"><div class="section-head"><h2>Lista de la compra</h2>' + editBtn +
-      (total ? '<span class="rest">' + comprados + ' de ' + total + ' ✓</span>' : '') + '</div>' +
+      '<span class="rest">' + (total ? total + ' por comprar' : 'al día') + '</span></div>' +
       (compraEdit ? '<p class="hint" style="margin:6px 0 0">Cambia los gramos, toca el nombre para ' +
         'cambiar de producto o quítalo con la ✕.</p>' : '') +
       '<button class="btn wide" style="margin:9px 0" data-act="shop-add">Añadir un producto</button>' +
       '<div class="card shop-list">' + shopHtml + '</div>' + costeHtml +
+      (comprados
+        ? '<p class="hint" style="margin:7px 0 0">' + comprados +
+            (comprados === 1 ? ' producto comprado' : ' productos comprados') + ' esta semana, ya en Mi despensa. ' +
+            '<button class="link-btn" style="display:inline;padding:0" data-act="ver-comprados">' +
+            (verComprados ? 'Ocultarlos' : 'Verlos') + '</button></p>'
+        : '') +
       (fuera.length
         ? '<p class="hint" style="margin:7px 0 0">Has quitado ' + fuera.length +
             (fuera.length === 1 ? ' producto' : ' productos') + ' de esta semana. ' +
@@ -5896,11 +5931,15 @@ document.getElementById('view').addEventListener('click', ev => {
     const ws = menuWeek || weekStartOf(today());
     const list = DB.get('shop_' + ws, []);
     const i = list.indexOf(d.id);
-    if (i >= 0) list.splice(i, 1); else list.push(d.id);
+    if (i >= 0) { list.splice(i, 1); devolverCompra(ws, d.id); }
+    else { list.push(d.id); anotarCompra(ws, d.id, parseInt(d.g, 10) || 0); }
     DB.set('shop_' + ws, list);
     render();
+    const f = foodById(d.id);
+    if (i < 0 && f) toast(shortName(f) + ' a la despensa');
     return;
   }
+  if (act === 'ver-comprados') { verComprados = !verComprados; render(); return; }
 });
 
 document.addEventListener('keydown', ev => {
