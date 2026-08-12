@@ -861,7 +861,7 @@ const FOODS = [
   { id:'b098', cat:'Verduras', nombre:'Pimiento verde',     kcal100:20,  prot100:0.9,  carbs100:4.6,  fat100:0.2, sat100:0.1, fiber100:1.7, fe100:0.3, ca100:10, vd100:0 },
   { id:'b099', cat:'Verduras', nombre:'Calabacín',          kcal100:17,  prot100:1.2,  carbs100:3.1,  fat100:0.3, sat100:0.1, fiber100:1.1, fe100:0.4, ca100:16, vd100:0 },
   { id:'b100', cat:'Verduras', nombre:'Berenjena',          kcal100:24,  prot100:1.0,  carbs100:5.7,  fat100:0.2, sat100:0.0, fiber100:3.0, fe100:0.2, ca100:9, vd100:0 },
-  { id:'b101', cat:'Verduras', nombre:'Aguacate',           kcal100:160, prot100:2.0,  carbs100:9.0,  fat100:15.0, sat100:2.1, fiber100:6.7, fe100:0.6, ca100:12, vd100:0, tags:['grasa_insaturada'] },
+  { id:'b101', cat:'Verduras', nombre:'Aguacate',           kcal100:160, prot100:2.0,  carbs100:9.0,  fat100:15.0, sat100:2.1, fiber100:6.7, fe100:0.6, ca100:12, vd100:0, peso_ud_g:200, tags:['grasa_insaturada'] },
   { id:'b102', cat:'Verduras', nombre:'Champiñones',        kcal100:22,  prot100:3.1,  carbs100:3.3,  fat100:0.3, sat100:0.1, fiber100:1.0, fe100:0.5, ca100:3, vd100:0.2 },
   { id:'b103', cat:'Verduras', nombre:'Judías verdes',      kcal100:31,  prot100:1.8,  carbs100:7.0,  fat100:0.2, sat100:0.0, fiber100:3.4, fe100:1.0, ca100:37, vd100:0 },
   { id:'b104', cat:'Verduras', nombre:'Coliflor',           kcal100:25,  prot100:1.9,  carbs100:5.0,  fat100:0.3, sat100:0.1, fiber100:2.0, fe100:0.4, ca100:22, vd100:0 },
@@ -1685,7 +1685,7 @@ function searchScore(food, palabras) {
   let total = 0;
   for (const w of palabras) {
     let s = wordScore(name, w);
-    if (s < 0) s = wordScore(raiz, stem(w)) - 5;   // coincidencia por raíz, algo peor
+    if (s < 0) s = wordScore(raiz, stem(w));      // misma consideración por raíz
     if (s < 0) return -1;             // todas las palabras deben aparecer
     total += s;
   }
@@ -1695,7 +1695,7 @@ function searchScore(food, palabras) {
   if (/polvo|desecad|deshidrat/.test(name)) score -= 12;
   // Si no pides una preparación concreta, se entiende el alimento tal cual:
   // quien escribe "huevos" quiere el huevo, no el huevo cocido.
-  const prep = /cocid|asad|frit|ahumad|almibar|congelad|en vinagre|braseado/;
+  const prep = /cocid|asad|frit|ahumad|almibar|congelad|en vinagre|braseado|horno|plancha/;
   if (prep.test(name) && !palabras.some(w => prep.test(w))) score -= 6;
   // "Arroz CON leche" es un plato, no el arroz. Si buscas el ingrediente,
   // lo compuesto va detrás.
@@ -2902,77 +2902,124 @@ function defaultPurchase(f) {
   return 500;
 }
 
-/**
- * Interpreta una línea del tipo "2 kg de pechuga de pollo", "media docena
- * de huevos" o simplemente "tomate cherry". Devuelve la cantidad en
- * gramos o mililitros y el alimento con el que mejor casa.
- */
-function parseShoppingLine(linea) {
-  const original = linea.trim();
-  if (!original) return null;
-  // Quita viñetas ("- x", "• x") y numeración de lista ("1. x", "2) x"),
-  // pero nunca un número suelto: ese es la cantidad.
-  let t = norm(original).replace(/^[-*•·]+\s+/, '').replace(/^\d+[.)]\s+/, '');
+/* Palabras que no identifican producto: conectores y formas de venta o
+   corte. Se consumen al leer, pero no se usan para buscar. */
+const STOPWORDS = ['de','del','la','el','los','las','unos','unas',
+                   'y','e','mas','tambien','con','para','al','me','he','comprado'];
+const RELLENOS = ['lomo','filete','rodaja','trozo','pieza','bandeja','paquete',
+                  'bolsa','bote','lata','tarrina','malla','manojo','unidad',
+                  'fresco','fresca','congelado','congelada','natural','entero','entera'];
+const UNIDAD_RE = /^(kg|kilos?|kilogramos?|gramos?|grs?|g|litros?|lts?|l|mililitros?|ml|unidades?|uds?|ud|docenas?|paquetes?|botes?|latas?|bolsas?|bandejas?|barras?|piezas?)$/;
 
-  let cantidad = null, unidad = null;
+function esStop(w) { return STOPWORDS.indexOf(w) >= 0; }
+function esRelleno(w) { return RELLENOS.indexOf(stem(w)) >= 0; }
+function esContenido(w) { return !!w && w.length >= 2 && !esStop(w) && !esRelleno(w) && !UNIDAD_RE.test(w); }
 
-  // Número al principio, en cifra o en palabra
-  let m = t.match(/^(\d+(?:[.,]\d+)?)\s*/);
-  if (m) { cantidad = parseFloat(m[1].replace(',', '.')); t = t.slice(m[0].length); }
-  else {
-    const w = t.split(/\s+/)[0];
-    if (NUM_PALABRA[w] != null) { cantidad = NUM_PALABRA[w]; t = t.slice(w.length).trim(); }
-  }
-
-  // Unidad
-  m = t.match(/^(kg|kilos?|kilogramos?|gramos?|grs?|g|litros?|lts?|l|mililitros?|ml|unidades?|uds?|ud|docenas?|paquetes?|botes?|latas?|bolsas?|bandejas?|barras?|piezas?)\b\s*/);
-  if (m) { unidad = m[1]; t = t.slice(m[0].length); }
-
-  t = t.replace(/^de\s+/, '').replace(/^del\s+/, '').replace(/^la\s+|^el\s+|^los\s+|^las\s+/, '').trim();
-  if (!t) return null;
-
-  const candidatos = searchFoods(t, 5);
-  const food = candidatos[0] || null;
-
-  // Traducir a gramos o mililitros
-  let gramos;
+/* Traduce cantidad y unidad a gramos o mililitros. */
+function gramosDe(cantidad, unidad, food) {
   const esPeso = /^(kg|kilo|gramo|gr|g)/.test(unidad || '');
   const esVol  = /^(litro|lt|l$|mililitro|ml)/.test(unidad || '');
   const esUd   = /^(unidad|ud|docena|paquete|bote|lata|bolsa|bandeja|barra|pieza)/.test(unidad || '');
-
-  if (cantidad != null && esPeso) gramos = /^(kg|kilo)/.test(unidad) ? cantidad * 1000 : cantidad;
-  else if (cantidad != null && esVol) gramos = /^(litro|lt|l$)/.test(unidad) ? cantidad * 1000 : cantidad;
-  else if (cantidad != null && esUd) {
-    if (/^(paquete|bote|lata|bolsa|bandeja|barra)/.test(unidad)) {
-      // Un paquete es un formato de venta entero, no una pieza suelta
-      gramos = cantidad * defaultPurchase(food);
-    } else {
-      const uds = /^docena/.test(unidad) ? cantidad * 12 : cantidad;
-      gramos = uds * (food && food.peso_ud_g ? food.peso_ud_g : defaultPurchase(food) / 6);
-    }
-  } else if (cantidad != null) {
-    // "6 huevos", "2 aguacates": número sin unidad = unidades
-    gramos = cantidad * (food && food.peso_ud_g ? food.peso_ud_g : (food ? defaultPurchase(food) / 4 : 125));
-  } else {
-    gramos = defaultPurchase(food);
+  if (cantidad != null && esPeso) return /^(kg|kilo)/.test(unidad) ? cantidad * 1000 : cantidad;
+  if (cantidad != null && esVol)  return /^(litro|lt|l$)/.test(unidad) ? cantidad * 1000 : cantidad;
+  if (cantidad != null && esUd) {
+    if (/^(paquete|bote|lata|bolsa|bandeja|barra)/.test(unidad)) return cantidad * defaultPurchase(food);
+    const uds = /^docena/.test(unidad) ? cantidad * 12 : cantidad;
+    return uds * (food && food.peso_ud_g ? food.peso_ud_g : defaultPurchase(food) / 6);
   }
-
-  return {
-    raw: original,
-    texto: t,
-    food: food,
-    candidatos: candidatos,
-    gramos: Math.max(1, Math.round(gramos)),
-    seguro: !!food && norm(food.nombre).indexOf(t) >= 0,
-  };
+  if (cantidad != null) {
+    return cantidad * (food && food.peso_ud_g ? food.peso_ud_g : (food ? defaultPurchase(food) / 4 : 125));
+  }
+  return defaultPurchase(food);
 }
 
-/* Separa por líneas y también por comas o "y": al dictar sale todo seguido. */
+/**
+ * Reconoce los productos de una frase corrida.
+ *
+ * Al dictar en español no salen comas: "almejas lomos de bacalao lomos de
+ * salmón y gambas" llega de una pieza. Así que no se puede trocear por
+ * puntuación; hay que ir leyendo y reconociendo productos del catálogo.
+ *
+ * Se toma en cada punto la secuencia MÁS LARGA que case con un alimento,
+ * con una regla que evita comerse el principio del siguiente: la ventana
+ * no puede terminar en conector ni en palabra de formato. Así "almejas
+ * lomos" no se acepta y "lomos de bacalao" queda entero para el bacalao.
+ */
+function scanShopping(texto) {
+  const orig = String(texto || '').trim().split(/\s+/).filter(Boolean);
+  const toks = orig.map(t => {
+    const w = norm(t).replace(/[^a-z0-9.,%]/g, '');
+    return (w === 'cero' || w === 'zero') ? '0' : w;   // al dictar, "cero" es el 0%
+  });
+  const out = [];
+  const MAXW = 6;
+  let i = 0;
+
+  while (i < toks.length) {
+    if (!toks[i] || esStop(toks[i])) { i++; continue; }
+
+    // ---- cantidad y unidad, si las hay ----
+    let cantidad = null, unidad = null, j = i;
+    const m = toks[j].match(/^(\d+(?:[.,]\d+)?)$/);
+    if (m) { cantidad = parseFloat(m[1].replace(',', '.')); j++; }
+    else if (NUM_PALABRA[toks[j]] != null) { cantidad = NUM_PALABRA[toks[j]]; j++; }
+    if (cantidad === 0) cantidad = null;   // el "0" de "yogur 0%" no es cantidad
+    if (j < toks.length && UNIDAD_RE.test(toks[j])) { unidad = toks[j]; j++; }
+    while (j < toks.length && esStop(toks[j])) j++;
+
+    // ---- producto: la ventana más larga que case ----
+    let mejor = null;
+    const tope = Math.min(MAXW, toks.length - j);
+    for (let L = tope; L >= 1; L--) {
+      if (!esContenido(toks[j + L - 1])) continue;   // no acabar en relleno ni conector
+      const sig = toks.slice(j, j + L).filter(esContenido);
+      if (!sig.length) continue;
+      const cand = searchFoods(sig.join(' '), 4);
+      if (cand.length) { mejor = { food: cand[0], alt: cand, fin: j + L }; break; }
+    }
+
+    if (!mejor) {
+      // No se reconoce nada aquí: se guarda para que se pueda corregir
+      const fin = Math.min(toks.length, j + 1);
+      out.push({ raw: orig.slice(i, fin).join(' '), texto: toks.slice(i, fin).join(' '),
+                 food: null, candidatos: [], gramos: 0, seguro: false });
+      i = fin;
+      continue;
+    }
+
+    // "huevo entero": "entero" es relleno, pero está en el nombre del
+    // producto, así que se lo queda. "almejas lomos" no, porque "lomo" no
+    // aparece en Almejas y pertenece al siguiente producto.
+    let fin = mejor.fin;
+    const nombreRaiz = stemmedName(mejor.food);
+    while (fin < toks.length &&
+           (esRelleno(toks[fin]) || /^\d{1,2}%?$/.test(toks[fin])) &&
+           nombreRaiz.indexOf(stem(toks[fin])) >= 0) fin++;
+
+    out.push({
+      raw: orig.slice(i, fin).join(' '),
+      texto: toks.slice(j, fin).join(' '),
+      food: mejor.food,
+      candidatos: mejor.alt,
+      gramos: Math.max(1, Math.round(gramosDe(cantidad, unidad, mejor.food))),
+      seguro: true,
+    });
+    i = fin;
+  }
+  return out;
+}
+
+/**
+ * Punto de entrada. Se trocea por saltos de línea y signos cuando los hay
+ * (archivos y tickets vienen así), y cada trozo se escanea, porque dentro
+ * de un mismo trozo puede haber varios productos seguidos.
+ */
 function parseShoppingText(texto) {
   return String(texto || '')
-    .split(/\r?\n|;|,| y (?=\s*(?:\d|un |una |dos |tres |cuatro |cinco |seis |medio |media ))/i)
-    .map(l => parseShoppingLine(l))
-    .filter(Boolean);
+    .split(/\r?\n|;|\.|,/)
+    .map(t => t.replace(/^[-*•·]+\s*/, '').replace(/^\d+[.)]\s+/, ''))
+    .filter(t => t.trim())
+    .reduce((acc, trozo) => acc.concat(scanShopping(trozo)), []);
 }
 
 /* ---- Consumo y reposición ---- */
