@@ -330,6 +330,21 @@ Lo que falta entra solo en la lista de la compra, que se calcula del menú. «Si
 solo sale si la quitaste tú de la lista; entonces el resumen los nombra y ofrece volver a
 ponerlos.
 
+## Cambiar una comida del menú
+
+Tocar una comida del menú abre el plato **propuesto** primero: lo que lleva ingrediente a
+ingrediente con sus gramos y sus kcal, los macros, la preparación si la receta la trae, y
+una línea con lo que te falta de casa para hacerlo. Debajo, las demás opciones en
+compacto, cada una con «Ver qué lleva» y «Poner esta».
+
+Las notas de una receta unas veces cuentan cómo se hace y otras son un apunte nutricional,
+así que el titulillo mira cómo empieza la frase: **Preparación** si arranca con un verbo de
+cocina, **Nota** si no. Llamar «Preparación» a «la grasa viene del aguacate» es mentir en
+la etiqueta.
+
+Cambiar de plato borra los cambios que le hubieras hecho al anterior: eran de aquella
+receta, no de este hueco.
+
 ## Editar un día del menú
 
 Cada día tiene su **Editar el día**. Abre los platos: cada ingrediente con su cantidad, un
