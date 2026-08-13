@@ -192,17 +192,26 @@ guardó en su día, que es mejor que no dejar editar.
 
 Al montar una comida hay un interruptor **🍽 Comida fuera**. Lo que se registra con él
 marcado cuenta para los macros y los micros del día —te lo has comido— pero queda fuera de
-todo lo demás:
+todo lo demás: no descuenta de la despensa, no cuenta como consumo tuyo para reponer, no
+entra en la lista de la compra y no cuenta como receta repetida al proponer el menú.
+Tampoco se puede guardar como receta.
 
-- **No descuenta de la despensa.** Esa pizza no salió de tu cocina.
-- **No cuenta como consumo tuyo**, así que no infla el ritmo con el que `consumptionRate`
-  calcula la reposición ni te mete el producto en la lista de la compra.
-- **No cuenta como receta repetida** al proponer el menú: cenar pasta en un restaurante no
-  es motivo para que la app no te la ponga esta semana.
-- **No se puede guardar como receta**: el campo desaparece al marcarlo.
+Se quita igual de fácil que se pone: en modo edición cada línea lleva su 🍽, y tocarlo
+marca o desmarca. Al marcarlo se devuelve a la despensa lo que había descontado; al
+quitarlo se vuelve a descontar. Antes había que borrar la línea y volver a registrarla.
 
 En Hoy se ve con un 🍽 en cada línea y una etiqueta en la comida —«fuera» si toda ella lo
 fue, «parte fuera» si solo una parte—.
+
+## Buscadores que no se van de la pantalla
+
+Los buscadores de las hojas —registrar, montar comida, compositor— viven en una **franja
+fija** entre la cabecera y el cuerpo, fuera de lo que hace scroll.
+
+El primer intento fue `position: sticky` dentro del cuerpo, y no aguanta en Safari de iOS:
+el `-webkit-overflow-scrolling: touch` del contenedor lo rompe, así que al aparecer los
+resultados y abrirse el teclado el campo se iba por arriba y se escribía a ciegas. Sacarlo
+del scroll no depende de ningún truco: si no está dentro, no se puede ir.
 
 ## Compra: tres secciones y un botón de editar
 
