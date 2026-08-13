@@ -298,8 +298,10 @@ micrófono para pasarlo: si guardabas directamente, las preferencias se perdían
 nada.
 
 **Preferencias** abre una hoja donde se dicta o se escribe: *«más pescado y verdura, sin
-cerdo, algo rápido»*. **No hay ninguna IA dentro** —la app va sin conexión— y conviene
-decirlo claro: lo que hay es un lector de reglas.
+cerdo, algo rápido»*. **No hay ninguna IA dentro** —la app va sin conexión—: lo que hay es
+un lector de reglas. Eso está aquí, no en la pantalla: la hoja son los dos modos de
+despensa, el botón de dictar, el campo y lo que ha entendido. Explicar cómo funciona por
+dentro no ayuda a usarla.
 
 Va palabra a palabra. Una negación (`sin`, `nada`, `ni`, `evita`, `menos`…) abre un tramo
 negado y una palabra positiva (`más`, `quiero`, `pon`, `con`…) lo cierra, así que «sin
