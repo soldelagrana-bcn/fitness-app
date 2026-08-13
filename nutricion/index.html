@@ -456,21 +456,22 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 }
 .sheet-head h3 { margin: 0; flex: 1; font-size: 14.5px; font-weight: 660; }
 .sheet-body {
+  flex: 1 1 auto; min-height: 0;
   overflow-y: auto; overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
   padding: 14px 18px calc(24px + env(safe-area-inset-bottom));
   display: flex; flex-direction: column; gap: 12px;
 }
 
-.field { display: flex; flex-direction: column; gap: 5px; }
-/* La barra de búsqueda se queda arriba del todo. Antes, al aparecer los
-   resultados y abrirse el teclado, se iba de la pantalla y se escribía a
-   ciegas: se veía lo que salía pero no lo que estabas escribiendo. */
-.sheet-body .sticky-search {
-  position: sticky; top: 0; z-index: 5;
-  background: var(--ground);
-  padding: 10px 0 8px; margin: -10px 0 -6px;
+/* Franja fija bajo la cabecera: no hace scroll, así que el buscador se ve
+   siempre, con teclado abierto y con la lista llena de resultados. */
+.sheet-top {
+  flex: 0 0 auto;
+  padding: 11px 18px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
 }
+.sheet-top .field { gap: 5px; }
+.field { display: flex; flex-direction: column; gap: 5px; }
 .field > label { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
 .input, .ta {
   width: 100%;
@@ -727,6 +728,17 @@ input[type="file"] { padding: 12px; font-size: 14px; }
   background: var(--surface); color: var(--ink);
 }
 .erow-u { flex: 0 0 18px; font-size: 11px; color: var(--ink-faint); }
+.fuera-tog {
+  flex: 0 0 34px; width: 34px; height: 34px; padding: 0;
+  border: 1px solid var(--line); border-radius: 50%;
+  background: var(--surface); font-size: 14px; line-height: 1;
+  filter: grayscale(1); opacity: .45; position: relative;
+}
+.fuera-tog::after { content: ""; position: absolute; inset: -5px; }
+.fuera-tog[aria-pressed="true"] {
+  filter: none; opacity: 1;
+  background: var(--accent-wash); border-color: var(--accent-line);
+}
 .chip .cnt { opacity: .6; font-weight: 500; }
 
 /* ---- Supermercados ---- */
@@ -792,7 +804,7 @@ input[type="file"] { padding: 12px; font-size: 14px; }
    ============================================================ */
 /* Sello de versión: sirve para saber si el móvil está sirviendo una copia
    guardada en vez de la última. Se ve en Ajustes. */
-const VERSION = 'v18';
+const VERSION = 'v19';
 const FECHA_VERSION = '12 ago 2026';
 
 const DEFAULT_TARGETS = { kcal: 1600, protein: 115, carbs: 165, fat: 55 };
@@ -4076,6 +4088,9 @@ function mealsSection() {
           '<input class="erow-g" type="number" inputmode="numeric" value="' + e.qty +
             '" data-entry-g="' + e.id + '" aria-label="Cantidad de ' + esc(e.nombre) + '">' +
           '<span class="erow-u">' + e.unit + '</span>' +
+          '<button class="fuera-tog" data-act="toggle-fuera" data-id="' + e.id +
+            '" aria-pressed="' + (e.fuera ? 'true' : 'false') +
+            '" aria-label="' + (e.fuera ? 'Ya no es comida fuera' : 'Marcar como comida fuera') + '">🍽</button>' +
           '<button class="x" data-act="del-entry" data-id="' + e.id +
             '" aria-label="Quitar ' + esc(e.nombre) + '">✕</button>' +
         '</div>';
@@ -4777,7 +4792,12 @@ function paintReview() {
 /* ============================================================
    HOJAS MODALES
    ============================================================ */
-function openSheet(title, bodyHtml, onMount) {
+/* `topHtml` va en una franja fija entre la cabecera y el cuerpo, fuera de
+   lo que hace scroll. Es donde tiene que vivir un buscador: `position:
+   sticky` dentro del cuerpo no aguanta en Safari de iOS —el
+   -webkit-overflow-scrolling lo rompe—, así que el campo se iba de la
+   pantalla al abrirse el teclado y se escribía a ciegas. */
+function openSheet(title, bodyHtml, onMount, topHtml) {
   closeSheet();
   const scrim = document.createElement('div');
   scrim.className = 'scrim';
@@ -4786,6 +4806,7 @@ function openSheet(title, bodyHtml, onMount) {
     '<div class="sheet" role="dialog" aria-modal="true" aria-label="' + esc(title) + '">' +
       '<div class="sheet-head"><h3>' + esc(title) + '</h3>' +
         '<button class="icon-btn" data-close aria-label="Cerrar">✕</button></div>' +
+      (topHtml ? '<div class="sheet-top">' + topHtml + '</div>' : '') +
       '<div class="sheet-body">' + bodyHtml + '</div>' +
     '</div>';
   document.getElementById('sheets').appendChild(scrim);
@@ -4882,8 +4903,7 @@ function sheetEditEntry(id) {
 
     '<button class="fuera-btn" id="ee-fuera" aria-pressed="' + (e.fuera ? 'true' : 'false') + '">' +
       '<span class="ico">🍽</span>' +
-      '<span class="txt"><b>Comida fuera</b>' +
-      '<small>No gasta despensa ni entra en la compra</small></span>' +
+      '<span class="txt"><b>Comida fuera</b></span>' +
       '<span class="mark"></span>' +
     '</button>' +
 
@@ -5123,7 +5143,16 @@ function sheetComposer(meal) {
     results: [],
     faltan: [],
   };
-  openSheet('Proponme recetas', '<div id="cp"></div>', () => paintComposer());
+  const top = '<input class="input" id="cp-q" type="search" ' +
+    'placeholder="Buscar entre ' + allFoods().length + ' alimentos" ' +
+    'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">';
+  openSheet('Proponme recetas', '<div id="cp"></div>', scrim => {
+    paintComposer();
+    // El buscador vive en la franja fija, así que su escucha se ata una vez
+    // y no en cada repintado del compositor.
+    const q = scrim.querySelector('#cp-q');
+    q.addEventListener('input', () => composerSearch(q.value.trim()));
+  }, top);
 }
 
 function paintComposer() {
@@ -5178,10 +5207,6 @@ function paintComposer() {
         'Lo que fijes entra en la receta sí o sí, con esos gramos exactos.</p></div>'
       : '') +
 
-    '<div class="field sticky-search"><label for="cp-q">Buscar otro ingrediente</label>' +
-      '<input class="input" id="cp-q" type="search" placeholder="Buscar en los ' + allFoods().length + ' alimentos" ' +
-        'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">' +
-    '</div>' +
     '<div id="cp-res"></div>' +
 
     '<div class="field"><label>Qué quieres alcanzar</label><div class="grid3">' +
@@ -5218,8 +5243,6 @@ function paintComposer() {
     if (isNaN(v) || v <= 0) delete composer.fijos[inp.dataset.fijo];
     else composer.fijos[inp.dataset.fijo] = v;
   });
-  const q = box.querySelector('#cp-q');
-  q.addEventListener('input', () => composerSearch(q.value.trim()));
   box.querySelector('[data-calc]').onclick = () => {
     pullComposer();
     if (composer.selected.length < 2) { toast('Toca al menos dos ingredientes'); return; }
@@ -5263,7 +5286,8 @@ function composerSearch(term) {
   box.querySelectorAll('[data-use]').forEach(b => b.onclick = () => {
     pullComposer();
     if (composer.selected.indexOf(b.dataset.use) < 0) composer.selected.push(b.dataset.use);
-    document.getElementById('cp-q').value = '';
+    const q = document.getElementById('cp-q');
+    if (q) q.value = '';
     paintComposer();
     toast(shortName(foodById(b.dataset.use)) + ' añadido');
   });
@@ -5385,9 +5409,9 @@ function bindComposerResults() {
 
 /* ---- Selector de alimentos: ordenado por proteína/caloría ---- */
 function sheetPicker(title, onPick) {
-  const body =
-    '<div class="field sticky-search"><input class="input" id="pk-q" type="search" placeholder="Buscar alimento" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>' +
-    '<div id="pk-list"></div>';
+  const top = '<input class="input" id="pk-q" type="search" placeholder="Buscar alimento" ' +
+    'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">';
+  const body = '<div id="pk-list"></div>';
   openSheet(title, body, scrim => {
     const q = scrim.querySelector('#pk-q');
     const list = scrim.querySelector('#pk-list');
@@ -5414,7 +5438,7 @@ function sheetPicker(title, onPick) {
     paint('');
     q.addEventListener('input', () => paint(q.value.trim()));
     setTimeout(() => q.focus(), 220);
-  });
+  }, top);
 }
 
 /* ============================================================
@@ -5430,19 +5454,19 @@ function sheetBuilder(mealKey) {
   const body =
     '<button class="fuera-btn" id="bd-fuera" aria-pressed="false">' +
       '<span class="ico">🍽</span>' +
-      '<span class="txt"><b>Comida fuera</b>' +
-      '<small>Cuenta para tus macros, pero no gasta despensa ni entra en la compra</small></span>' +
+      '<span class="txt"><b>Comida fuera</b></span>' +
       '<span class="mark"></span>' +
     '</button>' +
-    '<div class="field sticky-search">' +
-      '<input class="input" id="bd-q" type="search" placeholder="Buscar alimento y tocar para añadir" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">' +
-    '</div>' +
     '<div id="bd-results"></div>' +
     '<div id="bd-items"></div>' +
     '<div id="bd-tot"></div>' +
     '<div class="field"><label for="bd-name">Guardarla también como receta (opcional)</label>' +
       '<input class="input" id="bd-name" placeholder="Nombre de la receta"></div>' +
     '<button class="btn primary wide" id="bd-save">Añadir a ' + mealName(mealKey).toLowerCase() + '</button>';
+
+  const top = '<input class="input" id="bd-q" type="search" ' +
+    'placeholder="Buscar alimento y tocar para añadir" ' +
+    'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">';
 
   openSheet('Montar ' + mealName(mealKey).toLowerCase(), body, scrim => {
     const q = scrim.querySelector('#bd-q');
@@ -5459,7 +5483,7 @@ function sheetBuilder(mealKey) {
     builderResults('');
     builderItems();
     setTimeout(() => q.focus(), 220);
-  });
+  }, top);
 }
 
 /* Resultados de búsqueda; se ordenan por proteína por caloría. */
@@ -5804,6 +5828,18 @@ document.getElementById('view').addEventListener('click', ev => {
     return;
   }
   if (act === 'edit-entry') { sheetEditEntry(d.id); return; }
+  if (act === 'toggle-fuera') {
+    const e = entryById(curDate, d.id);
+    if (!e) return;
+    const ahora = !e.fuera;
+    // Pasar a «fuera» devuelve a la despensa lo que había descontado;
+    // quitarlo vuelve a descontarlo.
+    reconcilePantry(e.food_id, e.fuera ? 0 : (e.qty || 0), ahora ? 0 : (e.qty || 0));
+    replaceEntry(curDate, d.id, Object.assign({}, e, { fuera: ahora || undefined }));
+    render();
+    toast(ahora ? 'Marcado como comida fuera' : 'Ya no es comida fuera');
+    return;
+  }
   if (act === 'del-entry') {
     // Quitar un registro devuelve a la despensa lo que había descontado
     const e = entryById(curDate, d.id);
