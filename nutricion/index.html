@@ -822,7 +822,7 @@ input[type="file"] { padding: 12px; font-size: 14px; }
    ============================================================ */
 /* Sello de versión: sirve para saber si el móvil está sirviendo una copia
    guardada en vez de la última. Se ve en Ajustes. */
-const VERSION = 'v21';
+const VERSION = 'v22';
 const FECHA_VERSION = '12 ago 2026';
 
 const DEFAULT_TARGETS = { kcal: 1600, protein: 115, carbs: 165, fat: 55 };
@@ -3472,6 +3472,9 @@ function recipeHits(recipe, terms) {
    suficiente para desempatar entre recetas parecidas, pero no tanto como
    para sacrificar los objetivos del día. */
 const PESO_DESPENSA = 18;
+/* Más que la suma de todos los bonus: ninguno puede comprar un día que se
+   pase del límite de saturadas. */
+const PENA_SATURADAS = 60;
 
 function generateMenu(ws, opts) {
   const prev = getMenu(ws);
@@ -3529,8 +3532,12 @@ function generateMenu(ws, opts) {
         // poco tiempo, esas suben; no se filtra, o algunas comidas se
         // quedarían sin nada que poner.
         const prisa = pref.maxTiempo && pref.maxTiempo <= 25 && hasTag(r, 'rapido') ? 12 : 0;
+        // Pasarse de saturadas es una regla de salud, no una preferencia:
+        // el castigo tiene que ser mayor que cualquier bonus, o la
+        // despensa y los antojos acaban mandando sobre el colesterol.
+        const pasaSat = (satSoFar + (adj.macros.sat || 0)) > satLimit(t) ? PENA_SATURADAS : 0;
         const bonus = cobertura * PESO_DESPENSA + Math.min(3, favoriteHits(r, meal.key)) * 4 +
-          Math.min(3, pedidos) * 10 + prisa;
+          Math.min(3, pedidos) * 10 + prisa - pasaSat;
         return { r: r, factor: factor, adj: adj, faltan: missingCount(r, factor), raw: s.raw + bonus };
       })
         // En modo despensa manda cuánto te falta y los macros desempatan.
@@ -4386,17 +4393,13 @@ function viewMenu() {
   '</div>';
 
   const enCasa = pantry().filter(p => (p.estimated_quantity || 0) > 0).length;
-  const modo =
-    '<div class="chips" style="margin-bottom:2px">' +
-      '<button class="chip" data-act="menu-modo" data-m="mixto" aria-pressed="' +
-        (menuSoloDespensa ? 'false' : 'true') + '">Prioriza lo que tengo</button>' +
-      '<button class="chip" data-act="menu-modo" data-m="solo" aria-pressed="' +
-        (menuSoloDespensa ? 'true' : 'false') + '">Lo que menos falte</button>' +
-    '</div>';
+  // Arriba solo lo que se usa a diario. Todo lo que es «cómo quiero la
+  // semana» —los modos de despensa, las sugerencias, regenerar— vive
+  // dentro de Preferencias, que es de lo que se trata.
+  const prefsBtn = '<button class="btn wide" data-act="menu-prefs">Preferencias</button>';
 
   if (!menu) {
-    return nav + modo +
-      '<button class="btn wide" data-act="menu-prefs">🎤 Decirme cómo quieres la semana</button>' +
+    return nav + prefsBtn +
       '<div class="card"><span class="eyebrow">Sin menú</span>' +
       '<p class="muted" style="margin:8px 0 12px;font-size:13px">Se generará ajustando las porciones para ' +
       'cuadrar <span class="num">' + t.kcal + '</span> kcal y <span class="num">' + t.protein +
@@ -4485,25 +4488,7 @@ function viewMenu() {
       '</div></div>';
   }).join('');
 
-  const pref = menuPrefs(ws);
-  const resumen = pref.texto
-    ? '<p class="hint" style="margin:0">Con tus sugerencias: <em>«' + esc(pref.texto) + '»</em>' +
-        (pref.quiero.length ? ' · más ' + esc(pref.quiero.join(', ')) : '') +
-        (pref.no.length ? ' · nada de ' + esc(pref.no.join(', ')) : '') +
-      '</p>'
-    : '';
-
-  return nav + modo +
-    '<button class="btn wide" data-act="menu-prefs">🎤 Decirme cómo quieres la semana</button>' +
-    resumen +
-    '<div style="display:flex;gap:8px">' +
-      '<button class="btn grow" data-act="gen-menu">Regenerar</button>' +
-      '<button class="btn primary grow" data-act="go-shop">Lista de la compra</button>' +
-    '</div>' +
-    '<p class="hint" style="margin:0">Toca una comida para cambiarla. El candado la fija para que no se mueva al ' +
-      'regenerar. «En casa» quiere decir que tienes todos los ingredientes; «faltan 2», que hay que comprar dos ' +
-      'cosas. Con <em>lo que menos falte</em> manda la despensa y los macros desempatan.</p>' +
-    '<div>' + days + '</div>';
+  return nav + prefsBtn + '<div>' + days + '</div>';
 }
 
 /* ============================================================
@@ -5947,6 +5932,18 @@ function sheetMenuPrefs() {
   const ws = menuWeek || weekStartOf(today());
   const p = menuPrefs(ws);
   const body =
+    '<div><span class="eyebrow">Con lo que hay en casa</span>' +
+      '<div class="chips" style="margin-top:8px">' +
+        '<button class="chip" data-mp-modo="mixto" aria-pressed="' +
+          (menuSoloDespensa ? 'false' : 'true') + '">Prioriza lo que tengo</button>' +
+        '<button class="chip" data-mp-modo="solo" aria-pressed="' +
+          (menuSoloDespensa ? 'true' : 'false') + '">Lo que menos falte</button>' +
+      '</div>' +
+      '<p class="hint" style="margin:6px 0 0">Con <em>lo que menos falte</em> manda la despensa y los ' +
+        'macros desempatan. En el menú, «en casa» quiere decir que tienes todos los ingredientes y ' +
+        '«🛒 faltan 2», que hay que comprar dos cosas.</p></div>' +
+
+    '<div><span class="eyebrow">Cómo quieres la semana</span></div>' +
     '<p class="hint" style="margin:0">Di o escribe cómo quieres la semana. Leo tus palabras ' +
       'buscando alimentos del catálogo y el tiempo que tengas: <em>«más pescado y verdura, ' +
       'sin cerdo, algo rápido»</em>. No hay ninguna IA dentro de la app —funciona sin conexión—, ' +
@@ -5960,7 +5957,8 @@ function sheetMenuPrefs() {
       esc(p.texto || '') + '</textarea></div>' +
     '<div id="mp-lee"></div>' +
     '<div style="display:flex;flex-direction:column;gap:7px">' +
-      '<button class="btn primary wide" id="mp-save">Guardar y regenerar el menú</button>' +
+      '<button class="btn primary wide" id="mp-save">Guardar y rehacer el menú</button>' +
+      '<button class="btn wide" id="mp-regen">Rehacer sin cambiar nada</button>' +
       (p.texto ? '<button class="btn wide" id="mp-clear">Olvidar las sugerencias</button>' : '') +
     '</div>';
 
@@ -5987,6 +5985,12 @@ function sheetMenuPrefs() {
     txt.addEventListener('input', pinta);
     pinta();
 
+    scrim.querySelectorAll('[data-mp-modo]').forEach(b => b.onclick = () => {
+      menuSoloDespensa = b.dataset.mpModo === 'solo';
+      scrim.querySelectorAll('[data-mp-modo]').forEach(x =>
+        x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+    });
+
     const mic = scrim.querySelector('#mp-mic');
     if (mic) mic.onclick = () => {
       if (dictado && dictado.activo) {
@@ -6004,6 +6008,13 @@ function sheetMenuPrefs() {
       closeSheet();
       render();
       toast(r.quiero.length || r.no.length ? 'Menú hecho con tus sugerencias' : 'Menú regenerado');
+    };
+    scrim.querySelector('#mp-regen').onclick = () => {
+      pararDictado();
+      generateMenu(ws, { soloDespensa: menuSoloDespensa });
+      closeSheet();
+      render();
+      toast('Menú rehecho');
     };
     const clear = scrim.querySelector('#mp-clear');
     if (clear) clear.onclick = () => {
@@ -6337,11 +6348,6 @@ document.getElementById('view').addEventListener('click', ev => {
     });
     render();
     toast(n ? n + (n === 1 ? ' producto a la lista' : ' productos a la lista') : 'No falta nada');
-    return;
-  }
-  if (act === 'menu-modo') {
-    menuSoloDespensa = d.m === 'solo';
-    render();
     return;
   }
   if (act === 'gen-menu') {
