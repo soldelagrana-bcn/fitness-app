@@ -759,6 +759,7 @@ input[type="file"] { padding: 12px; font-size: 14px; }
   min-height: 40px; font-size: 13.5px; font-weight: 620; color: var(--ink);
 }
 .op-chevron { color: var(--accent); font-size: 12px; margin-left: 7px; }
+.prep { font-size: 12.5px; color: var(--ink-soft); margin: 0; line-height: 1.45; }
 
 /* ---- Filas en modo edición ---- */
 .erow {
@@ -856,7 +857,7 @@ input[type="file"] { padding: 12px; font-size: 14px; }
    ============================================================ */
 /* Sello de versión: sirve para saber si el móvil está sirviendo una copia
    guardada en vez de la última. Se ve en Ajustes. */
-const VERSION = 'v25';
+const VERSION = 'v26';
 const FECHA_VERSION = '12 ago 2026';
 
 const DEFAULT_TARGETS = { kcal: 1600, protein: 115, carbs: 165, fat: 55 };
@@ -6313,44 +6314,119 @@ function sheetMenuPrefs() {
 }
 
 /* ---- Cambiar una comida del menú ---- */
+/* Las notas de una receta unas veces son cómo se hace y otras un apunte
+   nutricional. Llamar «Preparación» a «la grasa viene del aguacate» es
+   mentir en la etiqueta, así que se mira cómo empieza. */
+const VERBOS_COCINA = /^(mezcl|tuest|calient|tritur|cuec|cuez|horne|pon|ponl|añad|anad|aplast|bat|saltea|asa|precalient|deja|hierv|escurr|corta|pica|sirve|monta|reserva|marina|adoba|remueve|reboza|fríe|frie|guisa|dora)/i;
+function tituloNota(nota) {
+  return VERBOS_COCINA.test(String(nota).trim()) ? 'Preparación' : 'Nota';
+}
+
+let swapOpen = null;   // qué otra opción está desplegada al cambiar una comida
+
 function sheetSwap(date, mealKey) {
+  swapOpen = null;
+  openSheet(mealName(mealKey) + ' · ' + dayName(date) + ' ' + shortDate(date),
+    '<div id="sw-box"></div>', () => paintSwap(date, mealKey));
+}
+
+function paintSwap(date, mealKey) {
+  const box = document.getElementById('sw-box');
+  if (!box) return;
   const ws = menuWeek || weekStartOf(today());
   const menu = getMenu(ws);
-  if (!menu) return;
-  const day = menu.days.find(d => d.date === date);
+  const day = menu && menu.days.find(d => d.date === date);
   if (!day) return;
   const gap = slotGap(day, mealKey);
+  const slot = (day.meal_slots || []).find(x => x.meal_type === mealKey);
+  const puesta = slot ? slotRecipe(slot) : null;
 
   const options = recipesFor(mealKey)
+    .filter(r => !puesta || r.id !== slot.recipe_id)
     .map(r => {
       const factor = fitFactor(r, gap);
       const adj = scaleRecipe(r, factor);
-      const s = scoreRecipe(adj, gap, { fatLeft: gap.fat });
-      return { r: r, factor: factor, macros: adj.macros, raw: s.raw };
+      const sc = scoreRecipe(adj, gap, { fatLeft: gap.fat });
+      return { r: r, factor: factor, adj: adj, macros: adj.macros, raw: sc.raw };
     })
     .sort((a, b) => b.raw - a.raw);
-  const best = options.length ? Math.max(options[0].raw, 1) : 1;
 
-  const body =
-    '<p class="hint" style="margin:0">Al día le quedan <span class="num">' + Math.round(gap.kcal) +
-      '</span> kcal y <span class="num">' + Math.round(gap.prot) + '</span> g de proteína con las demás comidas puestas.</p>' +
-    '<div>' + options.map(o =>
-      '<button class="pick" data-s="' + o.r.id + '"><div class="info">' +
-        '<span class="nm">' + esc(o.r.name) + (o.factor !== 1 ? ' <span class="faint">×' + o.factor + '</span>' : '') + '</span>' +
-        '<span class="sub">' + o.macros.kcal + ' kcal · P' + fmt1(o.macros.prot) +
-          ' C' + fmt1(o.macros.carbs) + ' G' + fmt1(o.macros.fat) + '</span>' +
-      '</div><span class="dens">' + Math.max(1, Math.round((o.raw / best) * 100)) + '</span></button>').join('') + '</div>';
+  const macros = m =>
+    '<div class="macro-row"><b>' + Math.round(m.kcal) + ' kcal</b>' +
+      '<span>P ' + fmt1(m.prot) + '</span><span>C ' + fmt1(m.carbs) + '</span>' +
+      '<span>G ' + fmt1(m.fat) + '</span><span class="faint">sat ' + fmt1(m.sat) + '</span></div>';
 
-  openSheet(mealName(mealKey) + ' · ' + dayName(date) + ' ' + shortDate(date), body, scrim => {
-    scrim.querySelectorAll('[data-s]').forEach(b => b.onclick = () => {
-      const r = recipeById(b.dataset.s);
-      const slot = day.meal_slots.find(s => s.meal_type === mealKey);
-      const factor = r ? fitFactor(r, gap) : 1;
-      if (slot) { slot.recipe_id = b.dataset.s; slot.factor = factor; }
-      else day.meal_slots.push({ meal_type: mealKey, recipe_id: b.dataset.s, factor: factor, is_locked: false });
-      setMenu(menu);
-      closeSheet(); render(); toast('Comida cambiada');
-    });
+  /* Lo que lleva y, si la receta lo trae, cómo se hace en una línea. */
+  const detalle = r =>
+    '<div class="ing-head">Lo que lleva</div>' + dishBreakdown(r) + macros(r.macros) +
+    (r.notes ? '<div class="ing-head" style="margin-top:10px">' + tituloNota(r.notes) + '</div>' +
+      '<p class="prep">' + esc(r.notes) + '</p>' : '');
+
+  // Lo que falta de casa para el plato puesto: es la pregunta que se hace
+  // mirando el menú, y aquí se contesta sin salir.
+  let faltaHtml = '';
+  if (puesta) {
+    const faltan = (puesta.ingredients || [])
+      .filter(i => pantryQty(i.ingredient_id) < (i.amount_g || 0))
+      .map(i => shortName(foodById(i.ingredient_id)))
+      .filter(Boolean);
+    faltaHtml = faltan.length
+      ? '<p class="need-buy" style="margin:8px 0 0">🛒 Te ' + (faltan.length === 1 ? 'falta' : 'faltan') +
+        ' ' + esc(faltan.join(', ')) + '</p>'
+      : '<p class="have-all" style="margin:8px 0 0">Lo tienes todo en casa</p>';
+  }
+
+  let html = '';
+  if (puesta) {
+    html += '<div class="option option-full">' +
+      '<div class="option-head"><span class="option-n">propuesto</span>' +
+        '<span class="sug-name">' + esc(puesta.name) + '</span>' +
+        (slot.factor && slot.factor !== 1 ? '<span class="pill">×' + slot.factor + '</span>' : '') +
+      '</div>' + detalle(puesta) + faltaHtml + '</div>';
+  }
+
+  html += '<p class="hint" style="margin:12px 0 0">Al día le quedan <span class="num">' +
+    Math.round(gap.kcal) + '</span> kcal y <span class="num">' + Math.round(gap.prot) +
+    '</span> g de proteína con las demás comidas puestas.</p>';
+
+  if (options.length) {
+    html += '<div class="or-line"><span>cambiarla por</span></div>' +
+      options.map(o => {
+        const abierta = swapOpen === o.r.id;
+        return '<div class="option">' +
+          '<div class="option-head">' +
+            '<button class="sug-name op-open" data-sw-open="' + o.r.id + '" aria-expanded="' +
+              (abierta ? 'true' : 'false') + '">' + esc(o.r.name) +
+              (o.factor !== 1 ? ' <span class="faint">×' + o.factor + '</span>' : '') +
+              '<span class="op-chevron">' + (abierta ? '⌃' : '⌄') + '</span></button>' +
+          '</div>' +
+          macros(o.macros) +
+          (abierta
+            ? detalle(o.adj) +
+              '<button class="btn primary wide" style="margin-top:9px" data-sw-put="' + o.r.id + '">Poner esta</button>'
+            : '<div class="sug-actions">' +
+                '<button class="btn grow" data-sw-open="' + o.r.id + '">Ver qué lleva</button>' +
+                '<button class="btn primary grow" data-sw-put="' + o.r.id + '">Poner esta</button>' +
+              '</div>') +
+        '</div>';
+      }).join('');
+  }
+  box.innerHTML = html;
+
+  box.querySelectorAll('[data-sw-open]').forEach(b => b.onclick = () => {
+    swapOpen = swapOpen === b.dataset.swOpen ? null : b.dataset.swOpen;
+    paintSwap(date, mealKey);
+  });
+  box.querySelectorAll('[data-sw-put]').forEach(b => b.onclick = () => {
+    const r = recipeById(b.dataset.swPut);
+    const factor = r ? fitFactor(r, gap) : 1;
+    const sl = (day.meal_slots || []).find(x => x.meal_type === mealKey);
+    // Cambiar de plato borra los cambios que le hubieras hecho al anterior:
+    // eran de aquella receta, no de este hueco.
+    if (sl) Object.assign(sl, { recipe_id: b.dataset.swPut, factor: factor, swaps: {}, removed: [], added: [] });
+    else day.meal_slots.push({ meal_type: mealKey, recipe_id: b.dataset.swPut, factor: factor, is_locked: false });
+    setMenu(menu);
+    closeSheet(); render(); toast('Comida cambiada');
   });
 }
 
