@@ -111,7 +111,14 @@ async function syncFromSupabase() {
     const mergedData = {
       workouts: mergedWorkouts,
       weight_log: Object.values(weightMap),
-      nutrition: row.data.nutrition || {}
+      nutrition: row.data.nutrition || {},
+      // Recetas, despensa y menús se mergean de forma aditiva en Store
+      recipes: row.data.recipes || [],
+      recipe_overrides: row.data.recipe_overrides || {},
+      recipes_deleted: row.data.recipes_deleted || [],
+      recipe_usage: row.data.recipe_usage || {},
+      pantry: row.data.pantry || [],
+      menus: row.data.menus || {}
     };
 
     const ok = Store.importAll(JSON.stringify(mergedData));
@@ -1044,24 +1051,57 @@ function renderHistorial() {
 // ============================================================
 // VISTA: NUTRICIÓN
 // ============================================================
+// Pestaña activa dentro de Nutrición
+let nutTab = 'hoy';
+let nutMenuWeek = null;      // semana visible en el menú (lunes)
+let nutRecipeFilter = 'todas';
+let nutSuggestMeal = null;   // comida para la que se piden sugerencias
+
+const NUT_TABS = [
+  { key: 'hoy',      label: 'Hoy',      icon: '📊' },
+  { key: 'recetas',  label: 'Recetas',  icon: '📖' },
+  { key: 'menu',     label: 'Menú',     icon: '🗓' },
+  { key: 'despensa', label: 'Despensa', icon: '🧺' },
+];
+
 function renderNutricion() {
+  const tabsHtml = NUT_TABS.map(t => `
+    <button class="nut-tab${nutTab === t.key ? ' active' : ''}" data-action="nut-tab" data-tab="${t.key}">
+      <span class="nut-tab-icon">${t.icon}</span><span>${t.label}</span>
+    </button>`).join('');
+
+  let body;
+  switch (nutTab) {
+    case 'recetas':  body = renderNutRecetas(); break;
+    case 'menu':     body = renderNutMenu(); break;
+    case 'despensa': body = renderNutDespensa(); break;
+    default:         body = renderNutHoy();
+  }
+
+  return `
+    <div class="view">
+      <div class="view-header">
+        <h2 class="view-title">Nutrición</h2>
+      </div>
+      <div class="nut-tabs">${tabsHtml}</div>
+      ${body}
+    </div>`;
+}
+
+// ============================================================
+// NUTRICIÓN · HOY
+// ============================================================
+function renderNutHoy() {
   const fecha = nutDate;
   const todayStr = new Date().toISOString().split('T')[0];
   const dateObj = new Date(fecha + 'T12:00:00');
-  const dayOfWeek = dateObj.getDay();
-  const tipoDia = TIPO_DIA_SEMANA[dayOfWeek];
-  const targets = MACROS_POR_DIA[tipoDia];
+  const targets = NutritionConfig.targets();
 
   const log = Store.getNutritionLog(fecha);
   const entries = log.entries || [];
-
-  // Totales del día
-  const totals = entries.reduce((acc, e) => ({
-    kcal:  acc.kcal  + (e.kcal  || 0),
-    prot:  acc.prot  + (e.prot  || 0),
-    carbs: acc.carbs + (e.carbs || 0),
-    fat:   acc.fat   + (e.fat   || 0),
-  }), { kcal: 0, prot: 0, carbs: 0, fat: 0 });
+  const totals = Planner.dayTotals(fecha);
+  const rem = Planner.remaining(fecha);
+  const alerts = Planner.alerts(fecha);
 
   const isToday = fecha === todayStr;
   const dateLabel = isToday
@@ -1075,7 +1115,6 @@ function renderNutricion() {
   const offset = +(circ * (1 - pctKcal)).toFixed(1);
   const ringColor = totals.kcal > targets.kcal * 1.05 ? 'var(--danger)' : 'var(--primary)';
 
-  // Barra de macros helper
   const macroBar = (label, val, target, color) => {
     const pct = Math.min((val / (target || 1)) * 100, 100).toFixed(1);
     const over = val > target * 1.05;
@@ -1089,17 +1128,35 @@ function renderNutricion() {
       </div>`;
   };
 
-  // Secciones de comidas
+  // Grasa saturada frente al 20% del objetivo de grasa
+  const satLimit = NutritionConfig.satFatLimitG(targets);
+  const satPct = Math.min((totals.sat / satLimit) * 100, 100).toFixed(1);
+  const satOver = totals.sat > satLimit;
+
+  const alertsHtml = alerts.length ? `
+    <div class="nut-alerts">
+      ${alerts.map(a => `
+        <div class="nut-alert nut-alert-${a.level}">
+          <span class="nut-alert-icon">${a.icon}</span>
+          <div class="nut-alert-body">
+            <strong>${a.title}</strong>
+            <span class="muted">${a.detail}</span>
+          </div>
+        </div>`).join('')}
+    </div>` : '';
+
+  // ---- Comidas del día ----
   const meals = [
-    { key: 'desayuno', icon: '☀️', nombre: 'Desayuno' },
-    { key: 'almuerzo', icon: '🍽️', nombre: 'Almuerzo' },
-    { key: 'cena',     icon: '🌙', nombre: 'Cena' },
-    { key: 'snacks',   icon: '🍎', nombre: 'Snacks' },
+    { key: 'desayuno', plan: 'desayuno', icon: '☀️', nombre: 'Desayuno' },
+    { key: 'almuerzo', plan: 'almuerzo', icon: '🍽️', nombre: 'Almuerzo' },
+    { key: 'snacks',   plan: 'snack',    icon: '🍎', nombre: 'Snack' },
+    { key: 'cena',     plan: 'cena',     icon: '🌙', nombre: 'Cena' },
   ];
 
   const mealsHtml = meals.map(meal => {
     const mealEntries = entries.filter(e => e.meal === meal.key);
     const mealKcal = mealEntries.reduce((a, e) => a + (e.kcal || 0), 0);
+    const mealProt = mealEntries.reduce((a, e) => a + (e.prot || 0), 0);
     const entriesHtml = mealEntries.map(entry => `
       <div class="nut-entry">
         <div class="nut-entry-info">
@@ -1111,12 +1168,14 @@ function renderNutricion() {
           <button class="nut-entry-del" data-action="nut-remove-entry" data-id="${entry.id}" data-fecha="${fecha}">✕</button>
         </div>
       </div>`).join('');
+
     return `
       <div class="nut-meal-section">
         <div class="nut-meal-header">
           <span class="nut-meal-icon">${meal.icon}</span>
           <span class="nut-meal-nombre">${meal.nombre}</span>
-          <span class="nut-meal-kcal muted">${Math.round(mealKcal)} kcal</span>
+          <span class="nut-meal-kcal muted">${Math.round(mealKcal)} kcal${mealProt ? ` · P${Math.round(mealProt)}g` : ''}</span>
+          <button class="nut-icon-btn" data-action="nut-suggest" data-meal="${meal.plan}" title="¿Qué como?">✨</button>
           <button class="nut-add-btn" data-action="nut-add-food" data-meal="${meal.key}">+</button>
         </div>
         ${entriesHtml ? `<div class="nut-entries">${entriesHtml}</div>` : ''}
@@ -1124,68 +1183,405 @@ function renderNutricion() {
   }).join('');
 
   return `
-    <div class="view">
-      <div class="view-header">
-        <h2 class="view-title">Nutrición</h2>
-      </div>
+    <div class="nut-date-bar">
+      <button class="nut-date-btn" data-action="nut-prev-day">‹</button>
+      <span class="nut-date-label">${dateLabel}</span>
+      <button class="nut-date-btn${isToday ? ' disabled' : ''}" data-action="nut-next-day"${isToday ? ' disabled' : ''}>›</button>
+    </div>
 
-      <div class="nut-date-bar">
-        <button class="nut-date-btn" data-action="nut-prev-day">‹</button>
-        <span class="nut-date-label">${dateLabel}</span>
-        <button class="nut-date-btn${isToday ? ' disabled' : ''}" data-action="nut-next-day"${isToday ? ' disabled' : ''}>›</button>
-      </div>
-
-      <div class="card nut-summary-card">
-        <div class="nut-summary-inner">
-          <div class="nut-ring-wrap">
-            <svg viewBox="0 0 100 100" class="nut-ring-svg">
-              <circle cx="50" cy="50" r="${R}" fill="none" stroke="var(--border)" stroke-width="9"/>
-              <circle cx="50" cy="50" r="${R}" fill="none" stroke="${ringColor}" stroke-width="9"
-                stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"
-                transform="rotate(-90 50 50)" style="transition:stroke-dashoffset 0.6s ease"/>
-            </svg>
-            <div class="nut-ring-center">
-              <span class="nut-ring-val">${Math.round(totals.kcal)}</span>
-              <span class="nut-ring-label">/ ${targets.kcal} kcal</span>
-              <span class="nut-ring-sub">${targets.label}</span>
+    <div class="card nut-summary-card">
+      <div class="nut-summary-inner">
+        <div class="nut-ring-wrap">
+          <svg viewBox="0 0 100 100" class="nut-ring-svg">
+            <circle cx="50" cy="50" r="${R}" fill="none" stroke="var(--border)" stroke-width="9"/>
+            <circle cx="50" cy="50" r="${R}" fill="none" stroke="${ringColor}" stroke-width="9"
+              stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"
+              transform="rotate(-90 50 50)" style="transition:stroke-dashoffset 0.6s ease"/>
+          </svg>
+          <div class="nut-ring-center">
+            <span class="nut-ring-val">${Math.round(totals.kcal)}</span>
+            <span class="nut-ring-label">/ ${targets.kcal} kcal</span>
+            <span class="nut-ring-sub">objetivo fijo</span>
+          </div>
+        </div>
+        <div class="nut-macro-bars">
+          ${macroBar('Prot', totals.prot, targets.protein_g, 'var(--success)')}
+          ${macroBar('Carbos', totals.carbs, targets.carbs_g, 'var(--warning)')}
+          ${macroBar('Grasas', totals.fat, targets.fat_g, '#8B5CF6')}
+          <div class="nut-bar-row">
+            <span class="nut-bar-label" title="Máximo 20% del objetivo de grasa">Sat</span>
+            <div class="nut-bar-track">
+              <div class="nut-bar-fill" style="width:${satPct}%;background:${satOver ? 'var(--danger)' : 'var(--text-muted)'}"></div>
             </div>
+            <span class="nut-bar-val">${totals.sat.toFixed(1)}<span class="muted">/${satLimit}g</span></span>
           </div>
-          <div class="nut-macro-bars">
-            ${macroBar('Prot', totals.prot, targets.proteina, 'var(--success)')}
-            ${macroBar('Carbos', totals.carbs, targets.carbos, 'var(--warning)')}
-            ${macroBar('Grasas', totals.fat, targets.grasa, '#8B5CF6')}
-          </div>
-        </div>
-        <div class="nut-remaining-row">
-          <span>Restante</span>
-          <strong style="color:${totals.kcal > targets.kcal ? 'var(--danger)' : 'var(--success)'}">
-            ${totals.kcal > targets.kcal ? '+' : ''}${Math.round(totals.kcal - targets.kcal)} kcal
-          </strong>
         </div>
       </div>
-
-      <div class="nut-meals">
-        ${mealsHtml}
+      <div class="nut-remaining-row">
+        <span>${rem.kcal >= 0 ? 'Te faltan' : 'Te has pasado'}</span>
+        <strong style="color:${rem.kcal < 0 ? 'var(--danger)' : 'var(--primary)'}">
+          ${Math.abs(Math.round(rem.kcal))} kcal
+        </strong>
       </div>
+    </div>
 
-      <section>
-        <h4 class="section-title">Suplementación activa</h4>
-        <div class="card">
-          <div class="suplement-row">
-            <span class="sup-icon">🐟</span>
-            <div><strong>Omega-3</strong><p class="muted">2 cápsulas con el desayuno</p></div>
-          </div>
-          <div class="suplement-row">
-            <span class="sup-icon">🧘‍♀️</span>
-            <div><strong>Magnesio bisglicinato</strong><p class="muted">1 cápsula antes de dormir</p></div>
-          </div>
-          <div class="suplement-row pending">
-            <span class="sup-icon">☀️</span>
-            <div><strong>Vitamina D3+K2</strong><p class="muted">Pendiente de incorporar</p></div>
-          </div>
+    ${alertsHtml}
+    ${renderCerrarDiaCard(fecha, rem, targets)}
+
+    <div class="nut-meals">
+      ${mealsHtml}
+    </div>
+
+    <section>
+      <h4 class="section-title">Suplementación activa</h4>
+      <div class="card">
+        <div class="suplement-row">
+          <span class="sup-icon">🐟</span>
+          <div><strong>Omega-3</strong><p class="muted">2 cápsulas con el desayuno</p></div>
         </div>
-      </section>
+        <div class="suplement-row">
+          <span class="sup-icon">🧘‍♀️</span>
+          <div><strong>Magnesio bisglicinato</strong><p class="muted">1 cápsula antes de dormir</p></div>
+        </div>
+        <div class="suplement-row pending">
+          <span class="sup-icon">☀️</span>
+          <div><strong>Vitamina D3+K2</strong><p class="muted">Pendiente de incorporar</p></div>
+        </div>
+      </div>
+    </section>`;
+}
+
+// ============================================================
+// "¿QUÉ ME FALTA PARA CERRAR EL DÍA?" — feature central
+// ============================================================
+function renderCerrarDiaCard(fecha, rem, targets) {
+  const pending = Planner.pendingMeals(fecha);
+  const done = rem.kcal <= 25 && rem.prot <= 0;
+
+  if (done) {
+    return `
+      <div class="card cerrar-card cerrar-done">
+        <div class="cerrar-head">
+          <span class="cerrar-title">✅ Día cerrado</span>
+        </div>
+        <p class="muted">Has llegado a los macros objetivo. Proteína ${Math.round(targets.protein_g - rem.prot)}g de ${targets.protein_g}g.</p>
+      </div>`;
+  }
+
+  // Comida sobre la que sugerir: la elegida a mano o la siguiente pendiente
+  const mealKey = nutSuggestMeal || pending[0] || 'cena';
+  const mealMeta = MEAL_TYPES.find(m => m.key === mealKey) || MEAL_TYPES[3];
+  const res = Planner.suggestForMeal(mealKey, fecha);
+  const target = res.target;
+
+  const chipRow = MEAL_TYPES.map(m => `
+    <button class="cerrar-chip${m.key === mealKey ? ' active' : ''}" data-action="nut-suggest" data-meal="${m.key}">
+      ${m.icon} ${m.nombre}
+    </button>`).join('');
+
+  const gapPill = (label, val, unit) => {
+    const over = val < 0;
+    return `<div class="cerrar-gap${over ? ' over' : ''}">
+      <span class="cerrar-gap-val">${over ? '+' : ''}${Math.abs(Math.round(val))}${unit}</span>
+      <span class="cerrar-gap-label">${over ? 'de más' : 'falta'} ${label}</span>
     </div>`;
+  };
+
+  const sugerenciasHtml = res.suggestions.length
+    ? res.suggestions.slice(0, 3).map(s => {
+        const m = s.macros;
+        const porcion = s.factor !== 1
+          ? `<span class="cerrar-porcion">porción x${s.factor}</span>`
+          : '';
+        return `
+          <div class="cerrar-sug">
+            <div class="cerrar-sug-head">
+              <span class="cerrar-sug-name">${s.recipe.name}</span>
+              <span class="cerrar-sug-score" title="Encaje con lo que te falta">${s.fit}</span>
+            </div>
+            <div class="cerrar-sug-macros">
+              <strong>${m.kcal} kcal</strong>
+              <span>P ${m.prot}g</span><span>C ${m.carbs}g</span><span>G ${m.fat}g</span>
+              ${porcion}
+            </div>
+            ${s.reasons.length ? `<div class="cerrar-sug-why">✓ ${s.reasons[0]}</div>` : ''}
+            ${s.warnings.length ? `<div class="cerrar-sug-warn">⚠ ${s.warnings[0]}</div>` : ''}
+            <div class="cerrar-sug-actions">
+              <button class="btn-mini" data-action="nut-view-recipe" data-id="${s.recipe.id}">Ver receta</button>
+              <button class="btn-mini btn-mini-primary" data-action="nut-log-suggestion"
+                data-id="${s.recipe.id}" data-factor="${s.factor}" data-meal="${mealKey}">Registrar</button>
+            </div>
+          </div>`;
+      }).join('')
+    : `<p class="nut-empty-hint muted">No hay recetas de ${mealMeta.nombre.toLowerCase()} que encajen. Añade alguna en la pestaña Recetas.</p>`;
+
+  return `
+    <div class="card cerrar-card">
+      <div class="cerrar-head">
+        <span class="cerrar-title">✨ ¿Qué me falta para cerrar el día?</span>
+      </div>
+      <div class="cerrar-gaps">
+        ${gapPill('kcal', rem.kcal, '')}
+        ${gapPill('proteína', rem.prot, 'g')}
+        ${gapPill('carbos', rem.carbs, 'g')}
+        ${gapPill('grasa', rem.fat, 'g')}
+      </div>
+      <div class="cerrar-chips">${chipRow}</div>
+      <p class="cerrar-hint muted">
+        Para ${mealMeta.nombre.toLowerCase()} te tocan ~${Math.max(0, Math.round(target.kcal))} kcal
+        y ${Math.max(0, Math.round(target.prot))}g de proteína${target.isLastMeal ? ' (última comida del día)' : ''}.
+      </p>
+      <div class="cerrar-sugerencias">${sugerenciasHtml}</div>
+      ${renderCerrarConIngrediente(fecha)}
+    </div>`;
+}
+
+/**
+ * Atajo cuando falta poco: un solo ingrediente eficiente y los
+ * gramos exactos para cerrar la proteína del día.
+ */
+function renderCerrarConIngrediente(fecha) {
+  const opciones = Planner.suggestIngredientsToClose(fecha, 3);
+  if (!opciones.length) return '';
+
+  return `
+    <div class="cerrar-ings">
+      <div class="cerrar-ings-title">O cierra con un ingrediente</div>
+      ${opciones.map(o => `
+        <button class="cerrar-ing" data-action="nut-log-ingredient"
+          data-id="${o.food.id}" data-grams="${o.grams}">
+          <span class="cerrar-ing-name">${o.food.nombre}</span>
+          <span class="cerrar-ing-qty">${o.grams} ${o.food.unit || 'g'}</span>
+          <span class="cerrar-ing-macros muted">${Math.round(o.macros.kcal)} kcal · P${o.macros.prot.toFixed(0)}g</span>
+        </button>`).join('')}
+    </div>`;
+}
+
+// ============================================================
+// NUTRICIÓN · RECETAS
+// ============================================================
+function renderNutRecetas() {
+  const filters = [{ key: 'todas', nombre: 'Todas', icon: '📖' }].concat(MEAL_TYPES);
+  const filtersHtml = filters.map(f => `
+    <button class="nut-filter${nutRecipeFilter === f.key ? ' active' : ''}" data-action="nut-recipe-filter" data-filter="${f.key}">
+      ${f.icon} ${f.nombre}
+    </button>`).join('');
+
+  const list = nutRecipeFilter === 'todas'
+    ? Recipes.all()
+    : Recipes.byMealType(nutRecipeFilter);
+
+  const sorted = list.slice().sort((a, b) => {
+    const ha = Recipes.isHabitual(a) ? 1 : 0;
+    const hb = Recipes.isHabitual(b) ? 1 : 0;
+    if (ha !== hb) return hb - ha;
+    return a.name.localeCompare(b.name);
+  });
+
+  const cardsHtml = sorted.map(r => {
+    const m = r.total_macros;
+    const meta = MEAL_TYPES.find(t => t.key === r.meal_type);
+    const density = Planner.recipeProteinDensity(r);
+    const warn = Recipes.proteinPowderWarning(r);
+    const tagsHtml = (r.tags || []).map(t => `<span class="recipe-tag">${t}</span>`).join('');
+    return `
+      <div class="card recipe-card" data-action="nut-view-recipe" data-id="${r.id}">
+        <div class="recipe-card-head">
+          <span class="recipe-meal">${meta ? meta.icon : ''}</span>
+          <span class="recipe-name">${r.name}</span>
+          ${r.is_fixed ? '<span class="recipe-badge recipe-badge-fixed">fija</span>' : ''}
+          ${Recipes.isHabitual(r) ? '<span class="recipe-badge">habitual</span>' : ''}
+        </div>
+        <div class="recipe-macros">
+          <strong>${m.kcal} kcal</strong>
+          <span>P ${m.prot}g</span><span>C ${m.carbs}g</span><span>G ${m.fat}g</span>
+          <span class="muted">sat ${m.sat}g</span>
+        </div>
+        <div class="recipe-foot">
+          <span class="recipe-density" title="Proteína por caloría">${(density * 100).toFixed(1)} g prot/100 kcal</span>
+          ${tagsHtml}
+        </div>
+        ${warn ? `<div class="cerrar-sug-warn">⚠ ${warn}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="nut-filters">${filtersHtml}</div>
+    <div class="nut-recipe-actions">
+      <button class="btn btn-primary" data-action="nut-new-recipe">+ Nueva receta</button>
+    </div>
+    <div class="nut-recipe-list">
+      ${cardsHtml || '<p class="nut-empty-hint muted">No hay recetas en esta categoría.</p>'}
+    </div>`;
+}
+
+// ============================================================
+// NUTRICIÓN · MENÚ SEMANAL
+// ============================================================
+function renderNutMenu() {
+  const weekStart = nutMenuWeek || Planner.weekStartOf(new Date().toISOString().split('T')[0]);
+  const menu = Store.getWeeklyMenu(weekStart);
+  const targets = NutritionConfig.targets();
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const weekLabel = (() => {
+    const dates = Planner.weekDates(weekStart);
+    const a = new Date(dates[0] + 'T12:00:00');
+    const b = new Date(dates[6] + 'T12:00:00');
+    const fmt = d => d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    return `${fmt(a)} – ${fmt(b)}`;
+  })();
+
+  const header = `
+    <div class="nut-date-bar">
+      <button class="nut-date-btn" data-action="nut-menu-prev-week">‹</button>
+      <span class="nut-date-label">${weekLabel}</span>
+      <button class="nut-date-btn" data-action="nut-menu-next-week">›</button>
+    </div>`;
+
+  if (!menu) {
+    return `
+      ${header}
+      <div class="card menu-empty">
+        <p class="muted">No hay menú para esta semana.</p>
+        <p class="muted" style="font-size:12px">Se generará ajustando las porciones para cuadrar
+        ${targets.kcal} kcal y ${targets.protein_g}g de proteína cada día.</p>
+        <button class="btn btn-primary" data-action="nut-generate-menu" data-week="${weekStart}">Generar menú semanal</button>
+      </div>`;
+  }
+
+  const daysHtml = menu.days.map(day => {
+    const dt = Planner.menuDayTotals(day);
+    const dObj = new Date(day.date + 'T12:00:00');
+    const dayName = dObj.toLocaleDateString('es-ES', { weekday: 'long' });
+    const dayNum = dObj.getDate();
+    const isToday = day.date === todayStr;
+    const kcalOff = Math.round(dt.kcal - targets.kcal);
+    const protOk = dt.prot >= targets.protein_g;
+    const satOver = dt.sat > NutritionConfig.satFatLimitG(targets);
+
+    const slotsHtml = MEAL_TYPES.map(mt => {
+      const slot = (day.meal_slots || []).find(s => s.meal_type === mt.key);
+      const recipe = slot ? Planner.slotRecipe(slot) : null;
+      const locked = slot && slot.is_locked;
+      return `
+        <div class="menu-slot${locked ? ' locked' : ''}">
+          <span class="menu-slot-icon">${mt.icon}</span>
+          <div class="menu-slot-body" data-action="nut-swap-slot" data-date="${day.date}" data-meal="${mt.key}">
+            <span class="menu-slot-name">${recipe ? recipe.name : '<span class="muted">— vacío —</span>'}</span>
+            ${recipe ? `<span class="menu-slot-macros muted">${recipe.total_macros.kcal} kcal · P${Math.round(recipe.total_macros.prot)}g${slot.factor && slot.factor !== 1 ? ` · x${slot.factor}` : ''}</span>` : ''}
+          </div>
+          <button class="menu-slot-lock" data-action="nut-toggle-lock" data-date="${day.date}" data-meal="${mt.key}"
+            title="${locked ? 'Desbloquear' : 'Fijar esta comida'}">${locked ? '🔒' : '🔓'}</button>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="card menu-day${isToday ? ' menu-day-today' : ''}">
+        <div class="menu-day-head">
+          <span class="menu-day-name">${dayName} ${dayNum}</span>
+          <span class="menu-day-totals${Math.abs(kcalOff) > 150 ? ' off' : ''}">
+            ${Math.round(dt.kcal)} kcal
+            <span class="${protOk ? 'ok' : 'off'}">P${Math.round(dt.prot)}g</span>
+            ${satOver ? '<span class="off" title="Grasa saturada por encima del 20%">sat↑</span>' : ''}
+          </span>
+        </div>
+        <div class="menu-slots">${slotsHtml}</div>
+      </div>`;
+  }).join('');
+
+  return `
+    ${header}
+    <div class="nut-recipe-actions">
+      <button class="btn btn-secondary" data-action="nut-generate-menu" data-week="${weekStart}">↻ Regenerar</button>
+      <button class="btn btn-primary" data-action="nut-goto-shopping">🛒 Lista de la compra</button>
+    </div>
+    <p class="menu-hint muted">Toca una comida para cambiarla · 🔒 la fija para que no se mueva al regenerar</p>
+    ${daysHtml}`;
+}
+
+// ============================================================
+// NUTRICIÓN · DESPENSA + LISTA DE LA COMPRA
+// ============================================================
+function renderNutDespensa() {
+  const pantry = Store.getPantry();
+  const weekStart = nutMenuWeek || Planner.weekStartOf(new Date().toISOString().split('T')[0]);
+  const menu = Store.getWeeklyMenu(weekStart);
+  const list = menu ? Planner.shoppingList(menu) : null;
+  const checked = Store.getShoppingChecked(weekStart);
+
+  const pantryHtml = pantry.length
+    ? pantry.map(p => {
+        const f = FoodDB.byId(p.ingredient_id);
+        if (!f) return '';
+        return `
+          <div class="pantry-item">
+            <div class="pantry-info">
+              <span class="pantry-name">${f.nombre}</span>
+              <span class="pantry-meta muted">${Math.round(p.estimated_quantity || 0)} ${f.unit || 'g'}${p.last_purchased ? ` · comprado ${p.last_purchased}` : ''}</span>
+            </div>
+            <div class="pantry-actions">
+              <button class="nut-qty-btn" data-action="pantry-adjust" data-id="${p.ingredient_id}" data-delta="-100">−</button>
+              <button class="nut-qty-btn" data-action="pantry-adjust" data-id="${p.ingredient_id}" data-delta="100">+</button>
+              <button class="nut-entry-del" data-action="pantry-remove" data-id="${p.ingredient_id}">✕</button>
+            </div>
+          </div>`;
+      }).join('')
+    : '<p class="nut-empty-hint muted">La despensa está vacía. Añade lo que sueles tener en casa.</p>';
+
+  // Recetas que puedes hacer con lo que hay
+  const posibles = Planner.recipesFromPantry({ minCoverage: 0.5 }).slice(0, 5);
+  const posiblesHtml = posibles.length
+    ? posibles.map(p => `
+        <div class="pantry-recipe" data-action="nut-view-recipe" data-id="${p.recipe.id}">
+          <div class="pantry-recipe-bar"><div style="width:${Math.round(p.coverage * 100)}%"></div></div>
+          <div class="pantry-recipe-info">
+            <span class="pantry-recipe-name">${p.recipe.name}</span>
+            <span class="muted">${Math.round(p.coverage * 100)}% en casa${p.missing.length ? ` · faltan: ${p.missing.map(m => m.nombre).join(', ')}` : ' · ¡completa!'}</span>
+          </div>
+        </div>`).join('')
+    : '<p class="nut-empty-hint muted">Añade alimentos a la despensa para ver qué puedes cocinar.</p>';
+
+  // Lista de la compra
+  let shoppingHtml;
+  if (!list) {
+    shoppingHtml = '<p class="nut-empty-hint muted">Genera un menú semanal para tener lista de la compra.</p>';
+  } else if (!list.totalItems) {
+    shoppingHtml = '<p class="nut-empty-hint muted">Ya tienes en casa todo lo del menú de esta semana 🎉</p>';
+  } else {
+    shoppingHtml = list.groups.map(g => `
+      <div class="shop-group">
+        <div class="shop-group-title">${g.cat}</div>
+        ${g.items.map(i => {
+          const isChecked = checked.indexOf(i.ingredient_id) >= 0;
+          return `
+            <div class="shop-item${isChecked ? ' checked' : ''}" data-action="shop-toggle" data-id="${i.ingredient_id}" data-week="${weekStart}">
+              <span class="shop-check">${isChecked ? '☑' : '☐'}</span>
+              <span class="shop-name">${i.nombre}</span>
+              <span class="shop-qty">${i.to_buy} ${i.unit}${i.in_pantry ? `<span class="muted"> (tienes ${i.in_pantry})</span>` : ''}</span>
+            </div>`;
+        }).join('')}
+      </div>`).join('');
+  }
+
+  return `
+    <section>
+      <h4 class="section-title">Lo que tengo en casa</h4>
+      <div class="nut-recipe-actions">
+        <button class="btn btn-primary" data-action="pantry-add">+ Añadir a la despensa</button>
+      </div>
+      <div class="card pantry-list">${pantryHtml}</div>
+    </section>
+
+    <section>
+      <h4 class="section-title">Puedo cocinar ahora</h4>
+      <div class="card">${posiblesHtml}</div>
+    </section>
+
+    <section id="shopping-section">
+      <h4 class="section-title">Lista de la compra${list && list.totalItems ? ` · ${list.totalItems}` : ''}</h4>
+      <div class="card shop-list">${shoppingHtml}</div>
+    </section>`;
 }
 
 // ============================================================
@@ -1211,6 +1607,8 @@ function renderAjustes() {
           </div>
         </div>
       </section>
+
+      ${renderTargetsCard()}
 
       <section>
         <h4 class="section-title">Estado actual</h4>
@@ -1877,6 +2275,192 @@ function handleAction(action, dataset, e) {
       break;
     }
 
+    // ---- Pestañas de nutrición ----
+    case 'nut-tab': {
+      nutTab = dataset.tab;
+      nutSuggestMeal = null;
+      navigate('nutricion');
+      break;
+    }
+
+    // ---- Cerrar el día ----
+    case 'nut-suggest': {
+      nutTab = 'hoy';
+      nutSuggestMeal = dataset.meal;
+      navigate('nutricion');
+      break;
+    }
+
+    case 'nut-log-suggestion': {
+      const recipe = Recipes.get(dataset.id);
+      if (!recipe) return;
+      const factor = parseFloat(dataset.factor) || 1;
+      logRecipeToDay(recipe, factor, dataset.meal, nutDate);
+      break;
+    }
+
+    case 'nut-view-recipe': {
+      openRecipeModal(dataset.id);
+      break;
+    }
+
+    case 'nut-log-ingredient': {
+      const food = FoodDB.byId(dataset.id);
+      if (!food) return;
+      const grams = parseInt(dataset.grams, 10) || 100;
+      const m = FoodDB.macrosFor(food, grams);
+      const meal = logMealKey(nutSuggestMeal || Planner.pendingMeals(nutDate)[0] || 'cena');
+      Store.addNutritionEntry(nutDate, {
+        id: 'e_' + Date.now(),
+        meal,
+        nombre: food.nombre,
+        qty: grams,
+        unit: food.unit || 'g',
+        kcal:  Math.round(m.kcal),
+        prot:  Math.round(m.prot * 10) / 10,
+        carbs: Math.round(m.carbs * 10) / 10,
+        fat:   Math.round(m.fat * 10) / 10,
+        sat:   Math.round(m.sat * 10) / 10,
+        fiber: Math.round(m.fiber * 10) / 10,
+        food_id: food.id,
+        source: 'quick-close',
+      });
+      navigate('nutricion');
+      showToast(`${grams}g de ${food.nombre} ✓`);
+      syncToSupabase();
+      break;
+    }
+
+    // ---- Recetas ----
+    case 'nut-recipe-filter': {
+      nutRecipeFilter = dataset.filter;
+      navigate('nutricion');
+      break;
+    }
+
+    case 'nut-new-recipe': {
+      openRecipeEditor(null);
+      break;
+    }
+
+    // ---- Menú semanal ----
+    case 'nut-generate-menu': {
+      showToast('Generando menú...');
+      const menu = Planner.generateWeeklyMenu(dataset.week);
+      const dias = menu.days.length;
+      navigate('nutricion');
+      showToast(`Menú de ${dias} días generado ✓`);
+      syncToSupabase();
+      break;
+    }
+
+    case 'nut-menu-prev-week':
+    case 'nut-menu-next-week': {
+      const base = nutMenuWeek || Planner.weekStartOf(new Date().toISOString().split('T')[0]);
+      const delta = action === 'nut-menu-prev-week' ? -7 : 7;
+      const [y, m, d] = base.split('-').map(Number);
+      nutMenuWeek = new Date(Date.UTC(y, m - 1, d) + delta * 86400000)
+        .toISOString().split('T')[0];
+      navigate('nutricion');
+      break;
+    }
+
+    case 'nut-swap-slot': {
+      openSlotSwapModal(dataset.date, dataset.meal);
+      break;
+    }
+
+    case 'nut-toggle-lock': {
+      e.stopPropagation();
+      const weekStart = nutMenuWeek || Planner.weekStartOf(new Date().toISOString().split('T')[0]);
+      Planner.toggleMenuLock(weekStart, dataset.date, dataset.meal);
+      navigate('nutricion');
+      break;
+    }
+
+    case 'nut-goto-shopping': {
+      nutTab = 'despensa';
+      navigate('nutricion');
+      const section = document.getElementById('shopping-section');
+      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      break;
+    }
+
+    // ---- Despensa ----
+    case 'pantry-add': {
+      openFoodPicker('Añadir a la despensa', (food) => {
+        const today = new Date().toISOString().split('T')[0];
+        Store.savePantryItem({
+          ingredient_id: food.id,
+          estimated_quantity: 500,
+          last_purchased: today,
+          habitual: true,
+        });
+        navigate('nutricion');
+        showToast(`${food.nombre} en la despensa ✓`);
+        syncToSupabase();
+      });
+      break;
+    }
+
+    case 'pantry-adjust': {
+      const delta = parseInt(dataset.delta, 10);
+      const current = Store.getPantryQty(dataset.id);
+      Store.savePantryItem({
+        ingredient_id: dataset.id,
+        estimated_quantity: Math.max(0, current + delta),
+      });
+      navigate('nutricion');
+      break;
+    }
+
+    case 'pantry-remove': {
+      Store.removePantryItem(dataset.id);
+      navigate('nutricion');
+      syncToSupabase();
+      break;
+    }
+
+    case 'shop-toggle': {
+      Store.toggleShoppingChecked(dataset.week, dataset.id);
+      navigate('nutricion');
+      break;
+    }
+
+    // ---- Targets editables (Ajustes) ----
+    case 'save-targets': {
+      const kcal    = parseInt(document.getElementById('target-kcal')?.value, 10);
+      const protein = parseInt(document.getElementById('target-prot')?.value, 10);
+      const carbs   = parseInt(document.getElementById('target-carbs')?.value, 10);
+      const fat     = parseInt(document.getElementById('target-fat')?.value, 10);
+      if (!kcal || !protein || !carbs || !fat) {
+        showToast('Rellena los cuatro valores', 'error');
+        return;
+      }
+      NutritionConfig.saveTargets({ kcal, protein_g: protein, carbs_g: carbs, fat_g: fat });
+      showToast('Objetivos actualizados ✓');
+      navigate('ajustes');
+      break;
+    }
+
+    case 'rebalance-targets': {
+      const kcal    = parseInt(document.getElementById('target-kcal')?.value, 10) || NutritionConfig.targets().kcal;
+      const protein = parseInt(document.getElementById('target-prot')?.value, 10) || NutritionConfig.targets().protein_g;
+      // La proteína no se toca: se recalculan CH y grasa
+      const next = NutritionConfig.rebalance(kcal, protein);
+      NutritionConfig.saveTargets(next);
+      showToast(`Recalculado: ${next.carbs_g}g CH · ${next.fat_g}g grasa`);
+      navigate('ajustes');
+      break;
+    }
+
+    case 'reset-targets': {
+      NutritionConfig.resetTargets();
+      showToast('Objetivos restaurados');
+      navigate('ajustes');
+      break;
+    }
+
     case 'save-anthropic-key': {
       const input = document.getElementById('anthropic-key-input');
       if (input) {
@@ -2254,6 +2838,8 @@ async function doFoodSearch(query) {
         prot100:  Math.round((n.proteins_100g        || 0) * 10) / 10,
         carbs100: Math.round((n.carbohydrates_100g   || 0) * 10) / 10,
         fat100:   Math.round((n.fat_100g             || 0) * 10) / 10,
+        sat100:   Math.round((n['saturated-fat_100g'] || 0) * 10) / 10,
+        fiber100: Math.round((n.fiber_100g           || 0) * 10) / 10,
         source: 'off'
       };
       return buildRow(food);
@@ -2368,6 +2954,8 @@ function confirmAddFood() {
     prot:  Math.round((nutSelectedFood.prot100  || 0) * f * 10) / 10,
     carbs: Math.round((nutSelectedFood.carbs100 || 0) * f * 10) / 10,
     fat:   Math.round((nutSelectedFood.fat100   || 0) * f * 10) / 10,
+    sat:   Math.round((nutSelectedFood.sat100   || 0) * f * 10) / 10,
+    fiber: Math.round((nutSelectedFood.fiber100 || 0) * f * 10) / 10,
     food_id: nutSelectedFood.id,
     source: nutSelectedFood.source || 'manual'
   };
@@ -2556,6 +3144,14 @@ function openCustomFoodModal() {
             <label class="form-label">Grasas (g)</label>
             <input type="number" id="cf-fat" class="form-input" placeholder="g" min="0">
           </div>
+          <div class="form-group">
+            <label class="form-label">Saturadas (g)</label>
+            <input type="number" id="cf-sat" class="form-input" placeholder="g" min="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fibra (g)</label>
+            <input type="number" id="cf-fiber" class="form-input" placeholder="g" min="0">
+          </div>
         </div>
         ${hasKey ? `
           <div class="nut-claude-section">
@@ -2618,6 +3214,8 @@ function saveCustomFoodFromModal() {
   const prot   = parseFloat(document.getElementById('cf-prot')?.value);
   const carbs  = parseFloat(document.getElementById('cf-carbs')?.value);
   const fat    = parseFloat(document.getElementById('cf-fat')?.value);
+  const sat    = parseFloat(document.getElementById('cf-sat')?.value);
+  const fiber  = parseFloat(document.getElementById('cf-fiber')?.value);
 
   if (!nombre || isNaN(kcal)) { showToast('Nombre y calorías son obligatorios', 'error'); return; }
 
@@ -2627,10 +3225,13 @@ function saveCustomFoodFromModal() {
     prot100:  isNaN(prot)  ? 0 : prot,
     carbs100: isNaN(carbs) ? 0 : carbs,
     fat100:   isNaN(fat)   ? 0 : fat,
+    sat100:   isNaN(sat)   ? 0 : sat,
+    fiber100: isNaN(fiber) ? 0 : fiber,
     source: 'custom',
     created: new Date().toISOString()
   };
   Store.saveCustomFood(food);
+  FoodDB.invalidate(); // el índice debe ver el alimento nuevo
   document.getElementById('nut-custom-modal')?.remove();
   nutSelectedFood = food;
   openPortionModal(food);
@@ -2703,3 +3304,484 @@ document.addEventListener('DOMContentLoaded', () => {
   // Render inicial
   navigate('hoy');
 });
+
+// ============================================================
+// RECETAS — REGISTRO, DETALLE Y EDICIÓN
+// ============================================================
+
+// El log del día usa 'snacks'; las recetas usan 'snack'.
+function logMealKey(mealType) {
+  return mealType === 'snack' ? 'snacks' : mealType;
+}
+
+/**
+ * Registra una receta (con su porción ajustada) en el día:
+ * añade una entrada por ingrediente para poder editarlas luego
+ * una a una, y descuenta de la despensa.
+ */
+function logRecipeToDay(recipe, factor, mealType, fecha) {
+  const scaled = (factor && factor !== 1) ? Planner.scaleRecipe(recipe, factor) : recipe;
+  const meal = logMealKey(mealType);
+  const stamp = Date.now();
+
+  (scaled.ingredients || []).forEach((ing, idx) => {
+    const food = FoodDB.byId(ing.ingredient_id);
+    if (!food) return;
+    const m = FoodDB.macrosFor(food, ing.amount_g);
+    Store.addNutritionEntry(fecha, {
+      id: `e_${stamp}_${idx}`,
+      meal,
+      nombre: food.nombre,
+      qty: ing.amount_g,
+      unit: food.unit || 'g',
+      kcal:  Math.round(m.kcal),
+      prot:  Math.round(m.prot * 10) / 10,
+      carbs: Math.round(m.carbs * 10) / 10,
+      fat:   Math.round(m.fat * 10) / 10,
+      sat:   Math.round(m.sat * 10) / 10,
+      fiber: Math.round(m.fiber * 10) / 10,
+      food_id: food.id,
+      recipe_id: recipe.id,
+      source: 'recipe',
+    });
+  });
+
+  Recipes.markUsed(recipe.id);
+  Planner.consumeFromPantry(scaled);
+  closeNutModal();
+  nutSuggestMeal = null;
+  navigate('nutricion');
+  showToast(`${recipe.name} registrado ✓`);
+  syncToSupabase();
+}
+
+function closeOverlay(id) {
+  const el = document.getElementById(id);
+  if (el) { el.classList.remove('visible'); setTimeout(() => el.remove(), 250); }
+}
+
+function buildOverlay(id, innerHtml) {
+  const existing = document.getElementById(id);
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = id;
+  modal.className = 'nut-modal-overlay';
+  modal.innerHTML = `<div class="nut-modal">${innerHtml}</div>`;
+  document.body.appendChild(modal);
+  requestAnimationFrame(() => modal.classList.add('visible'));
+  modal.addEventListener('click', (ev) => { if (ev.target === modal) closeOverlay(id); });
+  return modal;
+}
+
+/** Ficha de receta: ingredientes en g/ml, macros y acciones. */
+function openRecipeModal(id) {
+  const recipe = Recipes.get(id);
+  if (!recipe) return;
+  const m = recipe.total_macros;
+  const meta = MEAL_TYPES.find(t => t.key === recipe.meal_type);
+  const warn = Recipes.proteinPowderWarning(recipe);
+
+  const ingHtml = (recipe.ingredients || []).map(i => {
+    const f = FoodDB.byId(i.ingredient_id);
+    if (!f) return `<div class="recipe-ing"><span class="muted">Ingrediente desconocido</span></div>`;
+    const im = FoodDB.macrosFor(f, i.amount_g);
+    return `
+      <div class="recipe-ing">
+        <span class="recipe-ing-name">${f.nombre}</span>
+        <span class="recipe-ing-qty">${i.amount_g} ${f.unit || 'g'}</span>
+        <span class="recipe-ing-kcal muted">${Math.round(im.kcal)} kcal · P${im.prot.toFixed(1)}</span>
+      </div>`;
+  }).join('');
+
+  const modal = buildOverlay('nut-recipe-modal', `
+    <div class="nut-modal-header">
+      <span>${meta ? meta.icon : ''} ${recipe.name}</span>
+      <button class="modal-close" data-close>✕</button>
+    </div>
+    <div class="recipe-detail">
+      <div class="recipe-macros recipe-macros-big">
+        <strong>${m.kcal} kcal</strong>
+        <span>P ${m.prot}g</span><span>C ${m.carbs}g</span><span>G ${m.fat}g</span>
+      </div>
+      <div class="recipe-submacros muted">
+        Saturadas ${m.sat}g · Fibra ${m.fiber}g · ${(Planner.recipeProteinDensity(recipe) * 100).toFixed(1)} g proteína/100 kcal
+      </div>
+      ${warn ? `<div class="cerrar-sug-warn">⚠ ${warn}</div>` : ''}
+      <div class="nut-modal-section-title">Ingredientes</div>
+      ${ingHtml || '<p class="nut-empty-hint muted">Sin ingredientes.</p>'}
+      ${recipe.notes ? `<div class="recipe-notes">${recipe.notes}</div>` : ''}
+      <div class="recipe-detail-actions">
+        <button class="btn btn-primary" data-log>Registrar en ${meta ? meta.nombre.toLowerCase() : 'el día'}</button>
+        <button class="btn btn-secondary" data-edit>Editar</button>
+        <button class="btn btn-ghost" data-toggle-fixed>${recipe.is_fixed ? 'Marcar como flexible' : 'Marcar como fija'}</button>
+        <button class="btn btn-ghost btn-danger-text" data-delete>Eliminar</button>
+      </div>
+    </div>`);
+
+  modal.querySelector('[data-close]').onclick = () => closeOverlay('nut-recipe-modal');
+  modal.querySelector('[data-log]').onclick = () => {
+    // Se ajusta la porción al hueco real del día antes de registrar
+    const target = Planner.shareForMeal(nutDate, recipe.meal_type);
+    logRecipeToDay(recipe, Planner.fitFactor(recipe, target), recipe.meal_type, nutDate);
+  };
+  modal.querySelector('[data-edit]').onclick = () => {
+    closeOverlay('nut-recipe-modal');
+    openRecipeEditor(recipe.id);
+  };
+  modal.querySelector('[data-toggle-fixed]').onclick = () => {
+    Recipes.save(Object.assign({}, recipe, { is_fixed: !recipe.is_fixed }));
+    closeOverlay('nut-recipe-modal');
+    navigate('nutricion');
+    showToast(recipe.is_fixed ? 'Ahora es flexible' : 'Ahora es fija');
+  };
+  modal.querySelector('[data-delete]').onclick = () => {
+    Recipes.remove(recipe.id);
+    closeOverlay('nut-recipe-modal');
+    navigate('nutricion');
+    showToast('Receta eliminada');
+  };
+}
+
+// ---- EDITOR DE RECETAS ----
+let recipeDraft = null;
+
+function openRecipeEditor(id) {
+  const existing = id ? Recipes.get(id) : null;
+  recipeDraft = existing
+    ? JSON.parse(JSON.stringify(existing))
+    : {
+        id: 'r_' + Date.now().toString(36),
+        name: '',
+        meal_type: 'almuerzo',
+        ingredients: [],
+        is_fixed: false,
+        tags: [],
+        notes: '',
+      };
+
+  const modal = buildOverlay('nut-recipe-editor', `
+    <div class="nut-modal-header">
+      <span>${existing ? 'Editar receta' : 'Nueva receta'}</span>
+      <button class="modal-close" data-close>✕</button>
+    </div>
+    <div class="recipe-editor" id="recipe-editor-body"></div>`);
+
+  modal.querySelector('[data-close]').onclick = () => closeOverlay('nut-recipe-editor');
+  renderRecipeEditorBody();
+}
+
+function renderRecipeEditorBody() {
+  const body = document.getElementById('recipe-editor-body');
+  if (!body || !recipeDraft) return;
+  const macros = Recipes.computeMacros(recipeDraft);
+  const powderIssue = Recipes.proteinPowderWarning(recipeDraft);
+
+  const ingRows = (recipeDraft.ingredients || []).map((i, idx) => {
+    const f = FoodDB.byId(i.ingredient_id);
+    return `
+      <div class="editor-ing">
+        <span class="editor-ing-name">${f ? f.nombre : '—'}</span>
+        <input type="number" class="editor-ing-qty" value="${i.amount_g}" min="1" max="5000"
+          data-ing-idx="${idx}" inputmode="numeric">
+        <span class="editor-ing-unit">${f ? (f.unit || 'g') : 'g'}</span>
+        <button class="nut-entry-del" data-remove-ing="${idx}">✕</button>
+      </div>`;
+  }).join('');
+
+  const tagsValue = (recipeDraft.tags || []).join(', ');
+
+  body.innerHTML = `
+    <label class="editor-label">Nombre</label>
+    <input type="text" id="editor-name" class="nut-search-input" value="${(recipeDraft.name || '').replace(/"/g, '&quot;')}" placeholder="Ej. Bowl de skyr con frutos rojos">
+
+    <label class="editor-label">Comida</label>
+    <div class="editor-meal-row">
+      ${MEAL_TYPES.map(t => `
+        <button class="cerrar-chip${recipeDraft.meal_type === t.key ? ' active' : ''}" data-meal-type="${t.key}">
+          ${t.icon} ${t.nombre}
+        </button>`).join('')}
+    </div>
+
+    <label class="editor-label">Ingredientes (g / ml)</label>
+    <div class="editor-ings">${ingRows || '<p class="nut-empty-hint muted">Añade el primer ingrediente.</p>'}</div>
+    <button class="nut-create-btn" data-add-ing>+ Añadir ingrediente</button>
+
+    <div class="editor-preview">
+      <strong>${macros.kcal} kcal</strong>
+      <span>P ${macros.prot}g</span><span>C ${macros.carbs}g</span><span>G ${macros.fat}g</span>
+      <span class="muted">sat ${macros.sat}g</span>
+    </div>
+    ${powderIssue ? `<div class="cerrar-sug-warn">⚠ ${powderIssue}</div>` : ''}
+
+    <label class="editor-label">Etiquetas (separadas por comas)</label>
+    <input type="text" id="editor-tags" class="nut-search-input" value="${tagsValue.replace(/"/g, '&quot;')}" placeholder="dulce, rapido, habitual">
+
+    <label class="editor-checkbox">
+      <input type="checkbox" id="editor-fixed" ${recipeDraft.is_fixed ? 'checked' : ''}>
+      <span>Comida fija (el algoritmo no la mueve)</span>
+    </label>
+
+    <label class="editor-label">Notas</label>
+    <textarea id="editor-notes" class="editor-textarea" rows="2" placeholder="Opcional">${recipeDraft.notes || ''}</textarea>
+
+    <button class="btn btn-primary" data-save-recipe>Guardar receta</button>`;
+
+  // --- Listeners ---
+  body.querySelectorAll('[data-meal-type]').forEach(btn => {
+    btn.onclick = () => {
+      syncRecipeDraftFromForm();
+      recipeDraft.meal_type = btn.dataset.mealType;
+      renderRecipeEditorBody();
+    };
+  });
+
+  body.querySelectorAll('[data-ing-idx]').forEach(input => {
+    input.oninput = () => {
+      const idx = parseInt(input.dataset.ingIdx, 10);
+      recipeDraft.ingredients[idx].amount_g = Math.max(1, parseInt(input.value, 10) || 0);
+      const macrosNow = Recipes.computeMacros(recipeDraft);
+      const preview = body.querySelector('.editor-preview');
+      if (preview) {
+        preview.innerHTML = `<strong>${macrosNow.kcal} kcal</strong>
+          <span>P ${macrosNow.prot}g</span><span>C ${macrosNow.carbs}g</span><span>G ${macrosNow.fat}g</span>
+          <span class="muted">sat ${macrosNow.sat}g</span>`;
+      }
+    };
+  });
+
+  body.querySelectorAll('[data-remove-ing]').forEach(btn => {
+    btn.onclick = () => {
+      syncRecipeDraftFromForm();
+      recipeDraft.ingredients.splice(parseInt(btn.dataset.removeIng, 10), 1);
+      renderRecipeEditorBody();
+    };
+  });
+
+  body.querySelector('[data-add-ing]').onclick = () => {
+    syncRecipeDraftFromForm();
+    openFoodPicker('Añadir ingrediente', (food) => {
+      recipeDraft.ingredients.push({ ingredient_id: food.id, amount_g: 100 });
+      renderRecipeEditorBody();
+    }, { keepUnder: 'nut-recipe-editor' });
+  };
+
+  body.querySelector('[data-save-recipe]').onclick = () => {
+    syncRecipeDraftFromForm();
+    if (!recipeDraft.name.trim()) { showToast('Ponle nombre a la receta', 'error'); return; }
+    if (!recipeDraft.ingredients.length) { showToast('Añade al menos un ingrediente', 'error'); return; }
+    Recipes.save(recipeDraft);
+    closeOverlay('nut-recipe-editor');
+    nutTab = 'recetas';
+    navigate('nutricion');
+    showToast('Receta guardada ✓');
+    syncToSupabase();
+  };
+}
+
+function syncRecipeDraftFromForm() {
+  if (!recipeDraft) return;
+  const name = document.getElementById('editor-name');
+  const tags = document.getElementById('editor-tags');
+  const fixed = document.getElementById('editor-fixed');
+  const notes = document.getElementById('editor-notes');
+  if (name) recipeDraft.name = name.value;
+  if (tags) {
+    recipeDraft.tags = tags.value.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+  }
+  if (fixed) recipeDraft.is_fixed = fixed.checked;
+  if (notes) recipeDraft.notes = notes.value;
+}
+
+// ============================================================
+// SELECTOR DE ALIMENTOS (ingredientes y despensa)
+// ============================================================
+/**
+ * Buscador sobre el catálogo local. Ordena por densidad proteica
+ * para que las opciones eficientes salgan primero (story #11);
+ * es un criterio de orden, no un filtro.
+ */
+function openFoodPicker(title, onPick, opts = {}) {
+  const id = 'nut-food-picker';
+  const modal = buildOverlay(id, `
+    <div class="nut-modal-header">
+      <span>${title}</span>
+      <button class="modal-close" data-close>✕</button>
+    </div>
+    <div class="nut-modal-search-bar">
+      <input type="text" id="picker-search" class="nut-search-input" placeholder="Buscar alimento..." autocomplete="off">
+    </div>
+    <div id="picker-results" class="nut-search-results"></div>`);
+
+  if (opts.keepUnder) modal.style.zIndex = '1200';
+  modal.querySelector('[data-close]').onclick = () => closeOverlay(id);
+
+  const resultsEl = modal.querySelector('#picker-results');
+
+  const renderResults = (query) => {
+    const q = normalizeSearch(query || '');
+    let list = FoodDB.all();
+    if (q.length >= 2) list = list.filter(f => normalizeSearch(f.nombre).includes(q));
+    list = list
+      .slice()
+      .sort((a, b) => FoodDB.proteinDensity(b) - FoodDB.proteinDensity(a))
+      .slice(0, q.length >= 2 ? 40 : 25);
+
+    if (!list.length) {
+      resultsEl.innerHTML = '<p class="nut-empty-hint muted">Sin resultados.</p>';
+      return;
+    }
+    const hint = q.length >= 2
+      ? ''
+      : '<div class="nut-modal-section-title">Mejor proteína por caloría</div>';
+    resultsEl.innerHTML = hint + list.map(f => `
+      <button class="nut-food-row" data-pick="${f.id}">
+        <div class="nut-food-info">
+          <span class="nut-food-name">${f.nombre}</span>
+          <span class="nut-food-meta">${f.kcal100} kcal/100${f.unit || 'g'} · P:${f.prot100}g C:${f.carbs100}g G:${f.fat100}g${f.sat100 != null ? ` · sat ${f.sat100}g` : ''}</span>
+        </div>
+        <span class="nut-food-kcal-badge">${(FoodDB.proteinDensity(f) * 100).toFixed(1)}</span>
+      </button>`).join('');
+
+    resultsEl.querySelectorAll('[data-pick]').forEach(btn => {
+      btn.onclick = () => {
+        const food = FoodDB.byId(btn.dataset.pick);
+        closeOverlay(id);
+        if (food) onPick(food);
+      };
+    });
+  };
+
+  renderResults('');
+  const search = modal.querySelector('#picker-search');
+  search.addEventListener('input', (ev) => renderResults(ev.target.value.trim()));
+  setTimeout(() => search.focus(), 250);
+}
+
+// ============================================================
+// CAMBIAR UNA COMIDA DEL MENÚ SEMANAL
+// ============================================================
+function openSlotSwapModal(date, mealType) {
+  const weekStart = nutMenuWeek || Planner.weekStartOf(new Date().toISOString().split('T')[0]);
+  const menu = Store.getWeeklyMenu(weekStart);
+  if (!menu) return;
+  const day = menu.days.find(d => d.date === date);
+  if (!day) return;
+
+  const meta = MEAL_TYPES.find(t => t.key === mealType);
+  const gap = Planner.slotGap(day, mealType);
+
+  // Se ordenan por lo bien que encajan en el hueco que deja el resto del día
+  const options = Recipes.byMealType(mealType)
+    .filter(r => Planner.postWorkoutAllowed(r, date))
+    .map(r => {
+      const factor = Planner.fitFactor(r, gap);
+      const adjusted = Planner.scaleRecipe(r, factor);
+      const res = Planner.scoreRecipe(adjusted, gap, { fatRemaining: gap.fat });
+      return { recipe: r, factor, macros: adjusted.total_macros, raw: res.raw, score: res.score };
+    })
+    .sort((a, b) => b.raw - a.raw);
+
+  const dLabel = new Date(date + 'T12:00:00')
+    .toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' });
+
+  const modal = buildOverlay('nut-slot-modal', `
+    <div class="nut-modal-header">
+      <span>${meta ? meta.icon : ''} ${meta ? meta.nombre : ''} · ${dLabel}</span>
+      <button class="modal-close" data-close>✕</button>
+    </div>
+    <p class="cerrar-hint muted" style="padding:0 16px">
+      Hueco del día: ${Math.round(gap.kcal)} kcal y ${Math.round(gap.prot)}g de proteína.
+    </p>
+    <div class="nut-search-results">
+      ${options.map(o => `
+        <button class="nut-food-row" data-swap="${o.recipe.id}">
+          <div class="nut-food-info">
+            <span class="nut-food-name">${o.recipe.name}${o.factor !== 1 ? ` <span class="muted">x${o.factor}</span>` : ''}</span>
+            <span class="nut-food-meta">${o.macros.kcal} kcal · P${o.macros.prot}g C${o.macros.carbs}g G${o.macros.fat}g</span>
+          </div>
+          <span class="nut-food-kcal-badge">${o.score}</span>
+        </button>`).join('')}
+    </div>`);
+
+  modal.querySelector('[data-close]').onclick = () => closeOverlay('nut-slot-modal');
+  modal.querySelectorAll('[data-swap]').forEach(btn => {
+    btn.onclick = () => {
+      Planner.setMenuSlot(weekStart, date, mealType, btn.dataset.swap);
+      closeOverlay('nut-slot-modal');
+      navigate('nutricion');
+      showToast('Comida cambiada ✓');
+      syncToSupabase();
+    };
+  });
+}
+
+// ============================================================
+// AJUSTES — OBJETIVOS NUTRICIONALES
+// ------------------------------------------------------------
+// Único sitio donde se editan los targets. Todo lo demás los lee
+// de NutritionConfig.targets().
+// ============================================================
+function renderTargetsCard() {
+  const t = NutritionConfig.targets();
+  const kcalFromMacros = NutritionConfig.kcalFromMacros(t);
+  const desfase = kcalFromMacros - t.kcal;
+  const custom = NutritionConfig.isCustomised();
+
+  const mismatch = Math.abs(desfase) > 30 ? `
+    <p class="targets-warn">
+      Los macros suman ${kcalFromMacros} kcal, ${desfase > 0 ? desfase : -desfase} kcal
+      ${desfase > 0 ? 'por encima' : 'por debajo'} del objetivo. Usa «Recalcular» para
+      cuadrar carbos y grasa sin tocar la proteína.
+    </p>` : '';
+
+  return `
+    <section>
+      <h4 class="section-title">Objetivos nutricionales</h4>
+      <div class="card targets-card">
+        <p class="muted targets-intro">
+          Objetivos <strong>fijos</strong>: no cambian según el día de gym, tenis o descanso.
+          La proteína es un piso; carbos y grasa son la variable de ajuste.
+        </p>
+        <div class="targets-grid">
+          <label class="target-field">
+            <span>Calorías</span>
+            <div class="target-input-wrap">
+              <input type="number" id="target-kcal" value="${t.kcal}" min="800" max="4000" inputmode="numeric">
+              <span class="target-unit">kcal</span>
+            </div>
+          </label>
+          <label class="target-field">
+            <span>Proteína <em>(piso)</em></span>
+            <div class="target-input-wrap">
+              <input type="number" id="target-prot" value="${t.protein_g}" min="40" max="300" inputmode="numeric">
+              <span class="target-unit">g</span>
+            </div>
+          </label>
+          <label class="target-field">
+            <span>Carbohidratos</span>
+            <div class="target-input-wrap">
+              <input type="number" id="target-carbs" value="${t.carbs_g}" min="20" max="600" inputmode="numeric">
+              <span class="target-unit">g</span>
+            </div>
+          </label>
+          <label class="target-field">
+            <span>Grasa</span>
+            <div class="target-input-wrap">
+              <input type="number" id="target-fat" value="${t.fat_g}" min="10" max="200" inputmode="numeric">
+              <span class="target-unit">g</span>
+            </div>
+          </label>
+        </div>
+        ${mismatch}
+        <p class="muted targets-note">
+          Grasa saturada máxima: <strong>${NutritionConfig.satFatLimitG(t)}g</strong>
+          (20% del objetivo de grasa) · Alerta por debajo de ${HEALTH_RULES.kcal_min} kcal.
+        </p>
+        <div class="targets-actions">
+          <button class="btn btn-primary" data-action="save-targets">Guardar</button>
+          <button class="btn btn-secondary" data-action="rebalance-targets">Recalcular CH y grasa</button>
+          ${custom ? '<button class="btn btn-ghost" data-action="reset-targets">Restaurar</button>' : ''}
+        </div>
+      </div>
+    </section>`;
+}
