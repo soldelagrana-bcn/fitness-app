@@ -856,7 +856,7 @@ input[type="file"] { padding: 12px; font-size: 14px; }
    ============================================================ */
 /* Sello de versión: sirve para saber si el móvil está sirviendo una copia
    guardada en vez de la última. Se ve en Ajustes. */
-const VERSION = 'v24';
+const VERSION = 'v25';
 const FECHA_VERSION = '12 ago 2026';
 
 const DEFAULT_TARGETS = { kcal: 1600, protein: 115, carbs: 165, fat: 55 };
@@ -6233,28 +6233,14 @@ function sheetMenuPrefs() {
   const ws = menuWeek || weekStartOf(today());
   const p = menuPrefs(ws);
   const body =
-    '<div><span class="eyebrow">Con lo que hay en casa</span>' +
-      '<div class="chips" style="margin-top:8px">' +
-        '<button class="chip" data-mp-modo="mixto" aria-pressed="' +
-          (menuSoloDespensa ? 'false' : 'true') + '">Prioriza lo que tengo</button>' +
-        '<button class="chip" data-mp-modo="solo" aria-pressed="' +
-          (menuSoloDespensa ? 'true' : 'false') + '">Lo que menos falte</button>' +
-      '</div>' +
-      '<p class="hint" style="margin:6px 0 0">Con <em>lo que menos falte</em> manda la despensa y los ' +
-        'macros desempatan. En el menú, «en casa» quiere decir que tienes todos los ingredientes y ' +
-        '«🛒 faltan 2», que hay que comprar dos cosas.</p></div>' +
-
-    '<div><span class="eyebrow">Cómo quieres la semana</span></div>' +
-    '<p class="hint" style="margin:0">Di o escribe cómo quieres la semana. Leo tus palabras ' +
-      'buscando alimentos del catálogo y el tiempo que tengas: <em>«más pescado y verdura, ' +
-      'sin cerdo, algo rápido»</em>. No hay ninguna IA dentro de la app —funciona sin conexión—, ' +
-      'así que lo que no reconozca como alimento lo dirá y no lo tendrá en cuenta.</p>' +
-    (hayDictado()
-      ? '<button class="btn wide" id="mp-mic">🎤 Dictar</button>' +
-        '<p class="hint" style="margin:-4px 0 0">Lo que digas se escribe aquí abajo. ' +
-          'Puedes corregirlo a mano antes de guardar.</p>'
-      : '') +
-    '<div class="field"><label for="mp-txt">Tus sugerencias</label>' +
+    '<div class="chips">' +
+      '<button class="chip" data-mp-modo="mixto" aria-pressed="' +
+        (menuSoloDespensa ? 'false' : 'true') + '">Prioriza lo que tengo</button>' +
+      '<button class="chip" data-mp-modo="solo" aria-pressed="' +
+        (menuSoloDespensa ? 'true' : 'false') + '">Lo que menos falte</button>' +
+    '</div>' +
+    (hayDictado() ? '<button class="btn wide" id="mp-mic">🎤 Dictar</button>' : '') +
+    '<div class="field">' +
       '<textarea class="ta" id="mp-txt" rows="4" placeholder="más pescado y verdura, sin cerdo, algo rápido">' +
       esc(p.texto || '') + '</textarea></div>' +
     '<div id="mp-lee"></div>' +
@@ -6277,8 +6263,8 @@ function sheetMenuPrefs() {
       const nada = !r.quiero.length && !r.no.length && !r.maxTiempo;
       lee.innerHTML = '<div class="suggest-extra">' +
         (nada
-          ? 'No he reconocido ningún alimento del catálogo en lo que has escrito. ' +
-            'Prueba a nombrarlos como los buscarías: «salmón», «lentejas», «brócoli».'
+          ? 'No he reconocido ningún alimento. Nómbralos como los buscarías: ' +
+            '«salmón», «lentejas», «brócoli».'
           : lista(r.quiero, 'Más de', 'have-all') +
             lista(r.no, 'Nada de', 'need-buy') +
             (r.maxTiempo ? '<div>Con prisa: hasta ' + r.maxTiempo + ' min</div>' : '')) +
