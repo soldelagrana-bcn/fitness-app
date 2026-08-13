@@ -554,36 +554,50 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 }
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
 
-/* ---- Panel de macros: la pantalla es un cuadro de mandos ---- */
+/* ---- Panel del día: anillos ---- */
 .dash { display: flex; flex-direction: column; }
-.dash-figure { display: flex; align-items: baseline; gap: 9px; margin: 3px 0 0; }
-.dash-figure .big {
-  font-family: var(--mono); font-variant-numeric: tabular-nums;
-  font-size: 56px; font-weight: 550; letter-spacing: -.04em; line-height: 1;
-  color: var(--accent);
+.dash-top { display: flex; align-items: center; gap: 16px; }
+.ring-wrap { position: relative; display: grid; place-items: center; flex: 0 0 auto; }
+.ring { display: block; }
+.ring .ring-bg { stroke: var(--sunken); }
+.ring .ring-fg { stroke: var(--accent); transition: stroke-dasharray .5s ease; }
+.ring.good .ring-fg { stroke: var(--good); }
+.ring.warn .ring-fg { stroke: var(--warn); }
+.ring.crit .ring-fg { stroke: var(--crit); }
+.ring-in {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center; line-height: 1;
 }
-.dash-figure .unit { font-size: 13px; color: var(--ink-faint); font-weight: 600; }
-.dash-figure .of { margin-left: auto; font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint); }
-.dash.over .big { color: var(--crit); }
-.dash.done .big { color: var(--good); }
-.dash-track { height: 7px; background: var(--sunken); border-radius: 4px; overflow: hidden; margin: 13px 0 15px; }
-.dash-track > i { display: block; height: 100%; background: var(--accent); border-radius: 4px; transition: width .45s ease; }
-.dash.over .dash-track > i { background: var(--crit); }
-.dash.done .dash-track > i { background: var(--good); }
+.ring-wrap.big .ring-in b {
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+  font-size: 34px; font-weight: 560; letter-spacing: -.035em; color: var(--accent);
+}
+.dash.over .ring-wrap.big .ring-in b { color: var(--crit); }
+.dash.done .ring-wrap.big .ring-in b { color: var(--good); }
+.ring-wrap.big .ring-in span { font-size: 10px; color: var(--ink-faint); margin-top: 4px; font-weight: 600; }
 
-.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.tile { background: var(--sunken); border-radius: var(--r-md); padding: 11px 12px 12px; }
-.tile .tk { font-size: 10px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--ink-faint); }
-.tile .tv { display: flex; align-items: baseline; gap: 4px; margin: 5px 0 8px; }
-.tile .tv b {
-  font-family: var(--mono); font-variant-numeric: tabular-nums;
-  font-size: 25px; font-weight: 600; letter-spacing: -.025em; line-height: 1;
+.dash-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.dash-of { font-size: 12.5px; color: var(--ink-soft); font-weight: 600; }
+.sat-pill {
+  align-self: flex-start; font-family: var(--mono); font-size: 10.5px; font-weight: 620;
+  background: var(--sunken); color: var(--ink-soft);
+  border-radius: 999px; padding: 3px 9px;
 }
-.tile .tv small { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
-.tile .rail { background: color-mix(in srgb, var(--ink) 12%, transparent); }
-.tile.good .tv b { color: var(--good); }
-.tile.warn .tv b { color: var(--warn); }
-.tile.crit .tv b { color: var(--crit); }
+.sat-pill.crit { background: var(--crit-wash); color: var(--crit); }
+
+.aros {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  margin-top: 16px; padding-top: 15px; border-top: 1px solid var(--line-soft);
+}
+.aro { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.aro .ring-in b {
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+  font-size: 17px; font-weight: 620; letter-spacing: -.02em;
+}
+.aro .ak { font-size: 10.5px; font-weight: 660; margin-top: 5px; }
+.aro .am { font-size: 10px; color: var(--ink-faint); }
+
+/* Tira de micronutrientes: cuatro celdas pequeñas, que son contexto */
 .micros-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
 .ms .mk { display: block; font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
 .ms .mv { display: block; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 620; margin: 2px 0 5px; }
@@ -896,7 +910,7 @@ input[type="file"] { padding: 12px; font-size: 14px; }
    ============================================================ */
 /* Sello de versión: sirve para saber si el móvil está sirviendo una copia
    guardada en vez de la última. Se ve en Ajustes. */
-const VERSION = 'v29';
+const VERSION = 'v30';
 const FECHA_VERSION = '12 ago 2026';
 
 const DEFAULT_TARGETS = { kcal: 1600, protein: 115, carbs: 165, fat: 55 };
@@ -4252,6 +4266,23 @@ function render() {
    El número grande es lo que FALTA, no lo consumido: cerrar el
    día es la razón de ser de la app.
    ============================================================ */
+/* Un anillo: el arco recorre la parte cumplida del objetivo. Se dibuja
+   con dos círculos y stroke-dasharray, sin nada que cargar. */
+function ring(pct, size, grosor, tono, dentro) {
+  const r = (size - grosor) / 2;
+  const c = 2 * Math.PI * r;
+  const val = Math.max(0, Math.min(1, pct)) * c;
+  return '<svg class="ring ' + (tono || '') + '" viewBox="0 0 ' + size + ' ' + size + '" ' +
+    'width="' + size + '" height="' + size + '" aria-hidden="true">' +
+    '<circle class="ring-bg" cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r +
+      '" fill="none" stroke-width="' + grosor + '"/>' +
+    '<circle class="ring-fg" cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r +
+      '" fill="none" stroke-width="' + grosor + '" stroke-linecap="round" ' +
+      'stroke-dasharray="' + val.toFixed(1) + ' ' + c.toFixed(1) + '" ' +
+      'transform="rotate(-90 ' + size / 2 + ' ' + size / 2 + ')"/>' +
+    '</svg>' + (dentro ? '<div class="ring-in">' + dentro + '</div>' : '');
+}
+
 function viewHoy() {
   const t = targets();
   const tot = dayTotals(curDate);
@@ -4261,49 +4292,48 @@ function viewHoy() {
   const over = rem.kcal < 0;
   const done = rem.kcal <= 25 && rem.prot <= 0;
 
-  /* Cada macro es una baldosa: número grande, objetivo pequeño y barra.
-     Se lee de un vistazo, que es de lo que se trata. */
-  const tile = (label, val, max, unit, tone, dec) => {
-    const pct = Math.min(100, (val / (max || 1)) * 100);
-    return '<div class="tile' + (tone ? ' ' + tone : '') + '">' +
-      '<span class="tk">' + label + '</span>' +
-      '<div class="tv"><b>' + (dec ? fmt1(val) : Math.round(val)) + '</b>' +
-        '<small>/ ' + max + ' ' + unit + '</small></div>' +
-      '<div class="rail"><i class="' + (tone || '') + '" style="width:' + pct.toFixed(1) + '%"></i></div>' +
+  /* Cada macro, un anillo pequeño: los gramos que llevas y poco más. La
+     pantalla se lee de un vistazo, que es para lo que está. */
+  const aro = (label, val, max, unit, tono) =>
+    '<div class="aro">' +
+      '<div class="ring-wrap">' +
+        ring(val / (max || 1), 62, 7, tono, '<b>' + Math.round(val) + '</b>') +
+      '</div>' +
+      '<span class="ak">' + label + '</span>' +
+      '<span class="am num">de ' + max + ' ' + unit + '</span>' +
     '</div>';
-  };
 
-  /* Los micros son contexto, no el objetivo del día: van en una tira
-     pequeña debajo, para que no compitan con los macros. */
   const micro = (label, val, max, unit, dec) => {
-    const pct = Math.min(100, (val / (max || 1)) * 100);
     const ok = val >= max;
     return '<div class="ms' + (ok ? ' good' : '') + '">' +
       '<span class="mk">' + label + '</span>' +
       '<span class="mv">' + (dec ? fmt1(val) : Math.round(val)) + '<small> / ' + max + ' ' + unit + '</small></span>' +
-      '<div class="rail"><i class="' + (ok ? 'good' : '') + '" style="width:' + pct.toFixed(1) + '%"></i></div>' +
+      '<div class="rail"><i class="' + (ok ? 'good' : '') + '" style="width:' +
+        Math.min(100, (val / (max || 1)) * 100).toFixed(1) + '%"></i></div>' +
     '</div>';
   };
 
-  const headWord = done ? 'Día cerrado' : over ? 'Te has pasado' : 'Te falta hoy';
-  const bigNum = done ? Math.round(tot.kcal) : Math.abs(Math.round(rem.kcal));
-  const pctDia = Math.min(100, (tot.kcal / (t.kcal || 1)) * 100);
-
   const dash =
     '<div class="card dash' + (over ? ' over' : done ? ' done' : '') + '">' +
-      '<span class="eyebrow">' + headWord + '</span>' +
-      '<div class="dash-figure">' +
-        '<span class="big">' + bigNum + '</span>' +
-        '<span class="unit">' + (done ? 'kcal en total' : 'kcal') + '</span>' +
-        '<span class="of">' + Math.round(tot.kcal) + ' de ' + t.kcal + '</span>' +
+      '<div class="dash-top">' +
+        '<div class="ring-wrap big">' +
+          ring(tot.kcal / (t.kcal || 1), 132, 11, over ? 'crit' : done ? 'good' : '',
+            '<b>' + (done ? Math.round(tot.kcal) : Math.abs(Math.round(rem.kcal))) + '</b>' +
+            '<span>' + (done ? 'kcal' : over ? 'kcal de más' : 'kcal por comer') + '</span>') +
+        '</div>' +
+        '<div class="dash-side">' +
+          '<span class="eyebrow">' + (isToday ? 'Hoy' : dayName(curDate)) + '</span>' +
+          '<span class="dash-of num">' + Math.round(tot.kcal) + ' de ' + t.kcal + '</span>' +
+          (tot.sat > lim
+            ? '<span class="sat-pill crit">saturadas ' + fmt1(tot.sat) + ' / ' + lim + ' g</span>'
+            : '<span class="sat-pill">saturadas ' + fmt1(tot.sat) + ' / ' + lim + ' g</span>') +
+        '</div>' +
       '</div>' +
-      '<div class="dash-track"><i style="width:' + pctDia.toFixed(1) + '%"></i></div>' +
 
-      '<div class="tiles">' +
-        tile('Proteína', tot.prot, t.protein, 'g', tot.prot >= t.protein ? 'good' : '', false) +
-        tile('Carbos', tot.carbs, t.carbs, 'g', '', false) +
-        tile('Grasa', tot.fat, t.fat, 'g', tot.fat > t.fat ? 'warn' : '', false) +
-        tile('Saturadas', tot.sat, lim, 'g', tot.sat > lim ? 'crit' : 'warn', true) +
+      '<div class="aros">' +
+        aro('Proteína', tot.prot, t.protein, 'g', tot.prot >= t.protein ? 'good' : '') +
+        aro('Carbos', tot.carbs, t.carbs, 'g', '') +
+        aro('Grasa', tot.fat, t.fat, 'g', tot.fat > t.fat ? 'warn' : '') +
       '</div>' +
 
       '<div class="dash-split">Micronutrientes</div>' +
@@ -4330,9 +4360,6 @@ function viewHoy() {
         ' aria-label="Día siguiente">›</button>' +
     '</div>';
 
-  // Los cuatro botones justo debajo del panel: es la acción principal de
-  // la pestaña y tiene que estar donde cae el pulgar al terminar de mirar
-  // los números, no al final de la lista.
   const registrar =
     '<div class="card">' +
       '<span class="eyebrow">Registrar una comida</span>' +
