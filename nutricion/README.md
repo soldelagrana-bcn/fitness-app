@@ -251,6 +251,40 @@ Quitar una línea calculada no es borrarla: es decir «esta semana no». Se guar
 (`shopx_<semana>`), y la siguiente vuelve a proponerla si sigue haciendo falta. Debajo de
 la lista se ve cuántas has quitado, con un enlace para volver a ponerlas todas.
 
+## Decirle cómo quieres la semana
+
+Un botón en Menú abre una hoja donde se dicta o se escribe: *«más pescado y verdura, sin
+cerdo, algo rápido»*. **No hay ninguna IA dentro** —la app va sin conexión— y conviene
+decirlo claro: lo que hay es un lector de reglas.
+
+Va palabra a palabra. Una negación (`sin`, `nada`, `ni`, `evita`, `menos`…) abre un tramo
+negado y una palabra positiva (`más`, `quiero`, `pon`, `con`…) lo cierra, así que «sin
+cerdo, más pescado» deja el cerdo fuera y el pescado dentro. Lo que no reconoce como comida
+lo ignora, y lo dice en vez de callárselo.
+
+No se buscan productos del catálogo sino **familias**, porque nadie pide «Salmón fresco
+Carrefour», pide «pescado». Hay familias para pescado, marisco, cerdo, pollo, ternera,
+cordero, carne, verdura, fruta, legumbre, lácteo, queso, huevo, pasta, arroz, pan, dulce y
+frito; lo que no es familia se busca por nombre.
+
+Con eso: lo negado **no entra** aunque cuadre de maravilla, lo pedido suma 10 puntos por
+ingrediente (hasta 3), y si pides prisa suben las recetas con etiqueta `rapido` —las
+recetas no guardan minutos, así que se pondera en vez de filtrar—. Si tus condiciones dejan
+una comida sin ninguna receta posible, el hueco se queda vacío y el aviso lo dice: un hueco
+mudo parece un fallo.
+
+## Editar un día del menú
+
+Cada día tiene su **Editar el día**. Abre los platos: cada ingrediente con su cantidad, un
+🛒 delante de lo que no tengas en casa, y tres cosas que puedes hacer — cambiarlo por otro
+(⇄, conservando la cantidad), quitarlo (✕) o añadir uno nuevo. Más un botón que manda a la
+lista de la compra todo lo que falte de ese plato.
+
+Los cambios viven en el hueco del menú (`swaps`, `removed`, `added`), no en la receta:
+cambiar la cena del martes no puede reescribir la receta para siempre. Los macros del día
+se recalculan con los cambios, la comida se marca como «cambiada» y hay un «Deshacer
+cambios» que la devuelve a la original.
+
 ## El menú tira de la despensa
 
 Un menú que te manda al súper cada día no lo sigue nadie. Al generarlo, cada receta suma

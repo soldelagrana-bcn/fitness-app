@@ -405,6 +405,21 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 .slot-macros { display: block; font-family: var(--mono); font-size: 10px; color: var(--ink-faint); }
 .slot-macros .falta { color: var(--warn); font-weight: 620; }
 .slot-macros .tengo { color: var(--good); font-weight: 620; }
+.slot-macros .tocado { color: var(--accent); font-weight: 620; }
+.day-foot { padding: 8px 12px; border-top: 1px solid var(--line-soft); }
+.ming-box { padding: 2px 12px 10px 50px; background: var(--sunken); }
+.ming { display: flex; align-items: center; gap: 7px; border-bottom: 1px solid var(--line-soft); }
+.ming:last-of-type { border-bottom: 0; }
+.ming-nm {
+  flex: 1; min-width: 0; text-align: left; border: 0; background: none;
+  padding: 0; min-height: 40px; font-size: 12px; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ming.falta .ming-nm { color: var(--warn); }
+.ming-ico { font-size: 11px; }
+.ming-g { flex: 0 0 auto; font-size: 11px; color: var(--ink-faint); }
+.ming-acts { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 8px; }
+.ming-acts .btn { font-size: 11.5px; padding: 6px 9px; min-height: 40px; }
 .lock { border: 0; background: none; font-size: 14px; min-width: 44px; min-height: 44px; padding: 0; opacity: .3; }
 .lock[aria-pressed="true"] { opacity: 1; }
 
@@ -804,7 +819,7 @@ input[type="file"] { padding: 12px; font-size: 14px; }
    ============================================================ */
 /* Sello de versión: sirve para saber si el móvil está sirviendo una copia
    guardada en vez de la última. Se ve en Ajustes. */
-const VERSION = 'v19';
+const VERSION = 'v20';
 const FECHA_VERSION = '12 ago 2026';
 
 const DEFAULT_TARGETS = { kcal: 1600, protein: 115, carbs: 165, fat: 55 };
@@ -3261,11 +3276,54 @@ function daysApart(a, b) {
 function getMenu(ws) { return DB.get('menu_' + ws, null); }
 function setMenu(m) { DB.set('menu_' + m.week_start, m); }
 
+/* La receta de un día, con los cambios que ella le haya hecho a ese día
+   concreto: cambiar un ingrediente por otro, quitarlo o añadir algo. Los
+   cambios viven en el hueco del menú, no en la receta: cambiar la cena del
+   martes no puede reescribir la receta para siempre. */
+function slotIngredients(slot) {
+  const r = slot && slot.recipe_id ? recipeById(slot.recipe_id) : null;
+  if (!r) return [];
+  const cambios = slot.swaps || {};
+  const fuera = slot.removed || [];
+  const base = (r.ingredients || [])
+    .filter(i => fuera.indexOf(i.ingredient_id) < 0)
+    .map(i => ({
+      ingredient_id: cambios[i.ingredient_id] || i.ingredient_id,
+      amount_g: i.amount_g,
+    }));
+  return base.concat((slot.added || []).map(x => ({ ingredient_id: x.id, amount_g: x.g })));
+}
+function slotTocado(slot) {
+  return !!(slot && ((slot.swaps && Object.keys(slot.swaps).length) ||
+    (slot.removed && slot.removed.length) || (slot.added && slot.added.length)));
+}
 function slotRecipe(slot) {
   if (!slot || !slot.recipe_id) return null;
   const r = recipeById(slot.recipe_id);
   if (!r) return null;
-  return (slot.factor && slot.factor !== 1) ? scaleRecipe(r, slot.factor) : r;
+  const conCambios = slotTocado(slot)
+    ? Object.assign({}, r, { ingredients: slotIngredients(slot), macros: null })
+    : r;
+  if (conCambios.macros === null) conCambios.macros = recipeMacros(conCambios);
+  return (slot.factor && slot.factor !== 1) ? scaleRecipe(conCambios, slot.factor) : conCambios;
+}
+
+function slotBuscar(date, mealKey) {
+  const ws = menuWeek || weekStartOf(today());
+  const menu = getMenu(ws);
+  const day = menu && menu.days.find(d => d.date === date);
+  return day ? (day.meal_slots || []).find(sl => sl.meal_type === mealKey) : null;
+}
+function slotGuardar(date, mealKey, cambios) {
+  const ws = menuWeek || weekStartOf(today());
+  const menu = getMenu(ws);
+  if (!menu) return;
+  const day = menu.days.find(d => d.date === date);
+  if (!day) return;
+  const sl = (day.meal_slots || []).find(x => x.meal_type === mealKey);
+  if (!sl) return;
+  Object.assign(sl, cambios);
+  setMenu(menu);
 }
 function menuDayTotals(day) {
   const t = { kcal: 0, prot: 0, carbs: 0, fat: 0, sat: 0, fiber: 0, fe: 0, ca: 0, vd: 0 };
@@ -3295,6 +3353,106 @@ function slotGap(day, mealKey) {
 
 /* Genera 7 días cuadrando cada uno con los objetivos. Escala las
    porciones: sin eso el menú se queda muy por debajo de las kcal. */
+/* ============================================================
+   SUGERENCIAS PARA EL MENÚ
+   No hay ninguna IA aquí dentro: la app va sin conexión. Lo que
+   hay es un lector que busca en tus palabras alimentos del
+   catálogo y los reparte en dos montones, «quiero» y «no
+   quiero», mirando si delante venía una negación. Con eso y el
+   tiempo que digas se pondera la generación del menú.
+   ============================================================ */
+const NEGACIONES = ['sin', 'no', 'ni', 'nada', 'evita', 'evitar', 'quita', 'quitar',
+                    'nunca', 'odio', 'menos', 'excepto', 'salvo'];
+const POSITIVOS  = ['mas', 'quiero', 'pon', 'poner', 'ponme', 'con', 'incluye', 'anade',
+                    'añade', 'apetece', 'gusta', 'prefiero', 'y'];
+const RUIDO = ['de', 'del', 'la', 'el', 'los', 'las', 'un', 'una', 'unos', 'unas', 'que',
+               'esta', 'este', 'semana', 'dia', 'dias', 'para', 'algo', 'poco', 'mucho',
+               'muy', 'bien', 'porfa', 'favor', 'me', 'lo', 'al', 'en', 'a', 'o', 'u',
+               'pero', 'tambien', 'solo', 'todo', 'toda'];
+
+/* Familias: lo que se dice al hablar no es un producto del catálogo. Nadie
+   pide «Salmón fresco Carrefour», pide «pescado». Cada familia sabe
+   reconocer a los suyos. */
+const FAMILIAS = {
+  pescado: f => /salmon|merluza|atun|bacalao|dorada|lubina|sardin|boqueron|caballa|trucha|rape|panga|tilapia|pez espada|jurel|lenguado|rodaballo|abadejo|gallo |corvina|besugo|congrio|salmonete|bonito|anchoa|arenque|bacaladilla/.test(norm(f.nombre)),
+  marisco: f => /gamba|langostino|mejillon|almeja|berberecho|calamar|sepia|pulpo|cigala|bogavante|vieira|navaja|percebe|zamburi|cangrejo|ostra|chipiron|gula/.test(norm(f.nombre)),
+  cerdo:   f => /cerdo|panceta|bacon|chorizo|embuchado|jamon|salchich|morcilla|butifarra|secreto|presa ibe|pluma ibe|torrezno|lacon|sobrasada|longaniza|chistorra|costilla/.test(norm(f.nombre)),
+  pollo:   f => /pollo|pavo|pollastre/.test(norm(f.nombre)),
+  ternera: f => /ternera|entrecot|chuleton|redondo|solomillo de ternera|carne picada|hamburguesa de ternera|rabo de toro|carrillera/.test(norm(f.nombre)),
+  cordero: f => /cordero|lechazo|cabrito/.test(norm(f.nombre)),
+  carne:   f => ['cerdo', 'pollo', 'ternera', 'cordero'].some(k => FAMILIAS[k](f)),
+  verdura: f => f.cat === 'Verduras',
+  fruta:   f => f.cat === 'Frutas',
+  legumbre: f => f.cat === 'Legumbres',
+  lacteo:  f => f.cat === 'Lácteos',
+  queso:   f => /queso|mozzarella|burrata|feta|parmesano|requeson|cabrales|roquefort|brie|camembert/.test(norm(f.nombre)),
+  huevo:   f => /huevo|clara de huevo/.test(norm(f.nombre)),
+  pasta:   f => /pasta|macarron|espagueti|fideo|noodle|raviol|tortellini|lasan|canelon|noqui/.test(norm(f.nombre)),
+  arroz:   f => /arroz|risotto|paella|sushi|nigiri|uramaki|fideua/.test(norm(f.nombre)),
+  pan:     f => /pan |^pan|tostada|bocadillo|baguette|chapata|biscote|picos de pan/.test(norm(f.nombre)),
+  dulce:   f => /chocolate|galleta|bizcocho|tarta|helado|azucar|miel|mermelada|bolleria|donut|magdalena|churro/.test(norm(f.nombre)),
+  frito:   f => /frit|rebozad|romana|gabardina|churro|nugget|croqueta/.test(norm(f.nombre)),
+};
+const SINONIMOS = {
+  pescados: 'pescado', pescao: 'pescado', verduras: 'verdura', verdurita: 'verdura',
+  fruta: 'fruta', frutas: 'fruta', legumbres: 'legumbre', lacteos: 'lacteo',
+  lacteo: 'lacteo', quesos: 'queso', huevos: 'huevo', carnes: 'carne',
+  mariscos: 'marisco', dulces: 'dulce', fritos: 'frito', verde: 'verdura',
+};
+
+function menuPrefs(ws) { return DB.get('menupref_' + ws, { quiero: [], no: [], maxTiempo: null, texto: '' }); }
+function setMenuPrefs(ws, p) { DB.set('menupref_' + ws, p); }
+
+/* ¿Este alimento responde a esa palabra? Por familia si la palabra nombra
+   una, y si no por el nombre, que es como se busca en el resto de la app. */
+function foodMatchesTerm(f, term) {
+  if (!f) return false;
+  const t = SINONIMOS[term] || term;
+  if (FAMILIAS[t]) return FAMILIAS[t](f);
+  const n = norm(f.nombre);
+  return n.indexOf(t) >= 0 || stemmedName(f).indexOf(stem(t)) >= 0;
+}
+function algunAlimento(term) {
+  return allFoods().some(f => foodMatchesTerm(f, term));
+}
+
+/* Lee las sugerencias palabra a palabra. Una negación abre un tramo
+   negado; una palabra positiva lo cierra. Así «sin cerdo, más pescado»
+   deja el cerdo fuera y el pescado dentro, que es lo que se ha dicho. */
+function leerSugerencias(texto) {
+  const palabras = norm(texto).replace(/[.,;:!?¡¿()]/g, ' ').split(/\s+/).filter(Boolean);
+  const quiero = [], no = [];
+  let negando = false;
+
+  palabras.forEach(w => {
+    if (NEGACIONES.indexOf(w) >= 0) { negando = true; return; }
+    if (POSITIVOS.indexOf(w) >= 0) { if (w !== 'y') negando = false; return; }
+    if (RUIDO.indexOf(w) >= 0 || w.length < 3) return;
+    if (/^\d+$/.test(w) || /^(min|minuto|minutos|hora|horas)$/.test(w)) return;
+    const t = SINONIMOS[w] || w;
+    if (!FAMILIAS[t] && !algunAlimento(t)) return;   // no es comida: se ignora
+    const lista = negando ? no : quiero;
+    if (lista.indexOf(t) < 0) lista.push(t);
+  });
+
+  let maxTiempo = null;
+  const min = texto.match(/(\d+)\s*(min|minuto)/i);
+  if (min) maxTiempo = parseInt(min[1], 10);
+  else if (/media hora/i.test(texto)) maxTiempo = 30;
+  else if (/r[aá]pid|poco tiempo|sin tiempo|deprisa/i.test(texto)) maxTiempo = 20;
+
+  return { quiero: quiero, no: no, maxTiempo: maxTiempo, texto: texto.trim() };
+}
+
+/* Cuántos ingredientes de la receta responden a esas palabras. */
+function recipeHits(recipe, terms) {
+  if (!terms.length) return 0;
+  return (recipe.ingredients || []).filter(i => {
+    const f = foodById(i.ingredient_id);
+    return f && terms.some(t => foodMatchesTerm(f, t));
+  }).length;
+}
+
 /* Cuánto pesa la despensa frente al encaje de macros. 18 puntos es
    suficiente para desempatar entre recetas parecidas, pero no tanto como
    para sacrificar los objetivos del día. */
@@ -3304,6 +3462,7 @@ function generateMenu(ws, opts) {
   const prev = getMenu(ws);
   const t = targets();
   const soloDespensa = !!(opts && opts.soloDespensa);
+  const pref = menuPrefs(ws);
   // Lo comido estos días atrás cuenta como repetición: si cenaste eso
   // anteayer, no te lo vuelvo a poner.
   const history = recentRecipeIds(ws, 3).map(id => ({ date: ws, id: id }));
@@ -3336,7 +3495,10 @@ function generateMenu(ws, opts) {
       const recent = history.filter(h => daysApart(h.date, date) <= 2).map(h => h.id)
         .concat(history.map(h => h.id));
 
-      const pool = recipesFor(meal.key).filter(plannable);
+      const pool = recipesFor(meal.key)
+        .filter(plannable)
+        // Lo que ha dicho que no quiere no entra, aunque cuadre de miedo.
+        .filter(r => !recipeHits(r, pref.no));
       if (!pool.length) { slots.push({ meal_type: meal.key, recipe_id: null, factor: 1, is_locked: false }); return; }
 
       const ranked = pool.map(r => {
@@ -3347,7 +3509,13 @@ function generateMenu(ws, opts) {
         // súper cada día no lo sigue nadie. Y lo que ella marcó como
         // favorito de esa comida pesa también.
         const cobertura = pantryCoverage(r, factor);
-        const bonus = cobertura * PESO_DESPENSA + Math.min(3, favoriteHits(r, meal.key)) * 4;
+        const pedidos = recipeHits(r, pref.quiero);
+        // Las recetas no guardan minutos, solo la etiqueta «rapido». Si pide
+        // poco tiempo, esas suben; no se filtra, o algunas comidas se
+        // quedarían sin nada que poner.
+        const prisa = pref.maxTiempo && pref.maxTiempo <= 25 && hasTag(r, 'rapido') ? 12 : 0;
+        const bonus = cobertura * PESO_DESPENSA + Math.min(3, favoriteHits(r, meal.key)) * 4 +
+          Math.min(3, pedidos) * 10 + prisa;
         return { r: r, factor: factor, adj: adj, faltan: missingCount(r, factor), raw: s.raw + bonus };
       })
         // En modo despensa manda cuánto te falta y los macros desempatan.
@@ -3942,6 +4110,7 @@ let menuWeek = null;
 let hoyEditMeal = null;    // qué comida se está editando en Hoy, si alguna
 let compraSec = 'lista';   // qué sección de Compra se está mirando
 let verComprados = false;  // enseñar lo ya comprado dentro de la lista
+let menuEditDay = null;    // qué día del menú se está editando
 let compraEdit = false;    // modo edición de la lista y la despensa
 let menuSoloDespensa = false;
 let draft = null;
@@ -4203,7 +4372,9 @@ function viewMenu() {
     '</div>';
 
   if (!menu) {
-    return nav + modo + '<div class="card"><span class="eyebrow">Sin menú</span>' +
+    return nav + modo +
+      '<button class="btn wide" data-act="menu-prefs">🎤 Decirme cómo quieres la semana</button>' +
+      '<div class="card"><span class="eyebrow">Sin menú</span>' +
       '<p class="muted" style="margin:8px 0 12px;font-size:13px">Se generará ajustando las porciones para ' +
       'cuadrar <span class="num">' + t.kcal + '</span> kcal y <span class="num">' + t.protein +
       '</span> g de proteína cada día, sin repetir receta en días seguidos, tirando de ' +
@@ -4216,6 +4387,7 @@ function viewMenu() {
   const days = menu.days.map(day => {
     const dt = menuDayTotals(day);
     const isToday = day.date === today();
+    const editDia = menuEditDay === day.date;
     const kcalOff = Math.abs(dt.kcal - t.kcal) > 150;
     const protOk = dt.prot >= t.protein;
     const satOver = dt.sat > satLimit(t);
@@ -4223,23 +4395,59 @@ function viewMenu() {
       const slot = (day.meal_slots || []).find(s => s.meal_type === m.key);
       const r = slot ? slotRecipe(slot) : null;
       const locked = !!(slot && slot.is_locked);
-      const base = slot && slot.recipe_id ? recipeById(slot.recipe_id) : null;
-      const faltan = base ? missingCount(base, slot.factor || 1) : 0;
-      return '<div class="slot">' +
+      const ings = slot ? slotIngredients(slot) : [];
+      const faltan = ings.filter(i => pantryQty(i.ingredient_id) < (i.amount_g || 0) * (slot.factor || 1));
+
+      const fila = '<div class="slot">' +
         '<span class="slot-key">' + m.short + '</span>' +
         '<button class="slot-body" data-act="swap" data-date="' + day.date + '" data-meal="' + m.key + '">' +
           '<span class="slot-name">' + (r ? esc(r.name) : '<span class="faint">— vacío —</span>') + '</span>' +
           (r ? '<span class="slot-macros">' + r.macros.kcal + ' kcal · P' + Math.round(r.macros.prot) +
                (slot.factor && slot.factor !== 1 ? ' · ×' + slot.factor : '') +
-               (base ? (faltan
-                  ? ' · <span class="falta">faltan ' + faltan + '</span>'
-                  : ' · <span class="tengo">en casa</span>') : '') + '</span>' : '') +
+               (ings.length ? (faltan.length
+                  ? ' · <span class="falta">🛒 faltan ' + faltan.length + '</span>'
+                  : ' · <span class="tengo">en casa</span>') : '') +
+               (slotTocado(slot) ? ' · <span class="tocado">cambiada</span>' : '') + '</span>' : '') +
         '</button>' +
         '<button class="lock" data-act="lock" data-date="' + day.date + '" data-meal="' + m.key +
           '" aria-pressed="' + (locked ? 'true' : 'false') +
           '" aria-label="' + (locked ? 'Desfijar' : 'Fijar') + ' ' + m.name + '">' +
           (locked ? '🔒' : '🔓') + '</button>' +
       '</div>';
+
+      if (!editDia || !r) return fila;
+
+      // En edición se abre el plato: cada ingrediente con su cantidad, un 🛒
+      // si no está en casa, y la posibilidad de cambiarlo, quitarlo o añadir.
+      const filas = ings.map(i => {
+        const f = foodById(i.ingredient_id);
+        if (!f) return '';
+        const g = Math.round((i.amount_g || 0) * (slot.factor || 1));
+        const falta = pantryQty(i.ingredient_id) < g;
+        return '<div class="ming' + (falta ? ' falta' : '') + '">' +
+          '<button class="ming-nm" data-act="ing-swap" data-date="' + day.date + '" data-meal="' + m.key +
+            '" data-id="' + i.ingredient_id + '">' +
+            (falta ? '<span class="ming-ico" title="No lo tienes en casa">🛒</span> ' : '') +
+            esc(shortName(f)) + '<span class="cambiar-ico">⇄</span></button>' +
+          '<span class="ming-g num">' + g + ' ' + (f.unit || 'g') + '</span>' +
+          '<button class="x" data-act="ing-del" data-date="' + day.date + '" data-meal="' + m.key +
+            '" data-id="' + i.ingredient_id + '" aria-label="Quitar ' + esc(shortName(f)) + '">✕</button>' +
+        '</div>';
+      }).join('');
+
+      return fila + '<div class="ming-box">' + filas +
+        '<div class="ming-acts">' +
+          '<button class="btn small" data-act="ing-add" data-date="' + day.date + '" data-meal="' + m.key +
+            '">+ Añadir ingrediente</button>' +
+          (faltan.length
+            ? '<button class="btn small" data-act="ing-buy" data-date="' + day.date + '" data-meal="' + m.key +
+                '">🛒 Lo que falta a la compra</button>'
+            : '') +
+          (slotTocado(slot)
+            ? '<button class="btn small" data-act="ing-reset" data-date="' + day.date + '" data-meal="' + m.key +
+                '">Deshacer cambios</button>'
+            : '') +
+        '</div></div>';
     }).join('');
     return '<div class="day' + (isToday ? ' today' : '') + '">' +
       '<div class="day-head">' +
@@ -4247,10 +4455,24 @@ function viewMenu() {
         '<span class="day-tot"><span class="' + (kcalOff ? 'no' : '') + '">' + Math.round(dt.kcal) + ' kcal</span> · ' +
           '<span class="' + (protOk ? 'ok' : 'no') + '">P' + Math.round(dt.prot) + '</span>' +
           (satOver ? ' · <span class="no">sat↑</span>' : '') + '</span>' +
-      '</div>' + slots + '</div>';
+      '</div>' + slots +
+      '<div class="day-foot">' +
+        '<button class="btn small" data-act="menu-edit-day" data-date="' + day.date + '">' +
+          (editDia ? 'Listo' : 'Editar el día') + '</button>' +
+      '</div></div>';
   }).join('');
 
+  const pref = menuPrefs(ws);
+  const resumen = pref.texto
+    ? '<p class="hint" style="margin:0">Con tus sugerencias: <em>«' + esc(pref.texto) + '»</em>' +
+        (pref.quiero.length ? ' · más ' + esc(pref.quiero.join(', ')) : '') +
+        (pref.no.length ? ' · nada de ' + esc(pref.no.join(', ')) : '') +
+      '</p>'
+    : '';
+
   return nav + modo +
+    '<button class="btn wide" data-act="menu-prefs">🎤 Decirme cómo quieres la semana</button>' +
+    resumen +
     '<div style="display:flex;gap:8px">' +
       '<button class="btn grow" data-act="gen-menu">Regenerar</button>' +
       '<button class="btn primary grow" data-act="go-shop">Lista de la compra</button>' +
@@ -5616,6 +5838,80 @@ function builderCommit() {
   toast(name ? name + ' registrada y guardada' : n + (n === 1 ? ' alimento añadido' : ' alimentos añadidos'));
 }
 
+/* Sugerencias para la semana: dictadas o escritas. */
+function sheetMenuPrefs() {
+  const ws = menuWeek || weekStartOf(today());
+  const p = menuPrefs(ws);
+  const body =
+    '<p class="hint" style="margin:0">Di o escribe cómo quieres la semana. Leo tus palabras ' +
+      'buscando alimentos del catálogo y el tiempo que tengas: <em>«más pescado y verdura, ' +
+      'sin cerdo, algo rápido»</em>. No hay ninguna IA dentro de la app —funciona sin conexión—, ' +
+      'así que lo que no reconozca como alimento lo dirá y no lo tendrá en cuenta.</p>' +
+    (hayDictado()
+      ? '<button class="btn wide" id="mp-mic">🎤 Dictar</button>' +
+        '<div class="dictado" id="dictado-texto"></div>'
+      : '') +
+    '<div class="field"><label for="mp-txt">Tus sugerencias</label>' +
+      '<textarea class="ta" id="mp-txt" rows="4" placeholder="más pescado y verdura, sin cerdo, algo rápido">' +
+      esc(p.texto || '') + '</textarea></div>' +
+    '<div id="mp-lee"></div>' +
+    '<div style="display:flex;flex-direction:column;gap:7px">' +
+      '<button class="btn primary wide" id="mp-save">Guardar y regenerar el menú</button>' +
+      (p.texto ? '<button class="btn wide" id="mp-clear">Olvidar las sugerencias</button>' : '') +
+    '</div>';
+
+  openSheet('Cómo quieres la semana', body, scrim => {
+    const txt = scrim.querySelector('#mp-txt');
+    const lee = scrim.querySelector('#mp-lee');
+
+    const pinta = () => {
+      const r = leerSugerencias(txt.value);
+      if (!txt.value.trim()) { lee.innerHTML = ''; return; }
+      const lista = (terms, etiqueta, clase) => terms.length
+        ? '<div class="' + clase + '"><b>' + etiqueta + ':</b> ' + esc(terms.join(', ')) + '</div>'
+        : '';
+      const nada = !r.quiero.length && !r.no.length && !r.maxTiempo;
+      lee.innerHTML = '<div class="suggest-extra">' +
+        (nada
+          ? 'No he reconocido ningún alimento del catálogo en lo que has escrito. ' +
+            'Prueba a nombrarlos como los buscarías: «salmón», «lentejas», «brócoli».'
+          : lista(r.quiero, 'Más de', 'have-all') +
+            lista(r.no, 'Nada de', 'need-buy') +
+            (r.maxTiempo ? '<div>Con prisa: hasta ' + r.maxTiempo + ' min</div>' : '')) +
+      '</div>';
+    };
+    txt.addEventListener('input', pinta);
+    pinta();
+
+    const mic = scrim.querySelector('#mp-mic');
+    if (mic) mic.onclick = () => {
+      if (dictado && dictado.activo) {
+        pararDictado(true);
+        const t = (document.getElementById('dictado-texto').dataset.texto || '').trim();
+        if (t) { txt.value = (txt.value ? txt.value + ' ' : '') + t; pinta(); }
+      } else empezarDictado();
+    };
+
+    scrim.querySelector('#mp-save').onclick = () => {
+      pararDictado();
+      const r = leerSugerencias(txt.value);
+      setMenuPrefs(ws, r);
+      generateMenu(ws, { soloDespensa: menuSoloDespensa });
+      closeSheet();
+      render();
+      toast(r.quiero.length || r.no.length ? 'Menú hecho con tus sugerencias' : 'Menú regenerado');
+    };
+    const clear = scrim.querySelector('#mp-clear');
+    if (clear) clear.onclick = () => {
+      setMenuPrefs(ws, { quiero: [], no: [], maxTiempo: null, texto: '' });
+      generateMenu(ws, { soloDespensa: menuSoloDespensa });
+      closeSheet();
+      render();
+      toast('Sugerencias olvidadas');
+    };
+  });
+}
+
 /* ---- Cambiar una comida del menú ---- */
 function sheetSwap(date, mealKey) {
   const ws = menuWeek || weekStartOf(today());
@@ -5857,6 +6153,81 @@ document.getElementById('view').addEventListener('click', ev => {
     render();
     return;
   }
+  if (act === 'menu-prefs') { sheetMenuPrefs(); return; }
+  if (act === 'menu-edit-day') {
+    menuEditDay = menuEditDay === d.date ? null : d.date;
+    render();
+    return;
+  }
+  if (act === 'ing-swap') {
+    const sl = slotBuscar(d.date, d.meal);
+    if (!sl) return;
+    sheetPicker('Cambiar por…', food => {
+      if (food.id === d.id) return;
+      const sw = Object.assign({}, sl.swaps || {});
+      // Se apunta contra el ingrediente original, no contra el ya cambiado:
+      // si no, cambiar dos veces dejaría cadenas sueltas.
+      const orig = Object.keys(sw).find(k => sw[k] === d.id) || d.id;
+      sw[orig] = food.id;
+      slotGuardar(d.date, d.meal, { swaps: sw });
+      render();
+      toast('Ahora lleva ' + shortName(food));
+    });
+    return;
+  }
+  if (act === 'ing-del') {
+    const sl = slotBuscar(d.date, d.meal);
+    if (!sl) return;
+    const anadido = (sl.added || []).find(x => x.id === d.id);
+    if (anadido) slotGuardar(d.date, d.meal, { added: (sl.added || []).filter(x => x.id !== d.id) });
+    else {
+      const sw = Object.assign({}, sl.swaps || {});
+      const orig = Object.keys(sw).find(k => sw[k] === d.id) || d.id;
+      delete sw[orig];
+      slotGuardar(d.date, d.meal, {
+        swaps: sw,
+        removed: (sl.removed || []).concat([orig]),
+      });
+    }
+    render();
+    return;
+  }
+  if (act === 'ing-add') {
+    const sl = slotBuscar(d.date, d.meal);
+    if (!sl) return;
+    sheetPicker('Añadir al plato', food => {
+      slotGuardar(d.date, d.meal, {
+        added: (sl.added || []).concat([{ id: food.id, g: defaultGrams(food) }]),
+      });
+      render();
+      toast(shortName(food) + ' añadido al plato');
+    });
+    return;
+  }
+  if (act === 'ing-reset') {
+    slotGuardar(d.date, d.meal, { swaps: {}, removed: [], added: [] });
+    render();
+    toast('Plato como estaba');
+    return;
+  }
+  if (act === 'ing-buy') {
+    const ws = menuWeek || weekStartOf(today());
+    const sl = slotBuscar(d.date, d.meal);
+    if (!sl) return;
+    let n = 0;
+    slotIngredients(sl).forEach(i => {
+      const f = foodById(i.ingredient_id);
+      if (!f) return;
+      const g = Math.round((i.amount_g || 0) * (sl.factor || 1));
+      const falta = g - pantryQty(i.ingredient_id);
+      if (falta <= 0) return;
+      addShopLineManual(ws, i.ingredient_id, Math.max(falta, defaultPurchase(f)));
+      n++;
+    });
+    render();
+    toast(n ? n + (n === 1 ? ' producto a la lista' : ' productos a la lista') : 'No falta nada');
+    return;
+  }
   if (act === 'menu-modo') {
     menuSoloDespensa = d.m === 'solo';
     render();
@@ -5870,10 +6241,17 @@ document.getElementById('view').addEventListener('click', ev => {
         const r = sl.recipe_id && recipeById(sl.recipe_id);
         return r && missingCount(r, sl.factor || 1) === 0;
       }).length, 0);
+    const vacias = menu.days.reduce((n, day) =>
+      n + (day.meal_slots || []).filter(sl => !sl.recipe_id).length, 0);
     render();
-    toast(completas
-      ? 'Menú listo · ' + completas + ' comidas ya las tienes en casa'
-      : 'Menú de 7 días listo');
+    // Si sus sugerencias dejan una comida sin ninguna receta posible, hay
+    // que decirlo: un hueco vacío sin explicación parece un fallo.
+    toast(vacias
+      ? vacias + (vacias === 1 ? ' comida se queda sin plato' : ' comidas se quedan sin plato') +
+        ': con lo que has pedido no me sale nada'
+      : completas
+        ? 'Menú listo · ' + completas + ' comidas ya las tienes en casa'
+        : 'Menú de 7 días listo');
     return;
   }
   if (act === 'swap') { sheetSwap(d.date, d.meal); return; }
