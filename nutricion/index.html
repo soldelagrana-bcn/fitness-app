@@ -374,8 +374,11 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 .entry .qt { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); }
 .entry .kc { font-family: var(--mono); font-size: 12px; font-weight: 620; }
 /* ---- Recetas ---- */
+.rec-wrap { position: relative; }
+.rec-wrap + .rec-wrap { margin-top: 8px; }
+.rec-star { position: absolute; top: 4px; right: 4px; font-size: 20px; }
 .rec { width: 100%; text-align: left; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); padding: 12px; }
-.rec + .rec { margin-top: 8px; }
+.rec-wrap .rec { padding-right: 46px; }
 .rec-top { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
 .rec-name { flex: 1; font-size: 13.5px; font-weight: 620; min-width: 0; text-wrap: balance; }
 .tag {
@@ -819,7 +822,7 @@ input[type="file"] { padding: 12px; font-size: 14px; }
    ============================================================ */
 /* Sello de versión: sirve para saber si el móvil está sirviendo una copia
    guardada en vez de la última. Se ve en Ajustes. */
-const VERSION = 'v20';
+const VERSION = 'v21';
 const FECHA_VERSION = '12 ago 2026';
 
 const DEFAULT_TARGETS = { kcal: 1600, protein: 115, carbs: 165, fat: 55 };
@@ -2296,6 +2299,18 @@ function allRecipes() {
 function recipesFor(mealKey) { return allRecipes().filter(r => r.meal_type === mealKey); }
 function recipeById(id) { return allRecipes().find(r => r.id === id) || null; }
 function isSeed(id) { return SEED_RECIPES.some(r => r.id === id); }
+
+/* Recetas marcadas con estrella. Es cosa suya, no de la receta, así que
+   vive aparte y sobrevive a editarla. */
+function recipeFavs() { return DB.get('recetas_fav', []); }
+function isRecipeFav(id) { return recipeFavs().indexOf(id) >= 0; }
+function toggleRecipeFav(id) {
+  const l = recipeFavs();
+  const i = l.indexOf(id);
+  if (i >= 0) l.splice(i, 1); else l.push(id);
+  DB.set('recetas_fav', l);
+  return i < 0;
+}
 function saveRecipe(r) {
   const clean = Object.assign({}, r);
   delete clean.macros;
@@ -4286,13 +4301,17 @@ function mealsSection() {
       '<div class="meal-foot">' +
         (!mine.length
           ? '<button class="btn grow" data-act="add-food" data-meal="' + m.key + '">Registrar ' +
-              m.name.toLowerCase() + '</button>'
+              m.name.toLowerCase() + '</button>' +
+            '<button class="btn" data-act="saved" data-meal="' + m.key +
+              '" aria-label="Tus recetas de ' + m.name.toLowerCase() + '">★</button>'
           : edit
             // Corregir suele incluir «y además me comí esto», así que en
             // edición se puede añadir sin salir.
             ? '<button class="btn grow" data-act="add-food" data-meal="' + m.key + '">+ Añadir</button>' +
               '<button class="btn primary grow" data-act="hoy-edit" data-meal="' + m.key + '">Listo</button>'
-            : '<button class="btn grow" data-act="hoy-edit" data-meal="' + m.key + '">Editar</button>') +
+            : '<button class="btn grow" data-act="hoy-edit" data-meal="' + m.key + '">Editar</button>' +
+              '<button class="btn" data-act="saved" data-meal="' + m.key +
+                '" aria-label="Tus recetas de ' + m.name.toLowerCase() + '">★</button>') +
       '</div>' +
     '</div>';
   }).join('');
@@ -4312,16 +4331,16 @@ function viewRecetas() {
 
   const list = (recipeFilter === 'todas' ? allRecipes() : recipesFor(recipeFilter))
     .slice()
-    .sort((a, b) => {
-      const d = (isHabitual(b) ? 1 : 0) - (isHabitual(a) ? 1 : 0);
-      return d !== 0 ? d : a.name.localeCompare(b.name);
-    });
+    .sort((a, b) =>
+      (isRecipeFav(b.id) ? 1 : 0) - (isRecipeFav(a.id) ? 1 : 0) ||
+      (isHabitual(b) ? 1 : 0) - (isHabitual(a) ? 1 : 0) ||
+      a.name.localeCompare(b.name));
 
   const cards = list.map(r => {
     const m = r.macros;
     const tags = (r.tags || []).filter(x => x !== 'habitual').slice(0, 3)
       .map(x => '<span class="tag">' + esc(x) + '</span>').join('');
-    return '<button class="rec" data-act="recipe" data-id="' + r.id + '">' +
+    return '<div class="rec-wrap"><button class="rec" data-act="recipe" data-id="' + r.id + '">' +
       '<div class="rec-top">' +
         '<span class="rec-name">' + esc(r.name) + '</span>' +
         (r.is_fixed ? '<span class="tag fixed">fija</span>' : '') +
@@ -4333,7 +4352,11 @@ function viewRecetas() {
       '<div class="rec-foot">' + (recipeDensity(r) * 100).toFixed(1) + ' g proteína / 100 kcal ' +
         (tags ? '&nbsp; ' : '') + '</div>' +
       (tags ? '<div style="margin-top:5px;display:flex;gap:4px;flex-wrap:wrap">' + tags + '</div>' : '') +
-    '</button>';
+    '</button>' +
+    '<button class="star rec-star" data-act="rec-star" data-id="' + r.id + '" aria-pressed="' +
+      (isRecipeFav(r.id) ? 'true' : 'false') + '" aria-label="' +
+      (isRecipeFav(r.id) ? 'Quitar de favoritas' : 'Marcar como favorita') + '">' +
+      (isRecipeFav(r.id) ? '★' : '☆') + '</button></div>';
   }).join('');
 
   return '<div class="card">' +
@@ -5838,6 +5861,87 @@ function builderCommit() {
   toast(name ? name + ' registrada y guardada' : n + (n === 1 ? ' alimento añadido' : ' alimentos añadidos'));
 }
 
+/* ============================================================
+   TUS RECETAS, AL REGISTRAR
+   Guardar una receta y que luego no aparezca al registrar la
+   comida es guardarla en un cajón sin asa. Esta hoja las saca:
+   las tuyas, las de estrella primero, con macros y micros.
+   ============================================================ */
+let savedOnlyFav = false;
+
+function sheetSavedRecipes(mealKey) {
+  const body = '<div id="sv-list"></div>';
+  openSheet('Recetas de ' + mealName(mealKey).toLowerCase(), body, () => paintSaved(mealKey));
+}
+
+function paintSaved(mealKey) {
+  const box = document.getElementById('sv-list');
+  if (!box) return;
+  const todas = recipesFor(mealKey).slice().sort((a, b) =>
+    (isRecipeFav(b.id) ? 1 : 0) - (isRecipeFav(a.id) ? 1 : 0) ||
+    (isHabitual(b) ? 1 : 0) - (isHabitual(a) ? 1 : 0) ||
+    a.name.localeCompare(b.name));
+  const favs = todas.filter(r => isRecipeFav(r.id));
+  const lista = savedOnlyFav ? favs : todas;
+
+  const chips = '<div class="chips" style="margin-bottom:10px">' +
+    '<button class="chip" data-sv-f="todas" aria-pressed="' + (savedOnlyFav ? 'false' : 'true') + '">' +
+      'Todas · ' + todas.length + '</button>' +
+    '<button class="chip" data-sv-f="fav" aria-pressed="' + (savedOnlyFav ? 'true' : 'false') + '">' +
+      '★ Favoritas · ' + favs.length + '</button>' +
+  '</div>';
+
+  const cards = lista.length ? lista.map(r => {
+    const m = r.macros;
+    return '<div class="option">' +
+      '<div class="option-head">' +
+        '<span class="sug-name">' + esc(r.name) + '</span>' +
+        (isHabitual(r) ? '<span class="tag blue">habitual</span>' : '') +
+        '<button class="star" data-sv-star="' + r.id + '" aria-pressed="' + (isRecipeFav(r.id) ? 'true' : 'false') +
+          '" aria-label="' + (isRecipeFav(r.id) ? 'Quitar de favoritas' : 'Marcar como favorita') + '">' +
+          (isRecipeFav(r.id) ? '★' : '☆') + '</button>' +
+      '</div>' +
+      '<div class="macro-row"><b>' + Math.round(m.kcal) + ' kcal</b>' +
+        '<span>P ' + fmt1(m.prot) + '</span><span>C ' + fmt1(m.carbs) + '</span>' +
+        '<span>G ' + fmt1(m.fat) + '</span><span class="faint">sat ' + fmt1(m.sat) + '</span></div>' +
+      '<div class="micro-strip">' +
+        '<span>fibra <b>' + fmt1(m.fiber) + ' g</b></span>' +
+        '<span>hierro <b>' + fmt1(m.fe) + ' mg</b></span>' +
+        '<span>calcio <b>' + Math.round(m.ca) + ' mg</b></span>' +
+        '<span>vit. D <b>' + fmt1(m.vd) + ' µg</b></span>' +
+      '</div>' +
+      '<div class="sub" style="margin-top:7px;font-size:11.5px;color:var(--ink-soft)">' +
+        esc((r.ingredients || []).map(i => {
+          const f = foodById(i.ingredient_id);
+          return f ? shortName(f) + ' ' + i.amount_g + (f.unit || 'g') : '';
+        }).filter(Boolean).join(' · ')) + '</div>' +
+      '<div class="sug-actions">' +
+        '<button class="btn grow" data-sv-ver="' + r.id + '">Ver</button>' +
+        '<button class="btn primary grow" data-sv-log="' + r.id + '" data-meal="' + mealKey + '">Registrar</button>' +
+      '</div>' +
+    '</div>';
+  }).join('') : '<p class="empty">' + (savedOnlyFav
+    ? 'Ninguna marcada con estrella todavía. Toca la ☆ de una receta.'
+    : 'No hay recetas de ' + mealName(mealKey).toLowerCase() + '. Monta una comida y ponle nombre para guardarla.') + '</p>';
+
+  box.innerHTML = chips + cards;
+
+  box.querySelectorAll('[data-sv-f]').forEach(b => b.onclick = () => {
+    savedOnlyFav = b.dataset.svF === 'fav';
+    paintSaved(mealKey);
+  });
+  box.querySelectorAll('[data-sv-star]').forEach(b => b.onclick = () => {
+    const on = toggleRecipeFav(b.dataset.svStar);
+    paintSaved(mealKey);
+    toast(on ? 'Marcada como favorita' : 'Quitada de favoritas');
+  });
+  box.querySelectorAll('[data-sv-ver]').forEach(b => b.onclick = () => sheetRecipe(b.dataset.svVer));
+  box.querySelectorAll('[data-sv-log]').forEach(b => b.onclick = () => {
+    const r = recipeById(b.dataset.svLog);
+    if (r) logRecipe(r, 1, b.dataset.meal);
+  });
+}
+
 /* Sugerencias para la semana: dictadas o escritas. */
 function sheetMenuPrefs() {
   const ws = menuWeek || weekStartOf(today());
@@ -6117,7 +6221,14 @@ document.getElementById('view').addEventListener('click', ev => {
     return;
   }
   if (act === 'recipe') { sheetRecipe(d.id); return; }
+  if (act === 'rec-star') {
+    const on = toggleRecipeFav(d.id);
+    render();
+    toast(on ? 'Marcada como favorita' : 'Quitada de favoritas');
+    return;
+  }
   if (act === 'add-food') { sheetBuilder(d.meal); return; }   // hoyEditMeal se mantiene
+  if (act === 'saved') { sheetSavedRecipes(d.meal); return; }
   if (act === 'hoy-edit') {
     hoyEditMeal = hoyEditMeal === d.meal ? null : d.meal;
     render();
