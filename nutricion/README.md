@@ -275,6 +275,11 @@ lunes.
 
 ## Decirle cómo quieres la semana
 
+Lo dictado **se escribe en el propio campo de texto** según sale, para poder corregirlo
+antes de guardar. Antes se quedaba en una caja aparte y había que volver a tocar el
+micrófono para pasarlo: si guardabas directamente, las preferencias se perdían sin decir
+nada.
+
 **Preferencias** abre una hoja donde se dicta o se escribe: *«más pescado y verdura, sin
 cerdo, algo rápido»*. **No hay ninguna IA dentro** —la app va sin conexión— y conviene
 decirlo claro: lo que hay es un lector de reglas.
@@ -294,6 +299,17 @@ ingrediente (hasta 3), y si pides prisa suben las recetas con etiqueta `rapido` 
 recetas no guardan minutos, así que se pondera en vez de filtrar—. Si tus condiciones dejan
 una comida sin ninguna receta posible, el hueco se queda vacío y el aviso lo dice: un hueco
 mudo parece un fallo.
+
+## El menú dice qué tienes y qué falta
+
+«¿Esto lo tengo?» es la pregunta que se hace mirando el menú, y hasta ahora había que
+irse a Compra a averiguarlo. Al final de la semana hay un resumen —«48 productos · 12 en
+casa · 36 por comprar»— y, dentro de cada día en edición, cada ingrediente dice **en
+casa**, **en la lista** o **sin comprar**.
+
+Lo que falta entra solo en la lista de la compra, que se calcula del menú. «Sin comprar»
+solo sale si la quitaste tú de la lista; entonces el resumen los nombra y ofrece volver a
+ponerlos.
 
 ## Editar un día del menú
 

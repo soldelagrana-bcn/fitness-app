@@ -421,6 +421,13 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 .ming.falta .ming-nm { color: var(--warn); }
 .ming-ico { font-size: 11px; }
 .ming-g { flex: 0 0 auto; font-size: 11px; color: var(--ink-faint); }
+.ming-est {
+  display: block; font-size: 9.5px; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--good); margin-top: -2px;
+}
+.ming.falta .ming-est { color: var(--accent); }
+.macro-row .ok-txt { color: var(--good); font-weight: 620; }
+.macro-row .warn-txt { color: var(--warn); font-weight: 620; }
 .ming-acts { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 8px; }
 .ming-acts .btn { font-size: 11.5px; padding: 6px 9px; min-height: 40px; }
 .lock { border: 0; background: none; font-size: 14px; min-width: 44px; min-height: 44px; padding: 0; opacity: .3; }
@@ -822,7 +829,7 @@ input[type="file"] { padding: 12px; font-size: 14px; }
    ============================================================ */
 /* Sello de versión: sirve para saber si el móvil está sirviendo una copia
    guardada en vez de la última. Se ve en Ajustes. */
-const VERSION = 'v22';
+const VERSION = 'v23';
 const FECHA_VERSION = '12 ago 2026';
 
 const DEFAULT_TARGETS = { kcal: 1600, protein: 115, carbs: 165, fat: 55 };
@@ -3691,6 +3698,20 @@ function defaultPurchase(f) {
    precio solo lo sé de una parte del catálogo, así que la lista
    dice siempre sobre cuántos productos está hecha la cuenta.
    ============================================================ */
+/* Los ids que hoy están en la lista de la compra: lo que pide el menú, lo
+   que se acaba y lo puesto a mano, menos lo quitado. Se usa desde el menú
+   para decir de cada cosa que falta si está pedida o no. */
+function lineasDeCompra(ws, menu) {
+  const ids = {};
+  const lista = shoppingList(menu || getMenu(ws));
+  if (lista) lista.groups.forEach(g => g.items.forEach(it => { ids[it.id] = true; }));
+  pantryStatus().filter(x => x.seAcaba).forEach(x => { ids[x.food.id] = true; });
+  habitualesSinStock().forEach(x => { ids[x.food.id] = true; });
+  extraShop(ws).forEach(x => { ids[x.id] = true; });
+  hiddenShop(ws).forEach(id => { delete ids[id]; });
+  return Object.keys(ids);
+}
+
 /* La lista de la compra se calcula sola, así que quitar algo no es
    borrarlo: es decir «esta semana no». Se guarda por semana, para que la
    siguiente vuelva a proponerlo si sigue haciendo falta. */
@@ -4410,6 +4431,10 @@ function viewMenu() {
       '<button class="btn primary wide" data-act="gen-menu">Generar menú de la semana</button></div>';
   }
 
+  // Qué hay hoy en la lista de la compra, para poder decir de cada cosa que
+  // falta si ya está pedida o si se quedó fuera.
+  const lineasCompra = lineasDeCompra(ws, menu);
+
   const days = menu.days.map(day => {
     const dt = menuDayTotals(day);
     const isToday = day.date === today();
@@ -4450,11 +4475,15 @@ function viewMenu() {
         if (!f) return '';
         const g = Math.round((i.amount_g || 0) * (slot.factor || 1));
         const falta = pantryQty(i.ingredient_id) < g;
+        const enLista = falta && lineasCompra.indexOf(i.ingredient_id) >= 0;
         return '<div class="ming' + (falta ? ' falta' : '') + '">' +
           '<button class="ming-nm" data-act="ing-swap" data-date="' + day.date + '" data-meal="' + m.key +
             '" data-id="' + i.ingredient_id + '">' +
             (falta ? '<span class="ming-ico" title="No lo tienes en casa">🛒</span> ' : '') +
-            esc(shortName(f)) + '<span class="cambiar-ico">⇄</span></button>' +
+            esc(shortName(f)) + '<span class="cambiar-ico">⇄</span>' +
+            '<span class="ming-est">' +
+              (!falta ? 'en casa' : enLista ? 'en la lista' : 'sin comprar') + '</span>' +
+          '</button>' +
           '<span class="ming-g num">' + g + ' ' + (f.unit || 'g') + '</span>' +
           '<button class="x" data-act="ing-del" data-date="' + day.date + '" data-meal="' + m.key +
             '" data-id="' + i.ingredient_id + '" aria-label="Quitar ' + esc(shortName(f)) + '">✕</button>' +
@@ -4488,7 +4517,46 @@ function viewMenu() {
       '</div></div>';
   }).join('');
 
-  return nav + prefsBtn + '<div>' + days + '</div>';
+  // Lo que este menú pide, contra lo que hay en casa y lo que está ya en
+  // la lista. Es la pregunta que se hace al mirar el menú —«¿esto lo
+  // tengo?»— y hasta ahora había que ir a Compra a averiguarlo.
+  const pide = {};
+  menu.days.forEach(dd => (dd.meal_slots || []).forEach(sl => {
+    const r = slotRecipe(sl);
+    if (!r) return;
+    (r.ingredients || []).forEach(i => { pide[i.ingredient_id] = (pide[i.ingredient_id] || 0) + i.amount_g; });
+  }));
+  const ids = Object.keys(pide);
+  const enCasaIds = ids.filter(id => pantryQty(id) >= pide[id]);
+  const faltanIds = ids.filter(id => pantryQty(id) < pide[id]);
+  const sinComprar = faltanIds.filter(id => lineasCompra.indexOf(id) < 0);
+
+  const resumen = ids.length
+    ? '<div class="card" style="margin-top:4px">' +
+        '<span class="eyebrow">Para este menú</span>' +
+        '<div class="macro-row" style="margin-top:8px">' +
+          '<span><b>' + ids.length + '</b> productos</span>' +
+          '<span class="ok-txt">' + enCasaIds.length + ' en casa</span>' +
+          '<span class="warn-txt">' + faltanIds.length + ' por comprar</span>' +
+        '</div>' +
+        (faltanIds.length
+          ? '<p class="hint" style="margin:8px 0 0">' +
+              (sinComprar.length
+                ? '<strong>' + sinComprar.length + (sinComprar.length === 1 ? ' no está' : ' no están') +
+                  ' en la lista de la compra</strong>: ' +
+                  esc(sinComprar.slice(0, 6).map(id => shortName(foodById(id))).join(', ')) +
+                  (sinComprar.length > 6 ? '…' : '') + '. Los quitaste tú de la lista.'
+                : 'Todo lo que falta está ya en la lista de la compra.') + '</p>' +
+            '<div style="display:flex;gap:6px;margin-top:9px">' +
+              (sinComprar.length
+                ? '<button class="btn small" data-act="menu-buy-all">Ponerlos en la lista</button>' : '') +
+              '<button class="btn small" data-act="go-shop">Ver la lista</button>' +
+            '</div>'
+          : '<p class="hint" style="margin:8px 0 0">Tienes en casa todo lo que pide el menú.</p>') +
+      '</div>'
+    : '';
+
+  return nav + prefsBtn + '<div>' + days + '</div>' + resumen;
 }
 
 /* ============================================================
@@ -4887,7 +4955,12 @@ function paintLoadMode(modo) {
   }
 }
 
-function empezarDictado() {
+/* `opts.target` es un campo de texto donde escribir lo dictado según sale.
+   Sin él, lo dictado se queda en la caja gris y hay que ir a buscarlo: es
+   lo que hacía que las preferencias del menú se perdieran si guardabas sin
+   volver a tocar el micro. */
+function empezarDictado(opts) {
+  opts = opts || {};
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { toast('Este móvil no permite dictar'); return; }
   const rec = new SR();
@@ -4895,6 +4968,7 @@ function empezarDictado() {
   rec.continuous = true;
   rec.interimResults = true;
   let acumulado = '';
+  const previo = opts.target ? (opts.target.value || '') : '';
 
   rec.onresult = ev => {
     let interim = '';
@@ -4909,6 +4983,10 @@ function empezarDictado() {
       const listo = document.getElementById('voz-listo');
       if (listo) listo.style.display = acumulado.trim() ? 'block' : 'none';
     }
+    if (opts.target) {
+      opts.target.value = (previo ? previo + ' ' : '') + (acumulado + interim).replace(/\n/g, ' ').trim();
+      if (opts.onText) opts.onText();
+    }
   };
   rec.onerror = ev => {
     pararDictado();
@@ -4918,19 +4996,19 @@ function empezarDictado() {
   };
   rec.onend = () => { if (dictado && dictado.activo) { try { rec.start(); } catch (e) {} } };
 
-  dictado = { rec: rec, activo: true };
+  dictado = { rec: rec, activo: true, boton: opts.boton || null };
   try { rec.start(); } catch (e) { toast('No he podido abrir el micrófono'); dictado = null; return; }
-  const btn = document.getElementById('mic-btn');
-  if (btn) { btn.textContent = 'Parar'; btn.classList.add('grabando'); }
+  const btn = opts.boton || document.getElementById('mic-btn');
+  if (btn) { btn.textContent = '■ Parar'; btn.classList.add('grabando'); }
 }
 
 function pararDictado(avisar) {
   if (!dictado) return;
   dictado.activo = false;
   try { dictado.rec.stop(); } catch (e) {}
+  const btn = dictado.boton || document.getElementById('mic-btn');
   dictado = null;
-  const btn = document.getElementById('mic-btn');
-  if (btn) { btn.textContent = 'Seguir dictando'; btn.classList.remove('grabando'); }
+  if (btn) { btn.textContent = '🎤 Seguir dictando'; btn.classList.remove('grabando'); }
   if (avisar) {
     const listo = document.getElementById('voz-listo');
     if (listo && (document.getElementById('dictado-texto').dataset.texto || '').trim()) listo.style.display = 'block';
@@ -5950,7 +6028,8 @@ function sheetMenuPrefs() {
       'así que lo que no reconozca como alimento lo dirá y no lo tendrá en cuenta.</p>' +
     (hayDictado()
       ? '<button class="btn wide" id="mp-mic">🎤 Dictar</button>' +
-        '<div class="dictado" id="dictado-texto"></div>'
+        '<p class="hint" style="margin:-4px 0 0">Lo que digas se escribe aquí abajo. ' +
+          'Puedes corregirlo a mano antes de guardar.</p>'
       : '') +
     '<div class="field"><label for="mp-txt">Tus sugerencias</label>' +
       '<textarea class="ta" id="mp-txt" rows="4" placeholder="más pescado y verdura, sin cerdo, algo rápido">' +
@@ -5993,15 +6072,12 @@ function sheetMenuPrefs() {
 
     const mic = scrim.querySelector('#mp-mic');
     if (mic) mic.onclick = () => {
-      if (dictado && dictado.activo) {
-        pararDictado(true);
-        const t = (document.getElementById('dictado-texto').dataset.texto || '').trim();
-        if (t) { txt.value = (txt.value ? txt.value + ' ' : '') + t; pinta(); }
-      } else empezarDictado();
+      if (dictado && dictado.activo) pararDictado();
+      else empezarDictado({ target: txt, onText: pinta, boton: mic });
     };
 
     scrim.querySelector('#mp-save').onclick = () => {
-      pararDictado();
+      pararDictado();   // lo dictado ya está en el campo, se para y se lee
       const r = leerSugerencias(txt.value);
       setMenuPrefs(ws, r);
       generateMenu(ws, { soloDespensa: menuSoloDespensa });
@@ -6276,6 +6352,30 @@ document.getElementById('view').addEventListener('click', ev => {
     return;
   }
   if (act === 'menu-prefs') { sheetMenuPrefs(); return; }
+  if (act === 'menu-buy-all') {
+    const ws = menuWeek || weekStartOf(today());
+    const menu = getMenu(ws);
+    if (!menu) return;
+    const ya = lineasDeCompra(ws, menu);
+    const pide = {};
+    menu.days.forEach(dd => (dd.meal_slots || []).forEach(sl => {
+      const r = slotRecipe(sl);
+      if (!r) return;
+      (r.ingredients || []).forEach(i => { pide[i.ingredient_id] = (pide[i.ingredient_id] || 0) + i.amount_g; });
+    }));
+    let n = 0;
+    Object.keys(pide).forEach(id => {
+      const f = foodById(id);
+      if (!f || ya.indexOf(id) >= 0) return;
+      const falta = pide[id] - pantryQty(id);
+      if (falta <= 0) return;
+      addShopLineManual(ws, id, Math.max(Math.round(falta), defaultPurchase(f)));
+      n++;
+    });
+    render();
+    toast(n ? n + (n === 1 ? ' producto a la lista' : ' productos a la lista') : 'Ya estaban todos');
+    return;
+  }
   if (act === 'menu-edit-day') {
     menuEditDay = menuEditDay === d.date ? null : d.date;
     render();
