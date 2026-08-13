@@ -266,9 +266,16 @@ Quitar una línea calculada no es borrarla: es decir «esta semana no». Se guar
 (`shopx_<semana>`), y la siguiente vuelve a proponerla si sigue haciendo falta. Debajo de
 la lista se ve cuántas has quitado, con un enlace para volver a ponerlas todas.
 
+## Menú: un botón arriba
+
+Arriba solo hay la semana y **Preferencias**. Todo lo que es «cómo quiero la semana» —los
+dos modos de despensa, las sugerencias, rehacer el menú— vive dentro de esa hoja, que es de
+lo que se trata. Antes había cinco botones y un párrafo de instrucciones antes de ver el
+lunes.
+
 ## Decirle cómo quieres la semana
 
-Un botón en Menú abre una hoja donde se dicta o se escribe: *«más pescado y verdura, sin
+**Preferencias** abre una hoja donde se dicta o se escribe: *«más pescado y verdura, sin
 cerdo, algo rápido»*. **No hay ninguna IA dentro** —la app va sin conexión— y conviene
 decirlo claro: lo que hay es un lector de reglas.
 
@@ -309,6 +316,11 @@ no en número de ingredientes) y por los favoritos que uses de esa comida. Dos m
 - **Prioriza lo que tengo** — la despensa suma 18 puntos como mucho: desempata entre
   recetas parecidas, pero no sacrifica los objetivos del día.
 - **Lo que menos falte** — manda cuántos ingredientes faltan y los macros desempatan.
+
+Por encima de todos los bonus hay una penalización de 60 puntos si el plato pasaría el día
+del límite de saturadas. Pasarse es una regla de salud, no una preferencia, y sin ese
+castigo la despensa y los antojos acababan mandando sobre el colesterol: con la despensa
+llena, cuatro de siete días se pasaban.
 
 Ninguno de los dos deja huecos. La primera versión filtraba a recetas con todo en casa y
 salía un menú vacío: con una compra normal ninguna receta está completa, porque la miel,
