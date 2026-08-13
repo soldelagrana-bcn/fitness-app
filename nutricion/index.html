@@ -896,7 +896,7 @@ input[type="file"] { padding: 12px; font-size: 14px; }
    ============================================================ */
 /* Sello de versión: sirve para saber si el móvil está sirviendo una copia
    guardada en vez de la última. Se ve en Ajustes. */
-const VERSION = 'v28';
+const VERSION = 'v29';
 const FECHA_VERSION = '12 ago 2026';
 
 const DEFAULT_TARGETS = { kcal: 1600, protein: 115, carbs: 165, fat: 55 };
@@ -1817,7 +1817,7 @@ const FOODS = [
   { id:'r107', cat:'Platos', nombre:'Spätzle', kcal100:215, prot100:7, carbs100:33, fat100:6, sat100:2.4, fiber100:1.6, fe100:1.4, ca100:40, vd100:0.3, racion_g:250, alias:'restaurante frances europeo' },
   { id:'r108', cat:'Platos', nombre:'Pierogi', kcal100:205, prot100:6, carbs100:30, fat100:6.5, sat100:2.6, fiber100:1.6, fe100:1.2, ca100:35, vd100:0.2, racion_g:250, alias:'restaurante frances europeo' },
   { id:'r109', cat:'Platos', nombre:'Club sándwich', kcal100:255, prot100:14, carbs100:24, fat100:11, sat100:3.4, fiber100:1.6, fe100:1.5, ca100:90, vd100:0.3, racion_g:250, alias:'restaurante brunch americano' },
-  { id:'r110', cat:'Platos', nombre:'Wrap césar de pollo', kcal100:215, prot100:14, carbs100:21, fat100:8.5, sat100:2.6, fiber100:1.8, fe100:1.4, ca100:90, vd100:0.2, racion_g:250, alias:'restaurante brunch americano' },
+  { id:'r110', cat:'Platos', nombre:'Rollito césar de pollo', kcal100:215, prot100:14, carbs100:21, fat100:8.5, sat100:2.6, fiber100:1.8, fe100:1.4, ca100:90, vd100:0.2, racion_g:250, alias:'restaurante brunch americano wrap' },
   { id:'r111', cat:'Platos', nombre:'Buddha bowl', kcal100:140, prot100:6.5, carbs100:17, fat100:5.5, sat100:0.9, fiber100:4, fe100:1.8, ca100:60, vd100:0, racion_g:350, alias:'restaurante brunch americano' },
   { id:'r112', cat:'Platos', nombre:'Huevos benedict', kcal100:235, prot100:12, carbs100:13, fat100:15, sat100:6, fiber100:0.8, fe100:1.6, ca100:70, vd100:1.2, racion_g:200, alias:'restaurante brunch americano' },
   { id:'r113', cat:'Platos', nombre:'Tostada de aguacate', kcal100:215, prot100:6, carbs100:22, fat100:11, sat100:2, fiber100:4.5, fe100:1.6, ca100:40, vd100:0, racion_g:150, alias:'restaurante brunch americano' },
@@ -2490,19 +2490,16 @@ function alerts(fecha) {
     level: 'warn', title: 'Grasa saturada alta',
     detail: fmt1(d.sat) + ' g de ' + lim + ' g (20 % del objetivo de grasa).',
   });
-  if (d.kcal > 0 && d.kcal < RULES.kcalMin) out.push({
-    level: closed ? 'crit' : 'info',
-    title: closed ? 'El día cerró por debajo de 1500 kcal'
-                  : 'Te faltan ' + Math.round(RULES.kcalMin - d.kcal) + ' kcal para el mínimo',
-    detail: closed ? Math.round(d.kcal) + ' kcal. Aquí el riesgo es comer de menos.'
-                   : 'Mínimo diario ' + RULES.kcalMin + ' kcal.',
+  // Mientras el día está abierto, «te faltan 232 kcal» es lo mismo que
+  // dice la cifra grande del panel, y «faltan 25 g de proteína» lo mismo
+  // que su baldosa. Repetirlo debajo no informa: solo llena la pantalla.
+  // Cuando el día ya cerró sí es un hallazgo, porque ya no tiene arreglo.
+  if (closed && d.kcal > 0 && d.kcal < RULES.kcalMin) out.push({
+    level: 'crit', title: 'El día cerró por debajo de 1500 kcal',
+    detail: Math.round(d.kcal) + ' kcal. Aquí el riesgo es comer de menos.',
   });
-  // En un día todavía vacío estos mínimos no informan de nada: se
-  // callan hasta que hay algo registrado.
-  if (d.prot < RULES.proteinFloor && (d.kcal > 0 || closed)) out.push({
-    level: closed ? 'crit' : 'info',
-    title: closed ? 'La proteína quedó por debajo del piso'
-                  : 'Faltan ' + Math.round(RULES.proteinFloor - d.prot) + ' g de proteína',
+  if (closed && d.prot < RULES.proteinFloor && d.kcal > 0) out.push({
+    level: 'crit', title: 'La proteína quedó por debajo del piso',
     detail: Math.round(d.prot) + ' g de ' + RULES.proteinFloor + ' g.',
   });
   return out;
