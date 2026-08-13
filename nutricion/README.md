@@ -39,9 +39,26 @@ sin asa, que es lo que pasaba: al quitar las sugerencias de Hoy, la única forma
 receta guardada era irse a la pestaña Recetas.
 
 Cada comida de Hoy tiene ahora un **★** al lado de su botón. Abre tus recetas de esa
-comida, con sus macros, sus micros y sus ingredientes, y un botón para registrarla
-directamente. Salen ordenadas: las de estrella primero, luego las habituales, luego el
-resto, con un filtro «Todas / ★ Favoritas».
+comida, ordenadas con las de estrella primero, luego las habituales, luego el resto, y un
+filtro «Todas / ★ Favoritas».
+
+**La primera va desplegada**: dibujo del plato, cada ingrediente con sus gramos y sus
+kcal, macros, micros y las notas. Verla entera ahorra un toque, que es la que más te pega.
+Las de debajo salen compactas —nombre y macros— y se abren con «Ver qué lleva», con el
+mismo detalle.
+
+### El dibujo del plato
+
+**No es una foto.** La app va sin conexión y en un solo archivo: no hay fotos que traer ni
+sitio donde meterlas. Es un dibujo en SVG hecho con los ingredientes de verdad.
+
+El recipiente sale de cómo se llama el plato —cuenco, plato, vaso, pila de tortitas,
+rebanada, pieza—, y dentro va una mancha por ingrediente, del tamaño de su parte en gramos
+y del color de lo que es: los arándanos azules, el aguacate verde, el pan tostado. Los
+mismos colores marcan el desglose de abajo, para poder leer una cosa mirando la otra.
+
+Una regla que no es obvia: en una tostada la base es **la rebanada**, aunque no sea lo que
+más pesa. Una tostada con huevo encima no es amarilla; es de pan con una mancha amarilla.
 
 La estrella se pone desde ahí o desde la pestaña Recetas. Se guarda aparte de la receta
 (`recetas_fav`), que marcar algo como favorito es cosa tuya y tiene que sobrevivir a
