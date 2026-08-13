@@ -32,6 +32,21 @@ toca: «Registrar cena» si está vacía, «Editar» si ya tiene algo.
 Proponer es trabajo de Recetas y de Menú: tenerlo también aquí llenaba la pantalla de
 cosas que no eran el registro.
 
+## Tus recetas, al registrar
+
+Guardar una receta y que luego no aparezca al registrar la comida es guardarla en un cajón
+sin asa, que es lo que pasaba: al quitar las sugerencias de Hoy, la única forma de ver una
+receta guardada era irse a la pestaña Recetas.
+
+Cada comida de Hoy tiene ahora un **★** al lado de su botón. Abre tus recetas de esa
+comida, con sus macros, sus micros y sus ingredientes, y un botón para registrarla
+directamente. Salen ordenadas: las de estrella primero, luego las habituales, luego el
+resto, con un filtro «Todas / ★ Favoritas».
+
+La estrella se pone desde ahí o desde la pestaña Recetas. Se guarda aparte de la receta
+(`recetas_fav`), que marcar algo como favorito es cosa tuya y tiene que sobrevivir a
+editarla.
+
 ## Objetivos
 
 Fijos, no cambian según el día. Por defecto 1600 kcal, 115 g de proteína (piso),
