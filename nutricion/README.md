@@ -19,10 +19,14 @@ Cuatro pestañas, cada una con un trabajo:
 Proponer platos con lo que hay en casa era antes también trabajo de Compra. Ya no: eso lo
 hacen Menú —que genera la semana tirando de la despensa— y Recetas.
 
-**Hoy no sugiere nada.** Es un cuadro de mandos y un registro: el número grande es lo que
-falta de calorías, debajo cuatro baldosas de macros —proteína, carbos, grasa, saturadas—
-con su número, su objetivo y su barra, y al pie una tira pequeña con fibra, hierro, calcio
-y vitamina D. Los micros son contexto, no el objetivo del día, y se ven como tal.
+**Hoy no sugiere nada.** Es un cuadro de mandos y un registro. Un **anillo grande** con las
+kcal que faltan y, al lado, el total sobre el objetivo y las saturadas; debajo **tres
+anillos** —proteína, carbos, grasa— con los gramos que llevas; y al pie una tira pequeña
+con fibra, hierro, calcio y vitamina D.
+
+Antes eran ocho baldosas con número, objetivo y barra cada una: demasiados números para
+una pantalla que se mira de pasada. Los anillos dicen lo mismo en un vistazo, y el número
+exacto solo aparece donde importa.
 
 Justo debajo del panel están los cuatro botones de registrar —desayuno, almuerzo, merienda
 y cena—, que es la acción principal de la pestaña y tiene que caer donde está el pulgar al
