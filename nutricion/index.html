@@ -857,7 +857,7 @@ input[type="file"] { padding: 12px; font-size: 14px; }
    ============================================================ */
 /* Sello de versión: sirve para saber si el móvil está sirviendo una copia
    guardada en vez de la última. Se ve en Ajustes. */
-const VERSION = 'v26';
+const VERSION = 'v27';
 const FECHA_VERSION = '12 ago 2026';
 
 const DEFAULT_TARGETS = { kcal: 1600, protein: 115, carbs: 165, fat: 55 };
@@ -5317,27 +5317,8 @@ function sheetEditEntry(id) {
 function sheetRecipe(id) {
   const r = recipeById(id);
   if (!r) return;
-  const m = r.macros;
-  const warn = powderWarning(r);
-  const ings = (r.ingredients || []).map(i => {
-    const f = foodById(i.ingredient_id);
-    if (!f) return '<div class="detail-ing"><span class="nm faint">ingrediente desconocido</span></div>';
-    const im = macrosOf(f, i.amount_g);
-    return '<div class="detail-ing"><span class="nm">' + esc(f.nombre) + '</span>' +
-      '<span class="g">' + i.amount_g + ' ' + (f.unit || 'g') + '</span>' +
-      '<span class="m">' + Math.round(im.kcal) + ' kcal · P' + fmt1(im.prot) + '</span></div>';
-  }).join('');
-
   const body =
-    '<div class="preview"><b>' + m.kcal + ' kcal</b>' +
-      '<span>P ' + fmt1(m.prot) + ' g</span><span>C ' + fmt1(m.carbs) + ' g</span>' +
-      '<span>G ' + fmt1(m.fat) + ' g</span></div>' +
-    '<p class="hint" style="margin:0">Saturadas ' + fmt1(m.sat) + ' g · fibra ' + fmt1(m.fiber) +
-      ' g · ' + (recipeDensity(r) * 100).toFixed(1) + ' g de proteína por 100 kcal</p>' +
-    (warn ? '<div class="note warn"><i class="bar"></i><div><b>Ojo con la proteína en polvo</b><span>' + esc(warn) + '</span></div></div>' : '') +
-    '<div><span class="eyebrow">Ingredientes</span><div style="margin-top:6px">' +
-      (ings || '<p class="empty">Sin ingredientes.</p>') + '</div></div>' +
-    (r.notes ? '<div class="notes-box">' + esc(r.notes) + '</div>' : '') +
+    recipeDetail(r) +
     '<button class="btn primary wide" data-r-log>Registrar en ' + mealName(r.meal_type).toLowerCase() + '</button>' +
     '<div style="display:flex;gap:8px">' +
       '<button class="btn grow" data-r-edit>Editar</button>' +
@@ -6109,13 +6090,40 @@ function dishBreakdown(recipe) {
 }
 
 /* ============================================================
+   LA FICHA DE UNA RECETA
+   Vive aquí una vez y la usan Recetas y Menú. Contar lo que
+   lleva un plato y cómo se hace es trabajo de Recetas; si el
+   menú necesita enseñarlo, tira de esto y no de una copia.
+   ============================================================ */
+function recipeDetail(r, opts) {
+  opts = opts || {};
+  const m = r.macros || recipeMacros(r);
+  const warn = powderWarning(r);
+  return (opts.sinDibujo ? '' : '<div class="dish-wrap">' + dishArt(r) + '</div>') +
+    (warn ? '<div class="note warn"><i class="bar"></i><div><b>Ojo con la proteína en polvo</b>' +
+      '<span>' + esc(warn) + '</span></div></div>' : '') +
+    '<div class="ing-head">Lo que lleva</div>' + dishBreakdown(r) +
+    '<div class="macro-row"><b>' + Math.round(m.kcal) + ' kcal</b>' +
+      '<span>P ' + fmt1(m.prot) + '</span><span>C ' + fmt1(m.carbs) + '</span>' +
+      '<span>G ' + fmt1(m.fat) + '</span><span class="faint">sat ' + fmt1(m.sat) + '</span></div>' +
+    '<div class="micro-strip">' +
+      '<span>fibra <b>' + fmt1(m.fiber) + ' g</b></span>' +
+      '<span>hierro <b>' + fmt1(m.fe) + ' mg</b></span>' +
+      '<span>calcio <b>' + Math.round(m.ca) + ' mg</b></span>' +
+      '<span>vit. D <b>' + fmt1(m.vd) + ' µg</b></span>' +
+      '<span>' + (recipeDensity(r) * 100).toFixed(1) + ' <b>g prot/100 kcal</b></span>' +
+    '</div>' +
+    (r.notes ? '<div class="ing-head" style="margin-top:10px">' + tituloNota(r.notes) + '</div>' +
+      '<p class="prep">' + esc(r.notes) + '</p>' : '');
+}
+
+/* ============================================================
    TUS RECETAS, AL REGISTRAR
    Guardar una receta y que luego no aparezca al registrar la
    comida es guardarla en un cajón sin asa. Esta hoja las saca:
    las tuyas, las de estrella primero, con macros y micros.
    ============================================================ */
 let savedOnlyFav = false;
-let savedOpen = null;   // qué opción de más abajo está desplegada
 
 function sheetSavedRecipes(mealKey) {
   const body = '<div id="sv-list"></div>';
@@ -6139,82 +6147,35 @@ function paintSaved(mealKey) {
       '★ Favoritas · ' + favs.length + '</button>' +
   '</div>';
 
-  const estrella = r =>
-    '<button class="star" data-sv-star="' + r.id + '" aria-pressed="' + (isRecipeFav(r.id) ? 'true' : 'false') +
-      '" aria-label="' + (isRecipeFav(r.id) ? 'Quitar de favoritas' : 'Marcar como favorita') + '">' +
-      (isRecipeFav(r.id) ? '★' : '☆') + '</button>';
-
-  const macros = m =>
-    '<div class="macro-row"><b>' + Math.round(m.kcal) + ' kcal</b>' +
-      '<span>P ' + fmt1(m.prot) + '</span><span>C ' + fmt1(m.carbs) + '</span>' +
-      '<span>G ' + fmt1(m.fat) + '</span><span class="faint">sat ' + fmt1(m.sat) + '</span></div>';
-
-  const micros = m =>
-    '<div class="micro-strip">' +
-      '<span>fibra <b>' + fmt1(m.fiber) + ' g</b></span>' +
-      '<span>hierro <b>' + fmt1(m.fe) + ' mg</b></span>' +
-      '<span>calcio <b>' + Math.round(m.ca) + ' mg</b></span>' +
-      '<span>vit. D <b>' + fmt1(m.vd) + ' µg</b></span>' +
-    '</div>';
-
-  // El detalle completo: dibujo del plato, ingrediente a ingrediente con
-  // sus gramos, macros, micros y las notas si las tiene.
-  const detalle = r =>
-    '<div class="dish-wrap">' + dishArt(r) + '</div>' +
-    '<div class="ing-head">Lo que lleva</div>' +
-    dishBreakdown(r) +
-    macros(r.macros) + micros(r.macros) +
-    (r.notes ? '<div class="notes-box" style="margin-top:9px">' + esc(r.notes) + '</div>' : '');
-
-  const acciones = r =>
-    '<div class="sug-actions">' +
-      '<button class="btn grow" data-sv-ver="' + r.id + '">Ficha completa</button>' +
-      '<button class="btn primary grow" data-sv-log="' + r.id + '" data-meal="' + mealKey + '">Registrar</button>' +
-    '</div>';
-
-  let html = chips;
-  if (!lista.length) {
-    html += '<p class="empty">' + (savedOnlyFav
-      ? 'Ninguna marcada con estrella todavía. Toca la ☆ de una receta.'
-      : 'No hay recetas de ' + mealName(mealKey).toLowerCase() +
-        '. Monta una comida y ponle nombre para guardarla.') + '</p>';
-  } else {
-    // La primera va desplegada: es la que más te pega, y verla entera
-    // ahorra un toque. Las demás, compactas hasta que las abras.
-    const p = lista[0];
-    html += '<div class="option option-full">' +
+  // Aquí solo se elige y se registra. Qué lleva y cómo se hace es trabajo
+  // de Recetas, y ahí se va con un toque.
+  const cards = lista.length ? lista.map(r => {
+    const m = r.macros;
+    return '<div class="option">' +
       '<div class="option-head">' +
-        '<span class="sug-name">' + esc(p.name) + '</span>' +
-        (isHabitual(p) ? '<span class="tag blue">habitual</span>' : '') + estrella(p) +
-      '</div>' + detalle(p) + acciones(p) + '</div>';
+        '<span class="sug-name">' + esc(r.name) + '</span>' +
+        (isHabitual(r) ? '<span class="tag blue">habitual</span>' : '') +
+        '<button class="star" data-sv-star="' + r.id + '" aria-pressed="' + (isRecipeFav(r.id) ? 'true' : 'false') +
+          '" aria-label="' + (isRecipeFav(r.id) ? 'Quitar de favoritas' : 'Marcar como favorita') + '">' +
+          (isRecipeFav(r.id) ? '★' : '☆') + '</button>' +
+      '</div>' +
+      '<div class="macro-row"><b>' + Math.round(m.kcal) + ' kcal</b>' +
+        '<span>P ' + fmt1(m.prot) + '</span><span>C ' + fmt1(m.carbs) + '</span>' +
+        '<span>G ' + fmt1(m.fat) + '</span></div>' +
+      '<div class="sug-actions">' +
+        '<button class="btn grow" data-sv-ver="' + r.id + '">Verla en Recetas</button>' +
+        '<button class="btn primary grow" data-sv-log="' + r.id + '" data-meal="' + mealKey + '">Registrar</button>' +
+      '</div>' +
+    '</div>';
+  }).join('') : '<p class="empty">' + (savedOnlyFav
+    ? 'Ninguna marcada con estrella todavía. Toca la ☆ de una receta.'
+    : 'No hay recetas de ' + mealName(mealKey).toLowerCase() +
+      '. Monta una comida y ponle nombre para guardarla.') + '</p>';
 
-    if (lista.length > 1) {
-      html += '<div class="or-line"><span>más opciones</span></div>' +
-        lista.slice(1).map(r => {
-          const abierta = savedOpen === r.id;
-          return '<div class="option">' +
-            '<div class="option-head">' +
-              '<button class="sug-name op-open" data-sv-open="' + r.id + '" aria-expanded="' +
-                (abierta ? 'true' : 'false') + '">' + esc(r.name) +
-                '<span class="op-chevron">' + (abierta ? '⌃' : '⌄') + '</span></button>' +
-              (isHabitual(r) ? '<span class="tag blue">habitual</span>' : '') + estrella(r) +
-            '</div>' +
-            macros(r.macros) +
-            (abierta ? detalle(r) + acciones(r)
-              : '<button class="link-btn" data-sv-open="' + r.id + '">Ver qué lleva</button>') +
-          '</div>';
-        }).join('');
-    }
-  }
-  box.innerHTML = html;
+  box.innerHTML = chips + cards;
 
   box.querySelectorAll('[data-sv-f]').forEach(b => b.onclick = () => {
     savedOnlyFav = b.dataset.svF === 'fav';
-    savedOpen = null;
-    paintSaved(mealKey);
-  });
-  box.querySelectorAll('[data-sv-open]').forEach(b => b.onclick = () => {
-    savedOpen = savedOpen === b.dataset.svOpen ? null : b.dataset.svOpen;
     paintSaved(mealKey);
   });
   box.querySelectorAll('[data-sv-star]').forEach(b => b.onclick = () => {
@@ -6222,7 +6183,13 @@ function paintSaved(mealKey) {
     paintSaved(mealKey);
     toast(on ? 'Marcada como favorita' : 'Quitada de favoritas');
   });
-  box.querySelectorAll('[data-sv-ver]').forEach(b => b.onclick = () => sheetRecipe(b.dataset.svVer));
+  box.querySelectorAll('[data-sv-ver]').forEach(b => b.onclick = () => {
+    const id = b.dataset.svVer;
+    closeSheet();
+    tab = 'recetas';
+    render();
+    setTimeout(() => sheetRecipe(id), 240);
+  });
   box.querySelectorAll('[data-sv-log]').forEach(b => b.onclick = () => {
     const r = recipeById(b.dataset.svLog);
     if (r) logRecipe(r, 1, b.dataset.meal);
@@ -6356,11 +6323,8 @@ function paintSwap(date, mealKey) {
       '<span>P ' + fmt1(m.prot) + '</span><span>C ' + fmt1(m.carbs) + '</span>' +
       '<span>G ' + fmt1(m.fat) + '</span><span class="faint">sat ' + fmt1(m.sat) + '</span></div>';
 
-  /* Lo que lleva y, si la receta lo trae, cómo se hace en una línea. */
-  const detalle = r =>
-    '<div class="ing-head">Lo que lleva</div>' + dishBreakdown(r) + macros(r.macros) +
-    (r.notes ? '<div class="ing-head" style="margin-top:10px">' + tituloNota(r.notes) + '</div>' +
-      '<p class="prep">' + esc(r.notes) + '</p>' : '');
+  // La ficha es la de Recetas: aquí no se cuenta el plato de otra manera.
+  const detalle = r => recipeDetail(r, { sinDibujo: true });
 
   // Lo que falta de casa para el plato puesto: es la pregunta que se hace
   // mirando el menú, y aquí se contesta sin salir.

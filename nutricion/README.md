@@ -32,6 +32,18 @@ toca: «Registrar cena» si está vacía, «Editar» si ya tiene algo.
 Proponer es trabajo de Recetas y de Menú: tenerlo también aquí llenaba la pantalla de
 cosas que no eran el registro.
 
+## Una ficha de receta, en un solo sitio
+
+Contar lo que lleva un plato y cómo se hace es trabajo de **Recetas**. La ficha
+(`recipeDetail`) vive ahí una vez —dibujo, ingredientes con gramos y kcal, macros, micros,
+densidad proteica, el aviso de las proteínas en polvo y la preparación— y **Menú tira de
+ella** cuando enseña el plato propuesto, sin dibujo porque ahí no hace falta. Dos copias del
+mismo bloque se separan a la primera.
+
+**Hoy no la usa.** Hoy registra y mide: su lista de recetas es nombre, macros, estrella y
+«Registrar», con un «Verla en Recetas» que cambia de pestaña. Si quieres saber cómo se
+hace, se mira donde se guardan las recetas.
+
 ## Tus recetas, al registrar
 
 Guardar una receta y que luego no aparezca al registrar la comida es guardarla en un cajón
@@ -42,10 +54,9 @@ Cada comida de Hoy tiene ahora un **★** al lado de su botón. Abre tus recetas
 comida, ordenadas con las de estrella primero, luego las habituales, luego el resto, y un
 filtro «Todas / ★ Favoritas».
 
-**La primera va desplegada**: dibujo del plato, cada ingrediente con sus gramos y sus
-kcal, macros, micros y las notas. Verla entera ahorra un toque, que es la que más te pega.
-Las de debajo salen compactas —nombre y macros— y se abren con «Ver qué lleva», con el
-mismo detalle.
+Cada tarjeta es nombre, macros, la estrella y dos botones: **Registrar**, que la mete en
+esa comida, y **Verla en Recetas**, que cambia de pestaña y abre su ficha. Aquí no hay
+desglose ni preparación: eso es de Recetas.
 
 ### El dibujo del plato
 
