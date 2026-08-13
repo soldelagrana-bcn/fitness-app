@@ -231,6 +231,16 @@ no hacía. Solo se devuelve a lo que ya estaba en la despensa: si el alimento no
 Si el alimento ya no está en el catálogo, los macros se escalan en proporción a lo que se
 guardó en su día, que es mejor que no dejar editar.
 
+## Montar una comida
+
+La hoja va **a pantalla completa** (`sheet.full`): con el teclado abierto y una lista de
+resultados, media pantalla no da. Arriba, en la franja fija, el buscador y dos botones de
+icono:
+
+- **🍽** marca la comida como comida fuera. Solo el icono; el aviso dice qué ha pasado, que
+  un icono a secas no lo cuenta.
+- **★** abre tus recetas guardadas de esa comida, que es de donde salen las habituales.
+
 ## Comer fuera
 
 Al montar una comida hay un interruptor **🍽 Comida fuera**. Lo que se registra con él

@@ -473,6 +473,9 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
   overflow: hidden;
 }
 .scrim.on .sheet { transform: translateY(0); }
+/* Montar una comida es donde más falta hace el sitio: la lista de
+   resultados con el teclado abierto no cabe en media pantalla. */
+.sheet.full { height: 100dvh; max-height: 100dvh; border-radius: 0; }
 .sheet-head {
   display: flex; align-items: center; gap: 10px;
   padding: 14px 18px 11px;
@@ -781,6 +784,42 @@ input[type="file"] { padding: 12px; font-size: 14px; }
   background: var(--surface); color: var(--ink);
 }
 .erow-u { flex: 0 0 18px; font-size: 11px; color: var(--ink-faint); }
+/* ---- Comida fuera ---- */
+.fuera-btn {
+  display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
+  min-height: 44px; padding: 11px 13px;
+  border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--surface); color: var(--ink);
+}
+.fuera-btn .ico { font-size: 19px; line-height: 1; flex: 0 0 auto; filter: grayscale(1); opacity: .5; }
+.fuera-btn .txt { flex: 1; min-width: 0; }
+.fuera-btn .txt b { display: block; font-size: 13px; font-weight: 620; }
+.fuera-btn .mark {
+  flex: 0 0 20px; width: 20px; height: 20px; border-radius: 6px;
+  border: 1.5px solid var(--line); display: grid; place-items: center;
+}
+.fuera-btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-wash); }
+.fuera-btn[aria-pressed="true"] .ico { filter: none; opacity: 1; }
+.fuera-btn[aria-pressed="true"] .mark { background: var(--accent); border-color: var(--accent); }
+.fuera-btn[aria-pressed="true"] .mark::after { content: "✓"; color: var(--accent-ink); font-size: 12px; font-weight: 700; }
+.fuera-ico { font-size: 11px; filter: grayscale(1); opacity: .8; }
+.tag.fuera { background: var(--accent-wash); color: var(--accent); text-transform: none; letter-spacing: 0; font-size: 10px; }
+
+/* Buscador con sus interruptores al lado, en la franja fija */
+.top-row { display: flex; align-items: center; gap: 7px; }
+.top-row .input { flex: 1; min-width: 0; }
+.ico-tog {
+  flex: 0 0 44px; width: 44px; height: 44px; padding: 0;
+  border: 1px solid var(--line); border-radius: var(--r-sm);
+  background: var(--surface); font-size: 17px; line-height: 1;
+  filter: grayscale(1); opacity: .5;
+}
+.ico-tog[aria-pressed="true"] {
+  filter: none; opacity: 1;
+  background: var(--accent-wash); border-color: var(--accent);
+}
+#bd-recetas { filter: none; opacity: 1; color: var(--accent); }
+
 .fuera-tog {
   flex: 0 0 34px; width: 34px; height: 34px; padding: 0;
   border: 1px solid var(--line); border-radius: 50%;
@@ -857,7 +896,7 @@ input[type="file"] { padding: 12px; font-size: 14px; }
    ============================================================ */
 /* Sello de versión: sirve para saber si el móvil está sirviendo una copia
    guardada en vez de la última. Se ve en Ajustes. */
-const VERSION = 'v27';
+const VERSION = 'v28';
 const FECHA_VERSION = '12 ago 2026';
 
 const DEFAULT_TARGETS = { kcal: 1600, protein: 115, carbs: 165, fat: 55 };
@@ -5133,13 +5172,13 @@ function paintReview() {
    sticky` dentro del cuerpo no aguanta en Safari de iOS —el
    -webkit-overflow-scrolling lo rompe—, así que el campo se iba de la
    pantalla al abrirse el teclado y se escribía a ciegas. */
-function openSheet(title, bodyHtml, onMount, topHtml) {
+function openSheet(title, bodyHtml, onMount, topHtml, clase) {
   closeSheet();
   const scrim = document.createElement('div');
   scrim.className = 'scrim';
   scrim.id = 'scrim';
   scrim.innerHTML =
-    '<div class="sheet" role="dialog" aria-modal="true" aria-label="' + esc(title) + '">' +
+    '<div class="sheet' + (clase ? ' ' + clase : '') + '" role="dialog" aria-modal="true" aria-label="' + esc(title) + '">' +
       '<div class="sheet-head"><h3>' + esc(title) + '</h3>' +
         '<button class="icon-btn" data-close aria-label="Cerrar">✕</button></div>' +
       (topHtml ? '<div class="sheet-top">' + topHtml + '</div>' : '') +
@@ -5769,11 +5808,6 @@ let builder = null;
 function sheetBuilder(mealKey) {
   builder = { meal: mealKey, items: [], fuera: false };
   const body =
-    '<button class="fuera-btn" id="bd-fuera" aria-pressed="false">' +
-      '<span class="ico">🍽</span>' +
-      '<span class="txt"><b>Comida fuera</b></span>' +
-      '<span class="mark"></span>' +
-    '</button>' +
     '<div id="bd-results"></div>' +
     '<div id="bd-items"></div>' +
     '<div id="bd-tot"></div>' +
@@ -5781,9 +5815,17 @@ function sheetBuilder(mealKey) {
       '<input class="input" id="bd-name" placeholder="Nombre de la receta"></div>' +
     '<button class="btn primary wide" id="bd-save">Añadir a ' + mealName(mealKey).toLowerCase() + '</button>';
 
-  const top = '<input class="input" id="bd-q" type="search" ' +
-    'placeholder="Buscar alimento y tocar para añadir" ' +
-    'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">';
+  // El buscador con sus dos interruptores al lado: comida fuera y tus
+  // recetas guardadas, que es de donde salen las habituales.
+  const top =
+    '<div class="top-row">' +
+      '<input class="input" id="bd-q" type="search" placeholder="Buscar alimento" ' +
+        'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">' +
+      '<button class="ico-tog" id="bd-fuera" aria-pressed="false" ' +
+        'aria-label="Marcar como comida fuera" title="Comida fuera">🍽</button>' +
+      '<button class="ico-tog" id="bd-recetas" ' +
+        'aria-label="Tus recetas guardadas" title="Tus recetas">★</button>' +
+    '</div>';
 
   openSheet('Montar ' + mealName(mealKey).toLowerCase(), body, scrim => {
     const q = scrim.querySelector('#bd-q');
@@ -5795,12 +5837,15 @@ function sheetBuilder(mealKey) {
       // Guardar como receta lo de un restaurante no tiene sentido
       const nm = scrim.querySelector('#bd-name');
       if (nm) nm.closest('.field').style.display = builder.fuera ? 'none' : '';
+      // El icono solo no dice qué acaba de pasar, así que lo dice el aviso
+      toast(builder.fuera ? 'Marcada como comida fuera' : 'Ya no es comida fuera');
     };
+    scrim.querySelector('#bd-recetas').onclick = () => sheetSavedRecipes(mealKey);
     scrim.querySelector('#bd-save').onclick = builderCommit;
     builderResults('');
     builderItems();
     setTimeout(() => q.focus(), 220);
-  }, top);
+  }, top, 'full');
 }
 
 /* Resultados de búsqueda; se ordenan por proteína por caloría. */
@@ -5808,11 +5853,7 @@ function builderResults(term) {
   const box = document.getElementById('bd-results');
   if (!box) return;
   const n = norm(term);
-  if (n.length < 2) {
-    box.innerHTML = '<p class="hint" style="margin:0">Escribe al menos dos letras. ' +
-      'Tienes ' + allFoods().length + ' alimentos, incluidos los de Mercadona, Ametller, Carrefour y Jespac.</p>';
-    return;
-  }
+  if (n.length < 2) { box.innerHTML = ''; return; }
   const items = searchFoods(term, 25);
   if (!items.length) {
     box.innerHTML = '<p class="empty">Sin resultados. Puedes crearlo en Ajustes → Alimentos propios.</p>';
