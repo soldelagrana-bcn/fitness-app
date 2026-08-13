@@ -733,6 +733,33 @@ main { flex: 1; padding: 14px 18px 96px; display: flex; flex-direction: column; 
 .motivo { color: var(--ink-faint); font-size: 10.5px; font-weight: 500; }
 input[type="file"] { padding: 12px; font-size: 14px; }
 
+/* ---- Dibujo del plato y desglose ---- */
+.dish-wrap {
+  background: var(--sunken); border-radius: var(--r-md);
+  padding: 6px; margin: 2px 0 10px; color: var(--ink-soft);
+  display: grid; place-items: center;
+}
+.dish { width: 100%; max-width: 220px; height: auto; display: block; }
+.ing-head {
+  font-size: 10px; font-weight: 700; letter-spacing: .11em;
+  text-transform: uppercase; color: var(--ink-faint); margin-bottom: 4px;
+}
+.ing-list { margin-bottom: 9px; }
+.ing-line {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 5px 0; border-bottom: 1px solid var(--line-soft);
+}
+.ing-line:last-child { border-bottom: 0; }
+.ing-line .dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 9px; align-self: center; }
+.ing-line .nm { flex: 1; font-size: 12.5px; min-width: 0; }
+.ing-line .g { font-size: 12px; font-weight: 620; }
+.ing-line .kc { font-size: 10.5px; color: var(--ink-faint); min-width: 54px; text-align: right; }
+.op-open {
+  flex: 1; min-width: 0; text-align: left; border: 0; background: none; padding: 0;
+  min-height: 40px; font-size: 13.5px; font-weight: 620; color: var(--ink);
+}
+.op-chevron { color: var(--accent); font-size: 12px; margin-left: 7px; }
+
 /* ---- Filas en modo edición ---- */
 .erow {
   display: flex; align-items: center; gap: 7px;
@@ -829,7 +856,7 @@ input[type="file"] { padding: 12px; font-size: 14px; }
    ============================================================ */
 /* Sello de versión: sirve para saber si el móvil está sirviendo una copia
    guardada en vez de la última. Se ve en Ajustes. */
-const VERSION = 'v23';
+const VERSION = 'v24';
 const FECHA_VERSION = '12 ago 2026';
 
 const DEFAULT_TARGETS = { kcal: 1600, protein: 115, carbs: 165, fat: 55 };
@@ -5925,12 +5952,169 @@ function builderCommit() {
 }
 
 /* ============================================================
+   EL DIBUJO DEL PLATO
+   No es una foto: la app va sin conexión y en un solo archivo,
+   así que no hay fotos que traer. Es un dibujo hecho con los
+   ingredientes de verdad —el recipiente sale del formato del
+   plato y cada mancha tiene el color y el tamaño de lo que
+   lleva—, que para reconocer un plato de un vistazo sirve.
+   ============================================================ */
+const COLOR_ALIMENTO = [
+  [/arandano|mora|grosella|frutos rojos/, '#4e5f9e'],
+  [/platano|banana|mango|melocoton|albaricoque|papaya|calabaza|maiz|zanahoria/, '#e0ab52'],
+  [/fresa|frambuesa|tomate|sandia|pimiento rojo|remolacha|salmorejo|gazpacho/, '#bf4c46'],
+  [/aguacate|espinaca|brocoli|kale|rucula|canonigo|lechuga|judia verde|guisante|calabacin|pepino|acelga|esparrago|alcachofa|perejil|albahaca/, '#5f8b52'],
+  [/huevo|clara|tortilla|flan|natilla/, '#eed484'],
+  [/salmon|atun|gamba|langostino|pulpo|sepia|calamar|trucha|cangrejo/, '#e08a6b'],
+  [/pollo|pavo|merluza|bacalao|lubina|dorada|rape|tofu|seitan|conejo/, '#e6d6b4'],
+  [/ternera|cerdo|cordero|jamon|chorizo|lomo|salchich|morcilla|higado|bacon|panceta|cecina/, '#a05a52'],
+  [/yogur|skyr|kefir|quark|leche|nata|queso fresco|requeson|batido|bebida de/, '#f4f1e8'],
+  [/queso|mozzarella|parmesano|feta|burrata|cheddar|gouda|havarti/, '#eac96b'],
+  [/chocolate|cacao|cafe|dátil|datil|pasas|higo seco/, '#5d4433'],
+  [/avena|granola|muesli|cereal|copos|harina|salvado/, '#cba679'],
+  [/pan|tostada|biscote|picos|baguette|chapata|masa madre|wrap|tortilla de trigo|tortilla de maiz/, '#c9a06a'],
+  [/arroz|quinoa|cuscus|mijo|bulgur|espelta|sarraceno|pasta|macarron|espagueti|fideo|noqui/, '#ece0c6'],
+  [/lenteja|garbanzo|alubia|judia blanca|soja|hummus|edamame/, '#b48a57'],
+  [/almendra|nuez|anacardo|avellana|pistacho|cacahuete|pipa|semilla|chia|lino|sesamo|tahini|crema de/, '#a8845e'],
+  [/aceite|mantequilla|ghee|margarina|mayonesa|alioli/, '#e6c96a'],
+  [/proteina|whey/, '#d8c9b0'],
+  [/champinon|seta|boletus|niscalo|portobello|trufa/, '#9c8266'],
+  [/patata|boniato|yuca|nabo|chirivia/, '#dcc38a'],
+  [/aceituna|alcaparra|pepinillo|encurtido/, '#6b7a45'],
+];
+const COLOR_CAT = {
+  'Frutas': '#d0834e', 'Verduras': '#5f8b52', 'Proteínas': '#d99a7c',
+  'Lácteos': '#f0ece0', 'Carbohidratos': '#dcc9a0', 'Legumbres': '#b48a57',
+  'Grasas': '#c8a86a', 'Suplementos': '#d8c9b0', 'Platos': '#c98f5c', 'Otros': '#c4b9a6',
+};
+function foodColor(f) {
+  if (!f) return '#c4b9a6';
+  const n = norm(f.nombre);
+  for (let i = 0; i < COLOR_ALIMENTO.length; i++) {
+    if (COLOR_ALIMENTO[i][0].test(n)) return COLOR_ALIMENTO[i][1];
+  }
+  return COLOR_CAT[f.cat] || '#c4b9a6';
+}
+
+/* El recipiente sale de cómo se llama el plato: un batido va en vaso y
+   unas tortitas apiladas, no en un cuenco. */
+function dishShape(nombre) {
+  const n = norm(nombre || '');
+  if (/batido|smoothie|zumo|licuado|cafe con leche|horchata/.test(n)) return 'vaso';
+  if (/tortita|pancake|crepe|gofre/.test(n)) return 'pila';
+  if (/tostada|pan |sandwich|bocadillo|montadito|bruschetta|^pan|masa madre|rebanada|biscote|wrap/.test(n)) return 'tostada';
+  if (/bowl|porridge|yogur|skyr|crema|sopa|ensalada|poke|gazpacho|salmorejo|potaje|guiso|lentejas|garbanzos/.test(n)) return 'cuenco';
+  if (/muffin|galleta|magdalena|barrita/.test(n)) return 'pieza';
+  return 'plato';
+}
+
+function dishArt(recipe, alto) {
+  const h = alto || 120;
+  const items = (recipe.ingredients || [])
+    .map(i => ({ f: foodById(i.ingredient_id), g: i.amount_g || 0 }))
+    .filter(x => x.f && x.g > 0)
+    .sort((a, b) => b.g - a.g)
+    .slice(0, 6);
+  if (!items.length) return '';
+  const total = items.reduce((s, x) => s + x.g, 0) || 1;
+  const forma = dishShape(recipe.name || recipe.nombre);
+
+  let contenido = '';
+  if (forma === 'vaso') {
+    let y = 118;
+    items.slice().reverse().forEach(x => {
+      const alt = Math.max(7, (x.g / total) * 74);
+      y -= alt;
+      contenido += '<rect x="72" y="' + y.toFixed(1) + '" width="56" height="' + alt.toFixed(1) +
+        '" fill="' + foodColor(x.f) + '"/>';
+    });
+    return '<svg class="dish" viewBox="0 0 200 140" role="img" aria-label="Dibujo del plato">' +
+      '<defs><clipPath id="cv"><path d="M70 40 h60 l-6 82 a6 6 0 0 1-6 5 h-36 a6 6 0 0 1-6-5 z"/></clipPath></defs>' +
+      '<g clip-path="url(#cv)">' + contenido + '</g>' +
+      '<path d="M70 40 h60 l-6 82 a6 6 0 0 1-6 5 h-36 a6 6 0 0 1-6-5 z" fill="none" stroke="currentColor" stroke-width="2.5" opacity=".35"/>' +
+      '<ellipse cx="100" cy="40" rx="30" ry="6" fill="none" stroke="currentColor" stroke-width="2.5" opacity=".35"/></svg>';
+  }
+  if (forma === 'pila') {
+    const n = Math.min(3, Math.max(2, items.length - 1));
+    for (let i = 0; i < n; i++) {
+      contenido += '<ellipse cx="100" cy="' + (104 - i * 17) + '" rx="46" ry="12" fill="' +
+        foodColor(items[0].f) + '" stroke="currentColor" stroke-opacity=".25" stroke-width="1.5"/>';
+    }
+    items.slice(1, 5).forEach((x, i) => {
+      contenido += '<circle cx="' + (76 + i * 16) + '" cy="' + (104 - n * 17 + 8) + '" r="' +
+        Math.max(5, Math.min(11, (x.g / total) * 40)).toFixed(1) + '" fill="' + foodColor(x.f) + '"/>';
+    });
+    return '<svg class="dish" viewBox="0 0 200 140" role="img" aria-label="Dibujo del plato">' +
+      contenido + '<ellipse cx="100" cy="118" rx="62" ry="9" fill="currentColor" opacity=".08"/></svg>';
+  }
+  if (forma === 'tostada') {
+    // La rebanada es la base, aunque no sea lo que más pesa: una tostada
+    // con huevo encima no es amarilla, es de pan con una mancha amarilla.
+    const iPan = items.findIndex(x => /pan|tostada|biscote|masa madre|baguette|chapata|wrap|rebanada/.test(norm(x.f.nombre)));
+    const base = items[iPan >= 0 ? iPan : 0];
+    const encima = items.filter(x => x !== base);
+    contenido = '<rect x="52" y="62" width="96" height="46" rx="9" fill="' + foodColor(base.f) + '"/>';
+    encima.slice(0, 5).forEach((x, i) => {
+      contenido += '<circle cx="' + (68 + i * 19) + '" cy="' + (74 + (i % 2) * 16) + '" r="' +
+        Math.max(6, Math.min(13, (x.g / total) * 46)).toFixed(1) + '" fill="' + foodColor(x.f) + '"/>';
+    });
+    return '<svg class="dish" viewBox="0 0 200 140" role="img" aria-label="Dibujo del plato">' +
+      contenido + '<ellipse cx="100" cy="118" rx="60" ry="8" fill="currentColor" opacity=".08"/></svg>';
+  }
+  if (forma === 'pieza') {
+    items.slice(0, 3).forEach((x, i) => {
+      contenido += '<path d="M' + (60 + i * 42) + ' 100 a20 20 0 0 1 34 0 z" fill="' + foodColor(x.f) + '"/>' +
+        '<ellipse cx="' + (77 + i * 42) + '" cy="100" rx="17" ry="5" fill="' + foodColor(x.f) + '" opacity=".7"/>';
+    });
+    return '<svg class="dish" viewBox="0 0 200 140" role="img" aria-label="Dibujo del plato">' +
+      contenido + '<ellipse cx="100" cy="112" rx="60" ry="8" fill="currentColor" opacity=".08"/></svg>';
+  }
+  // cuenco y plato: manchas repartidas dentro del recipiente
+  const anchoBase = forma === 'cuenco' ? 44 : 56;
+  let x0 = 100 - anchoBase;
+  items.forEach(x => {
+    const w = Math.max(11, (x.g / total) * anchoBase * 2);
+    contenido += '<rect x="' + x0.toFixed(1) + '" y="52" width="' + w.toFixed(1) +
+      '" height="60" fill="' + foodColor(x.f) + '"/>';
+    x0 += w;
+  });
+  const recipiente = forma === 'cuenco'
+    ? 'M56 74 a44 44 0 0 0 88 0 z'
+    : 'M44 88 a56 22 0 0 0 112 0 z';
+  const borde = forma === 'cuenco'
+    ? '<ellipse cx="100" cy="74" rx="44" ry="10"/>'
+    : '<ellipse cx="100" cy="88" rx="56" ry="13"/>';
+  return '<svg class="dish" viewBox="0 0 200 140" role="img" aria-label="Dibujo del plato">' +
+    '<defs><clipPath id="cb' + esc(recipe.id || 'x') + '"><path d="' + recipiente + '"/></clipPath></defs>' +
+    '<g clip-path="url(#cb' + esc(recipe.id || 'x') + ')">' + contenido + '</g>' +
+    '<g fill="none" stroke="currentColor" stroke-width="2.5" opacity=".35">' +
+      '<path d="' + recipiente + '"/>' + borde + '</g></svg>';
+}
+
+/* El desglose: cada ingrediente con sus gramos y su color, el mismo del
+   dibujo, para poder leer una cosa mirando la otra. */
+function dishBreakdown(recipe) {
+  return '<div class="ing-list">' + (recipe.ingredients || []).map(i => {
+    const f = foodById(i.ingredient_id);
+    if (!f) return '';
+    const m = macrosOf(f, i.amount_g);
+    return '<div class="ing-line">' +
+      '<span class="dot" style="background:' + foodColor(f) + '"></span>' +
+      '<span class="nm">' + esc(f.nombre) + '</span>' +
+      '<span class="g num">' + Math.round(i.amount_g) + ' ' + (f.unit || 'g') + '</span>' +
+      '<span class="kc num">' + Math.round(m.kcal) + ' kcal</span>' +
+    '</div>';
+  }).join('') + '</div>';
+}
+
+/* ============================================================
    TUS RECETAS, AL REGISTRAR
    Guardar una receta y que luego no aparezca al registrar la
    comida es guardarla en un cajón sin asa. Esta hoja las saca:
    las tuyas, las de estrella primero, con macros y micros.
    ============================================================ */
 let savedOnlyFav = false;
+let savedOpen = null;   // qué opción de más abajo está desplegada
 
 function sheetSavedRecipes(mealKey) {
   const body = '<div id="sv-list"></div>';
@@ -5954,43 +6138,82 @@ function paintSaved(mealKey) {
       '★ Favoritas · ' + favs.length + '</button>' +
   '</div>';
 
-  const cards = lista.length ? lista.map(r => {
-    const m = r.macros;
-    return '<div class="option">' +
-      '<div class="option-head">' +
-        '<span class="sug-name">' + esc(r.name) + '</span>' +
-        (isHabitual(r) ? '<span class="tag blue">habitual</span>' : '') +
-        '<button class="star" data-sv-star="' + r.id + '" aria-pressed="' + (isRecipeFav(r.id) ? 'true' : 'false') +
-          '" aria-label="' + (isRecipeFav(r.id) ? 'Quitar de favoritas' : 'Marcar como favorita') + '">' +
-          (isRecipeFav(r.id) ? '★' : '☆') + '</button>' +
-      '</div>' +
-      '<div class="macro-row"><b>' + Math.round(m.kcal) + ' kcal</b>' +
-        '<span>P ' + fmt1(m.prot) + '</span><span>C ' + fmt1(m.carbs) + '</span>' +
-        '<span>G ' + fmt1(m.fat) + '</span><span class="faint">sat ' + fmt1(m.sat) + '</span></div>' +
-      '<div class="micro-strip">' +
-        '<span>fibra <b>' + fmt1(m.fiber) + ' g</b></span>' +
-        '<span>hierro <b>' + fmt1(m.fe) + ' mg</b></span>' +
-        '<span>calcio <b>' + Math.round(m.ca) + ' mg</b></span>' +
-        '<span>vit. D <b>' + fmt1(m.vd) + ' µg</b></span>' +
-      '</div>' +
-      '<div class="sub" style="margin-top:7px;font-size:11.5px;color:var(--ink-soft)">' +
-        esc((r.ingredients || []).map(i => {
-          const f = foodById(i.ingredient_id);
-          return f ? shortName(f) + ' ' + i.amount_g + (f.unit || 'g') : '';
-        }).filter(Boolean).join(' · ')) + '</div>' +
-      '<div class="sug-actions">' +
-        '<button class="btn grow" data-sv-ver="' + r.id + '">Ver</button>' +
-        '<button class="btn primary grow" data-sv-log="' + r.id + '" data-meal="' + mealKey + '">Registrar</button>' +
-      '</div>' +
-    '</div>';
-  }).join('') : '<p class="empty">' + (savedOnlyFav
-    ? 'Ninguna marcada con estrella todavía. Toca la ☆ de una receta.'
-    : 'No hay recetas de ' + mealName(mealKey).toLowerCase() + '. Monta una comida y ponle nombre para guardarla.') + '</p>';
+  const estrella = r =>
+    '<button class="star" data-sv-star="' + r.id + '" aria-pressed="' + (isRecipeFav(r.id) ? 'true' : 'false') +
+      '" aria-label="' + (isRecipeFav(r.id) ? 'Quitar de favoritas' : 'Marcar como favorita') + '">' +
+      (isRecipeFav(r.id) ? '★' : '☆') + '</button>';
 
-  box.innerHTML = chips + cards;
+  const macros = m =>
+    '<div class="macro-row"><b>' + Math.round(m.kcal) + ' kcal</b>' +
+      '<span>P ' + fmt1(m.prot) + '</span><span>C ' + fmt1(m.carbs) + '</span>' +
+      '<span>G ' + fmt1(m.fat) + '</span><span class="faint">sat ' + fmt1(m.sat) + '</span></div>';
+
+  const micros = m =>
+    '<div class="micro-strip">' +
+      '<span>fibra <b>' + fmt1(m.fiber) + ' g</b></span>' +
+      '<span>hierro <b>' + fmt1(m.fe) + ' mg</b></span>' +
+      '<span>calcio <b>' + Math.round(m.ca) + ' mg</b></span>' +
+      '<span>vit. D <b>' + fmt1(m.vd) + ' µg</b></span>' +
+    '</div>';
+
+  // El detalle completo: dibujo del plato, ingrediente a ingrediente con
+  // sus gramos, macros, micros y las notas si las tiene.
+  const detalle = r =>
+    '<div class="dish-wrap">' + dishArt(r) + '</div>' +
+    '<div class="ing-head">Lo que lleva</div>' +
+    dishBreakdown(r) +
+    macros(r.macros) + micros(r.macros) +
+    (r.notes ? '<div class="notes-box" style="margin-top:9px">' + esc(r.notes) + '</div>' : '');
+
+  const acciones = r =>
+    '<div class="sug-actions">' +
+      '<button class="btn grow" data-sv-ver="' + r.id + '">Ficha completa</button>' +
+      '<button class="btn primary grow" data-sv-log="' + r.id + '" data-meal="' + mealKey + '">Registrar</button>' +
+    '</div>';
+
+  let html = chips;
+  if (!lista.length) {
+    html += '<p class="empty">' + (savedOnlyFav
+      ? 'Ninguna marcada con estrella todavía. Toca la ☆ de una receta.'
+      : 'No hay recetas de ' + mealName(mealKey).toLowerCase() +
+        '. Monta una comida y ponle nombre para guardarla.') + '</p>';
+  } else {
+    // La primera va desplegada: es la que más te pega, y verla entera
+    // ahorra un toque. Las demás, compactas hasta que las abras.
+    const p = lista[0];
+    html += '<div class="option option-full">' +
+      '<div class="option-head">' +
+        '<span class="sug-name">' + esc(p.name) + '</span>' +
+        (isHabitual(p) ? '<span class="tag blue">habitual</span>' : '') + estrella(p) +
+      '</div>' + detalle(p) + acciones(p) + '</div>';
+
+    if (lista.length > 1) {
+      html += '<div class="or-line"><span>más opciones</span></div>' +
+        lista.slice(1).map(r => {
+          const abierta = savedOpen === r.id;
+          return '<div class="option">' +
+            '<div class="option-head">' +
+              '<button class="sug-name op-open" data-sv-open="' + r.id + '" aria-expanded="' +
+                (abierta ? 'true' : 'false') + '">' + esc(r.name) +
+                '<span class="op-chevron">' + (abierta ? '⌃' : '⌄') + '</span></button>' +
+              (isHabitual(r) ? '<span class="tag blue">habitual</span>' : '') + estrella(r) +
+            '</div>' +
+            macros(r.macros) +
+            (abierta ? detalle(r) + acciones(r)
+              : '<button class="link-btn" data-sv-open="' + r.id + '">Ver qué lleva</button>') +
+          '</div>';
+        }).join('');
+    }
+  }
+  box.innerHTML = html;
 
   box.querySelectorAll('[data-sv-f]').forEach(b => b.onclick = () => {
     savedOnlyFav = b.dataset.svF === 'fav';
+    savedOpen = null;
+    paintSaved(mealKey);
+  });
+  box.querySelectorAll('[data-sv-open]').forEach(b => b.onclick = () => {
+    savedOpen = savedOpen === b.dataset.svOpen ? null : b.dataset.svOpen;
     paintSaved(mealKey);
   });
   box.querySelectorAll('[data-sv-star]').forEach(b => b.onclick = () => {
